@@ -196,11 +196,8 @@ module.exports = async (req, res) => {
     const acSubsActive = acSubs.filter((s) => ["active", "trialing", "past_due"].includes(s.status));
     const acAmount = (() => { try { return acSubs[0].items.data[0].price.unit_amount / 100; } catch (_) { return 1000; } })();
 
-    // 1x vs 4x split for bootcamp
-    const nb4x = bcSubs.length; // chaque abonnement = un client en 4 fois
-    // 1x = payés one-time (distinct customers ayant une charge 1x), fallback sur charges
-    const nb1xCustomers = cust1x.size || nbCharges1x;
-    const nb1x = Math.max(nb1xCustomers, bcPaid.length - nb4x >= 0 ? 0 : 0) || nb1xCustomers;
+    const nb4x = cust4x.size; // clients distincts en paiement 4 fois
+    const nb1x = Math.max(0, bcPaid.length - nb4x); // le reste = paiement 1 fois
 
     const result = {
       generatedAt: new Date().toISOString(),
