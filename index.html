@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>QVEMA Amplify — Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#141925; --panel2:#1b2230; --line:#27303f;
+    --txt:#e6ebf2; --muted:#8a94a6; --accent:#ffce3a; --accent2:#5b8def;
+    --green:#3ecf8e; --red:#ef5b6b; --purple:#a779ff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--txt);-webkit-font-smoothing:antialiased}
+  a{color:inherit}
+  .wrap{max-width:1240px;margin:0 auto;padding:24px}
+  header.top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:8px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .brand .logo{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#ff9f1c);display:flex;align-items:center;justify-content:center;font-weight:800;color:#11151d}
+  .brand h1{font-size:18px;font-weight:700;letter-spacing:.2px}
+  .brand p{font-size:12px;color:var(--muted)}
+  .meta{font-size:12px;color:var(--muted);text-align:right}
+  .meta button{margin-top:6px;background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px}
+  .meta button:hover{border-color:var(--accent)}
+  .tabs{display:flex;gap:8px;margin:18px 0 22px;border-bottom:1px solid var(--line)}
+  .tab{padding:11px 18px;cursor:pointer;color:var(--muted);font-weight:600;font-size:14px;border-bottom:2px solid transparent;margin-bottom:-1px}
+  .tab.active{color:var(--txt);border-bottom-color:var(--accent)}
+  .grid{display:grid;gap:16px}
+  .kpis{grid-template-columns:repeat(4,1fr)}
+  .kpis3{grid-template-columns:repeat(3,1fr)}
+  @media(max-width:900px){.kpis,.kpis3{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.kpis,.kpis3{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+  .kpi .label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+  .kpi .value{font-size:30px;font-weight:800;margin-top:8px;line-height:1.1}
+  .kpi .sub{font-size:12px;color:var(--muted);margin-top:6px}
+  .kpi .value.green{color:var(--green)} .kpi .value.blue{color:var(--accent2)} .kpi .value.yellow{color:var(--accent)} .kpi .value.purple{color:var(--purple)} .kpi .value.red{color:var(--red)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:16px}
+  @media(max-width:900px){.row2,.row3{grid-template-columns:1fr}}
+  .card h3{font-size:13px;font-weight:700;color:var(--txt);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+  .card h3 .dot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
+  .chart-box{position:relative;height:240px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  tr:last-child td{border-bottom:none}
+  .pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:600}
+  .pill.green{background:rgba(62,207,142,.15);color:var(--green)}
+  .pill.yellow{background:rgba(255,206,58,.15);color:var(--accent)}
+  .pill.red{background:rgba(239,91,107,.15);color:var(--red)}
+  .pill.gray{background:rgba(138,148,166,.15);color:var(--muted)}
+  .note{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5}
+  .hidden{display:none!important}
+  /* gate */
+  #gate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:50}
+  #gate .box{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:32px;width:340px;text-align:center}
+  #gate .logo{width:52px;height:52px;border-radius:13px;background:linear-gradient(135deg,var(--accent),#ff9f1c);display:flex;align-items:center;justify-content:center;font-weight:800;color:#11151d;margin:0 auto 16px;font-size:20px}
+  #gate h2{font-size:17px;margin-bottom:6px}
+  #gate p{font-size:13px;color:var(--muted);margin-bottom:18px}
+  #gate input{width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);font-size:14px;margin-bottom:12px}
+  #gate button{width:100%;padding:11px;border-radius:9px;border:none;background:var(--accent);color:#11151d;font-weight:700;cursor:pointer;font-size:14px}
+  #gate .err{color:var(--red);font-size:12px;min-height:16px;margin-bottom:8px}
+  #loading{text-align:center;padding:60px;color:var(--muted)}
+  .spinner{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 14px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="box">
+    <div class="logo">QV</div>
+    <h2>Dashboard QVEMA Amplify</h2>
+    <p>Accès protégé — entre le mot de passe</p>
+    <div class="err" id="gateErr"></div>
+    <input type="password" id="pwInput" placeholder="Mot de passe" autofocus />
+    <button id="pwBtn">Accéder</button>
+  </div>
+</div>
+
+<div class="wrap hidden" id="app">
+  <header class="top">
+    <div class="brand">
+      <div class="logo">QV</div>
+      <div>
+        <h1>Qui Veut Être Mon Associé — Amplify</h1>
+        <p>Dashboard temps réel · Airtable + Stripe</p>
+      </div>
+    </div>
+    <div class="meta">
+      <div id="updatedAt">—</div>
+      <button id="refreshBtn">↻ Rafraîchir</button>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="bootcamp">🎓 Bootcamp</div>
+    <div class="tab" data-tab="amplify">🔗 Amplify Connect</div>
+  </div>
+
+  <div id="loading"><div class="spinner"></div>Chargement des données…</div>
+
+  <!-- BOOTCAMP -->
+  <section id="view-bootcamp" class="hidden">
+    <div class="grid kpis">
+      <div class="card kpi"><div class="label">Inscrits payés</div><div class="value yellow" id="bc-inscrits">—</div><div class="sub" id="bc-inscrits-sub"></div></div>
+      <div class="card kpi"><div class="label">CA généré</div><div class="value blue" id="bc-cagenere">—</div><div class="sub">valeur totale des ventes</div></div>
+      <div class="card kpi"><div class="label">CA encaissé</div><div class="value green" id="bc-caencaisse">—</div><div class="sub" id="bc-caencaisse-sub"></div></div>
+      <div class="card kpi"><div class="label">Reste à encaisser</div><div class="value purple" id="bc-careste">—</div><div class="sub">échéancier 4x à venir</div></div>
+    </div>
+
+    <div class="row2">
+      <div class="card">
+        <h3><span class="dot"></span>Inscrits par promo</h3>
+        <div class="chart-box"><canvas id="bc-promo-chart"></canvas></div>
+      </div>
+      <div class="card">
+        <h3><span class="dot"></span>Mode de paiement</h3>
+        <div class="chart-box"><canvas id="bc-pay-chart"></canvas></div>
+        <div class="note" id="bc-pay-note"></div>
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="card">
+        <h3><span class="dot"></span>Inscriptions par jour</h3>
+        <div class="chart-box"><canvas id="bc-day-chart"></canvas></div>
+      </div>
+      <div class="card">
+        <h3><span class="dot"></span>Détail par promo</h3>
+        <table id="bc-promo-table"><thead><tr><th>Promo</th><th class="num">Inscrits</th><th class="num">CA généré</th></tr></thead><tbody></tbody></table>
+        <div class="note" id="bc-statut-note"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- AMPLIFY -->
+  <section id="view-amplify" class="hidden">
+    <div class="grid kpis">
+      <div class="card kpi"><div class="label">Membres payants</div><div class="value yellow" id="ac-membres">—</div><div class="sub">Cercle Alumni</div></div>
+      <div class="card kpi"><div class="label">CA encaissé</div><div class="value green" id="ac-ca">—</div><div class="sub">paiements Stripe</div></div>
+      <div class="card kpi"><div class="label">ARR (récurrent)</div><div class="value blue" id="ac-arr">—</div><div class="sub" id="ac-arr-sub"></div></div>
+      <div class="card kpi"><div class="label">Candidatures</div><div class="value purple" id="ac-cand">—</div><div class="sub" id="ac-cand-sub"></div></div>
+    </div>
+
+    <div class="row2">
+      <div class="card">
+        <h3><span class="dot"></span>Candidatures par statut</h3>
+        <div class="chart-box"><canvas id="ac-cand-chart"></canvas></div>
+      </div>
+      <div class="card">
+        <h3><span class="dot"></span>Membres par saison QVEMA</h3>
+        <div class="chart-box"><canvas id="ac-saison-chart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="card">
+        <h3><span class="dot"></span>Sous-cercles d'intérêt (candidatures)</h3>
+        <table id="ac-sc-table"><thead><tr><th>Sous-cercle</th><th class="num">Nb</th></tr></thead><tbody></tbody></table>
+      </div>
+      <div class="card">
+        <h3><span class="dot"></span>Mode de paiement</h3>
+        <table id="ac-mode-table"><thead><tr><th>Mode</th><th class="num">Membres</th></tr></thead><tbody></tbody></table>
+        <div class="note" id="ac-note"></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+const EUR = (n)=> (n==null?'—':new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n));
+const NUM = (n)=> new Intl.NumberFormat('fr-FR').format(n);
+const PALETTE = ['#ffce3a','#5b8def','#3ecf8e','#a779ff','#ef5b6b','#ff9f1c','#4dd0e1','#9ccc65'];
+Chart.defaults.color = '#8a94a6';
+Chart.defaults.font.family = "'Inter',sans-serif";
+Chart.defaults.borderColor = '#27303f';
+let charts = {};
+let DATA = null;
+
+function getPw(){ return sessionStorage.getItem('qvema_pw') || ''; }
+
+async function load(){
+  document.getElementById('loading').classList.remove('hidden');
+  document.getElementById('view-bootcamp').classList.add('hidden');
+  document.getElementById('view-amplify').classList.add('hidden');
+  const r = await fetch('/api/data', { headers: { 'x-dashboard-password': getPw() } });
+  if(r.status===401){ sessionStorage.removeItem('qvema_pw'); showGate('Mot de passe incorrect'); return; }
+  DATA = await r.json();
+  document.getElementById('loading').classList.add('hidden');
+  document.getElementById('updatedAt').textContent = 'Maj : ' + new Date(DATA.generatedAt).toLocaleString('fr-FR');
+  render();
+  showTab(document.querySelector('.tab.active').dataset.tab);
+}
+
+function destroy(id){ if(charts[id]){charts[id].destroy(); delete charts[id];} }
+
+function render(){
+  renderBootcamp();
+  renderAmplify();
+}
+
+function renderBootcamp(){
+  const b = DATA.bootcamp;
+  document.getElementById('bc-inscrits').textContent = NUM(b.totalInscrits);
+  const promos = Object.keys(b.byPromo).filter(p=>p!=='Test interne');
+  document.getElementById('bc-inscrits-sub').textContent = promos.length+' promo(s) actives · prix '+EUR(b.prixUnitaire);
+  document.getElementById('bc-cagenere').textContent = EUR(b.caGenere);
+  document.getElementById('bc-caencaisse').textContent = EUR(b.caEncaisse);
+  const pct = b.caEncaisse!=null && b.caGenere ? Math.round(b.caEncaisse/b.caGenere*100) : null;
+  document.getElementById('bc-caencaisse-sub').textContent = pct!=null ? pct+'% du CA généré' : 'Stripe indispo';
+  document.getElementById('bc-careste').textContent = EUR(b.caRestantAEncaisser);
+
+  // promo chart + table
+  const pe = Object.entries(b.byPromo).sort((a,b)=>a[0].localeCompare(b[0]));
+  destroy('promo');
+  charts.promo = new Chart(document.getElementById('bc-promo-chart'),{
+    type:'bar',
+    data:{labels:pe.map(x=>x[0]),datasets:[{data:pe.map(x=>x[1].count),backgroundColor:PALETTE,borderRadius:6}]},
+    options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}
+  });
+  const tb = document.querySelector('#bc-promo-table tbody'); tb.innerHTML='';
+  pe.forEach(([k,v])=>{ tb.insertAdjacentHTML('beforeend',`<tr><td>${k}</td><td class="num">${NUM(v.count)}</td><td class="num">${EUR(v.montant)}</td></tr>`); });
+
+  // statut note
+  const sc = b.statutCounts;
+  const scParts = Object.entries(sc).map(([k,v])=>`${k} : ${v}`).join(' · ');
+  document.getElementById('bc-statut-note').textContent = 'Statuts paiement — '+scParts + (b.nbRembourses?` · Remboursé : ${EUR(b.caRembourse)}`:'');
+
+  // payment 1x vs 4x
+  const p = b.paiement;
+  destroy('pay');
+  charts.pay = new Chart(document.getElementById('bc-pay-chart'),{
+    type:'doughnut',
+    data:{labels:['Paiement 1 fois','Paiement 4 fois'],datasets:[{data:[p.un_fois,p.quatre_fois],backgroundColor:['#3ecf8e','#5b8def'],borderWidth:0}]},
+    options:{cutout:'62%',plugins:{legend:{position:'bottom'}}}
+  });
+  document.getElementById('bc-pay-note').innerHTML = `<b>${NUM(p.un_fois)}</b> en 1 fois · <b>${NUM(p.quatre_fois)}</b> en 4 fois (322,50€/mois ×4). ${p.installments_collectees||0} mensualités encaissées à ce jour.`;
+
+  // by day
+  const days = Object.entries(b.byDay).sort((a,b)=>a[0].localeCompare(b[0]));
+  destroy('day');
+  charts.day = new Chart(document.getElementById('bc-day-chart'),{
+    type:'line',
+    data:{labels:days.map(d=>d[0].slice(5)),datasets:[{data:days.map(d=>d[1]),borderColor:'#ffce3a',backgroundColor:'rgba(255,206,58,.12)',fill:true,tension:.3,pointRadius:2}]},
+    options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}
+  });
+}
+
+function renderAmplify(){
+  const a = DATA.amplify;
+  document.getElementById('ac-membres').textContent = NUM(a.membresPayants);
+  document.getElementById('ac-ca').textContent = EUR(a.caEncaisse);
+  document.getElementById('ac-arr').textContent = EUR(a.arr);
+  document.getElementById('ac-arr-sub').textContent = a.abonnementsActifs+' abo. actifs · '+EUR(a.prixAbonnement)+'/an';
+  document.getElementById('ac-cand').textContent = NUM(a.candidatures.total);
+  const val = a.candidatures.byStatut['Validé']||a.candidatures.byStatut['Validée']||0;
+  document.getElementById('ac-cand-sub').textContent = val+' validée(s)';
+
+  // candidatures statut
+  const ce = Object.entries(a.candidatures.byStatut);
+  destroy('cand');
+  charts.cand = new Chart(document.getElementById('ac-cand-chart'),{
+    type:'doughnut',
+    data:{labels:ce.map(x=>x[0]),datasets:[{data:ce.map(x=>x[1]),backgroundColor:PALETTE,borderWidth:0}]},
+    options:{cutout:'60%',plugins:{legend:{position:'bottom'}}}
+  });
+
+  // saison
+  const se = Object.entries(a.bySaison).sort((a,b)=>a[0].localeCompare(b[0]));
+  destroy('saison');
+  charts.saison = new Chart(document.getElementById('ac-saison-chart'),{
+    type:'bar',
+    data:{labels:se.map(x=>'Saison '+x[0]),datasets:[{data:se.map(x=>x[1]),backgroundColor:'#a779ff',borderRadius:6}]},
+    options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}
+  });
+
+  // sous-cercle table
+  const sct = document.querySelector('#ac-sc-table tbody'); sct.innerHTML='';
+  Object.entries(a.candidatures.bySousCercle).sort((x,y)=>y[1]-x[1]).forEach(([k,v])=>{
+    sct.insertAdjacentHTML('beforeend',`<tr><td>${k}</td><td class="num">${NUM(v)}</td></tr>`);
+  });
+  // mode table
+  const mt = document.querySelector('#ac-mode-table tbody'); mt.innerHTML='';
+  Object.entries(a.byMode).sort((x,y)=>y[1]-x[1]).forEach(([k,v])=>{
+    mt.insertAdjacentHTML('beforeend',`<tr><td>${k}</td><td class="num">${NUM(v)}</td></tr>`);
+  });
+  document.getElementById('ac-note').textContent = 'CA Airtable (référence) : '+EUR(a.caAirtable);
+}
+
+function showTab(t){
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===t));
+  document.getElementById('view-bootcamp').classList.toggle('hidden',t!=='bootcamp');
+  document.getElementById('view-amplify').classList.toggle('hidden',t!=='amplify');
+}
+
+// gate
+function showGate(err){
+  document.getElementById('gate').classList.remove('hidden');
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('gateErr').textContent = err||'';
+}
+function enter(){
+  const v = document.getElementById('pwInput').value;
+  if(!v) return;
+  sessionStorage.setItem('qvema_pw', v);
+  document.getElementById('gate').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  load();
+}
+document.getElementById('pwBtn').onclick = enter;
+document.getElementById('pwInput').addEventListener('keydown',e=>{if(e.key==='Enter')enter();});
+document.getElementById('refreshBtn').onclick = load;
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>showTab(t.dataset.tab));
+
+// auto-enter if pw stored
+if(getPw()){
+  document.getElementById('gate').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  load();
+}
+</script>
+</body>
+</html>
