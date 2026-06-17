@@ -29,8 +29,10 @@
   .grid{display:grid;gap:16px}
   .kpis{grid-template-columns:repeat(4,1fr)}
   .kpis3{grid-template-columns:repeat(3,1fr)}
-  @media(max-width:900px){.kpis,.kpis3{grid-template-columns:repeat(2,1fr)}}
-  @media(max-width:560px){.kpis,.kpis3{grid-template-columns:1fr}}
+  .kpis5{grid-template-columns:repeat(5,1fr)}
+  @media(max-width:1100px){.kpis5{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:900px){.kpis,.kpis3,.kpis5{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.kpis,.kpis3,.kpis5{grid-template-columns:1fr}}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
   .kpi .label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
   .kpi .value{font-size:30px;font-weight:800;margin-top:8px;line-height:1.1}
@@ -105,8 +107,9 @@
 
   <!-- BOOTCAMP -->
   <section id="view-bootcamp" class="hidden">
-    <div class="grid kpis">
+    <div class="grid kpis5">
       <div class="card kpi"><div class="label">Inscrits payés</div><div class="value yellow" id="bc-inscrits">—</div><div class="sub" id="bc-inscrits-sub"></div></div>
+      <div class="card kpi"><div class="label">Remboursés</div><div class="value red" id="bc-rembourses">—</div><div class="sub" id="bc-rembourses-sub"></div></div>
       <div class="card kpi"><div class="label">CA généré</div><div class="value blue" id="bc-cagenere">—</div><div class="sub">valeur totale des ventes</div></div>
       <div class="card kpi"><div class="label">CA encaissé</div><div class="value green" id="bc-caencaisse">—</div><div class="sub" id="bc-caencaisse-sub"></div></div>
       <div class="card kpi"><div class="label">Reste à encaisser</div><div class="value purple" id="bc-careste">—</div><div class="sub">échéancier 4x à venir</div></div>
@@ -208,6 +211,12 @@ function renderBootcamp(){
   document.getElementById('bc-inscrits').textContent = NUM(b.totalInscrits);
   const promos = Object.keys(b.byPromo).filter(p=>p!=='Test interne');
   document.getElementById('bc-inscrits-sub').textContent = promos.length+' promo(s) actives · prix '+EUR(b.prixUnitaire);
+  // Remboursés (Bootcamp uniquement — table Clients, hors Amplify Connect)
+  const nbRemb = b.nbRembourses||0;
+  const baseTotale = (b.totalInscrits||0) + nbRemb;            // payés + remboursés
+  const tauxRemb = baseTotale ? (nbRemb/baseTotale*100) : 0;
+  document.getElementById('bc-rembourses').textContent = NUM(nbRemb);
+  document.getElementById('bc-rembourses-sub').textContent = 'Taux '+tauxRemb.toLocaleString('fr-FR',{maximumFractionDigits:1})+' % · '+EUR(b.caRembourse)+' remboursés';
   document.getElementById('bc-cagenere').textContent = EUR(b.caGenere);
   document.getElementById('bc-caencaisse').textContent = EUR(b.caEncaisse);
   const pct = b.caEncaisse!=null && b.caGenere ? Math.round(b.caEncaisse/b.caGenere*100) : null;
