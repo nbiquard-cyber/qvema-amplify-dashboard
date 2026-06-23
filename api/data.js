@@ -19,7 +19,7 @@ const T = {
 // Stripe amount buckets (in cents / centimes)
 const BOOTCAMP_1X = [129000, 99000]; // paiement 1 fois (1290€, ancien 990€)
 const BOOTCAMP_4X = [32250, 46666]; // mensualité plan 4x (322,50€, ancien 466,66€)
-const AMPLIFY = [100000]; // Amplify Connect 1000€/an
+const AMPLIFY = [100000]; // Amplify Connect
 const BOOTCAMP_PRODUCTS = ["prod_UZ1KUTItSVpKvk", "prod_UVLeGAeB6HXrRD"];
 const AMPLIFY_PRODUCTS = ["prod_UZQXh1ELvDob4Q"];
 
@@ -158,46 +158,35 @@ module.exports = async (req, res) => {
 
     // Charges classification
     const succeeded = charges.filter((c) => c.status === "succeeded" && c.paid);
-    let caEncaisseBootcamp = 0,
-      caEncaisseAmplify = 0,
-      caEncaisseOther = 0;
-    let nbCharges1x = 0,
-      nbCharges4x = 0,
-      nbChargesAmplify = 0;
+    let caEncaisseBootcamp = 0;
     const cust1x = new Set();
     const cust4x = new Set();
+    let nbCharges4x = 0;
     for (const c of succeeded) {
       const net = (c.amount - (c.amount_refunded || 0)) / 100;
       const b = bucket(c.amount);
       const fullyRefunded = c.amount_refunded >= c.amount;
       if (b === "b1x") {
         caEncaisseBootcamp += net;
-        if (!fullyRefunded) { nbCharges1x++; if (c.customer) cust1x.add(c.customer); }
+        if (!fullyRefunded && c.customer) cust1x.add(c.customer);
       } else if (b === "b4x") {
         caEncaisseBootcamp += net;
         nbCharges4x++;
         if (c.customer) cust4x.add(c.customer);
-      } else if (b === "amplify") {
-        caEncaisseAmplify += net;
-        if (!fullyRefunded) { nbChargesAmplify++; }
-      } else {
-        caEncaisseOther += net;
       }
     }
 
-    // Subscriptions classification
+    // Subscriptions classification (bootcamp health)
     const subProduct = (s) => {
       try { return s.items.data[0].price.product; } catch (_) { return null; }
     };
     const bcSubs = subs.filter((s) => BOOTCAMP_PRODUCTS.includes(subProduct(s)));
-    const acSubs = subs.filter((s) => AMPLIFY_PRODUCTS.includes(subProduct(s)));
     const bcSubsByStatus = {};
     for (const s of bcSubs) bcSubsByStatus[s.status] = (bcSubsByStatus[s.status] || 0) + 1;
-    const acSubsActive = acSubs.filter((s) => ["active", "trialing", "past_due"].includes(s.status));
-    const acAmount = (() => { try { return acSubs[0].items.data[0].price.unit_amount / 100; } catch (_) { return 1000; } })();
 
-    const nb4x = cust4x.size; // clients distincts en paiement 4 fois
-    const nb1x = Math.max(0, bcPaid.length - nb4x); // le reste = paiement 1 fois
+    // 1x vs 4x split (clients distincts, reconcilie au total des inscrits)
+    const nb4x = cust4x.size;
+    const nb1x = Math.max(0, bcPaid.length - nb4x);
 
     const result = {
       generatedAt: new Date().toISOString(),
@@ -213,21 +202,21 @@ module.exports = async (req, res) => {
           un_fois: nb1x,
           quatre_fois: nb4x,
           installments_collectees: nbCharges4x,
-          source: "Stripe (abonnements = 4x, charges one-time = 1x)",
+          source: "Stripe (clients distincts : mensualites = 4x, paiement complet = 1x)",
         },
-         caEncaisse: acCaAirtable,
+        caEncaisse: stripeOk ? Math.round(caEncaisseBootcamp * 100) / 100 : null,
+        caRestantAEncaisser: stripeOk ? Math.round((caGenere - caEncaisseBootcamp) * 100) / 100 : null,
+        subsByStatus: bcSubsByStatus,
+        byDay: bcByDay,
+        prixUnitaire: 1290,
+      },
+      amplify: {
+        membresPayants: acMembers.length,
+        caEncaisse: acCaAirtable,
         caAirtable: acCaAirtable,
         abonnementsActifs: acMembers.length,
         arr: acCaAirtable,
         prixAbonnement: acMembers.length ? Math.round(acCaAirtable / acMembers.length) : 0,
-      },
-      amplify: {
-        membresPayants: acMembers.length,
-        caEncaisse: stripeOk ? Math.round(caEncaisseAmplify * 100) / 100 : acCaAirtable,
-        caAirtable: acCaAirtable,
-        abonnementsActifs: acSubsActive.length,
-        arr: acSubsActive.length * acAmount,
-        prixAbonnement: acAmount,
         bySaison: acBySaison,
         byMode: acByMode,
         candidatures: {
