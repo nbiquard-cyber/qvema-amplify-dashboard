@@ -19,9 +19,7 @@ const T = {
 // Stripe amount buckets (in cents / centimes)
 const BOOTCAMP_1X = [129000, 99000]; // paiement 1 fois (1290€, ancien 990€)
 const BOOTCAMP_4X = [32250, 46666]; // mensualité plan 4x (322,50€, ancien 466,66€)
-const AMPLIFY = [100000]; // Amplify Connect
-const BOOTCAMP_PRODUCTS = ["prod_UZ1KUTItSVpKvk", "prod_UVLeGAeB6HXrRD"];
-const AMPLIFY_PRODUCTS = ["prod_UZQXh1ELvDob4Q"];
+const AMPLIFY = [100000]; // Amplify Connect (1000€) - jamais compté dans le bootcamp
 
 async function airtableAll(table, fields) {
   const out = [];
@@ -87,8 +85,10 @@ module.exports = async (req, res) => {
       airtableAll(T.candidatures, ["Statut Candidature", "Statut Membre", "Mode de paiement", "Date Candidature", "Sous-cercle d'intérêt", "Saison"]),
     ]);
 
-    // ----- Bootcamp (Clients) -----
     const norm = (s) => (s || "").toString().trim();
+    const lower = (s) => norm(s).toLowerCase();
+
+    // ----- Bootcamp (Clients) -----
     const bcPaid = clients.filter((c) => norm(c.fields["Statut Paiement"]) === "Payé");
     const byPromo = {};
     let caGenere = 0;
@@ -156,36 +156,43 @@ module.exports = async (req, res) => {
       stripeError = e.message;
     }
 
-    // Charges classification
+    // Charges classification (CA encaissé = argent réellement rentré, net des remboursements)
     const succeeded = charges.filter((c) => c.status === "succeeded" && c.paid);
-    let caEncaisseBootcamp = 0;
-    const cust1x = new Set();
-    const cust4x = new Set();
-    let nbCharges4x = 0;
+    let caEncaisseBootcamp = 0; // 1290€ (1 fois) + 322,50€ (mensualités 4x)
+    let nbCharges1x = 0; // nombre de paiements complets encaissés
+    let nbCharges4x = 0; // nombre de mensualités encaissées
+    const emails4x = new Set(); // e-mails des clients ayant payé en 4x (au moins une mensualité)
+    const chargeEmail = (c) =>
+      lower((c.billing_details && c.billing_details.email) || c.receipt_email || "");
     for (const c of succeeded) {
       const net = (c.amount - (c.amount_refunded || 0)) / 100;
       const b = bucket(c.amount);
-      const fullyRefunded = c.amount_refunded >= c.amount;
       if (b === "b1x") {
         caEncaisseBootcamp += net;
-        if (!fullyRefunded && c.customer) cust1x.add(c.customer);
+        if (c.amount_refunded < c.amount) nbCharges1x++;
       } else if (b === "b4x") {
         caEncaisseBootcamp += net;
         nbCharges4x++;
-        if (c.customer) cust4x.add(c.customer);
+        const em = chargeEmail(c);
+        if (em) emails4x.add(em);
       }
     }
 
-    // Subscriptions classification (bootcamp health)
+    // Subscriptions classification (santé des abonnements bootcamp)
     const subProduct = (s) => {
       try { return s.items.data[0].price.product; } catch (_) { return null; }
     };
+    const BOOTCAMP_PRODUCTS = ["prod_UZ1KUTItSVpKvk", "prod_UVLeGAeB6HXrRD"];
     const bcSubs = subs.filter((s) => BOOTCAMP_PRODUCTS.includes(subProduct(s)));
     const bcSubsByStatus = {};
     for (const s of bcSubs) bcSubsByStatus[s.status] = (bcSubsByStatus[s.status] || 0) + 1;
 
-    // 1x vs 4x split (clients distincts, reconcilie au total des inscrits)
-    const nb4x = cust4x.size;
+    // Split 1x / 4x parmi les 156 inscrits payés (croisement par e-mail) -> somme = total inscrits
+    let nb4x = 0;
+    for (const c of bcPaid) {
+      const em = lower(c.fields["Email"]);
+      if (em && emails4x.has(em)) nb4x++;
+    }
     const nb1x = Math.max(0, bcPaid.length - nb4x);
 
     const result = {
@@ -202,7 +209,8 @@ module.exports = async (req, res) => {
           un_fois: nb1x,
           quatre_fois: nb4x,
           installments_collectees: nbCharges4x,
-          source: "Stripe (clients distincts : mensualites = 4x, paiement complet = 1x)",
+          paiements_complets: nbCharges1x,
+          source: "Stripe (croisement e-mail) : 4x = a au moins une mensualité 322,50€, sinon paiement complet 1290€",
         },
         caEncaisse: stripeOk ? Math.round(caEncaisseBootcamp * 100) / 100 : null,
         caRestantAEncaisser: stripeOk ? Math.round((caGenere - caEncaisseBootcamp) * 100) / 100 : null,
