@@ -67,6 +67,82 @@ function bucket(amount) {
   return "other";
 }
 
+// --- Démographie : département (code postal) -> région française ---
+// La feuille Clients n'a pas de champ Région : on le déduit du code postal.
+const REGION_BY_DEPT = (() => {
+  const map = {};
+  const src = {
+    "Auvergne-Rhône-Alpes": "01 03 07 15 26 38 42 43 63 69 73 74",
+    "Bourgogne-Franche-Comté": "21 25 39 58 70 71 89 90",
+    "Bretagne": "22 29 35 56",
+    "Centre-Val de Loire": "18 28 36 37 41 45",
+    "Corse": "20 2A 2B",
+    "Grand Est": "08 10 51 52 54 55 57 67 68 88",
+    "Hauts-de-France": "02 59 60 62 80",
+    "Île-de-France": "75 77 78 91 92 93 94 95",
+    "Normandie": "14 27 50 61 76",
+    "Nouvelle-Aquitaine": "16 17 19 23 24 33 40 47 64 79 86 87",
+    "Occitanie": "09 11 12 30 31 32 34 46 48 65 66 81 82",
+    "Pays de la Loire": "44 49 53 72 85",
+    "Provence-Alpes-Côte d'Azur": "04 05 06 13 83 84",
+  };
+  for (const [region, depts] of Object.entries(src))
+    for (const d of depts.split(" ")) map[d] = region;
+  return map;
+})();
+
+function regionFromFields(f) {
+  const pays = (f["Pays"] || "").toString().trim();
+  if (pays && !/^(france|fr)$/i.test(pays)) return "Étranger";
+  const cp = (f["Code postal"] || "").toString().trim().replace(/\s+/g, "");
+  if (!cp) return "Non renseigné";
+  const d2 = cp.slice(0, 2);
+  if (d2 === "97" || d2 === "98") return "Outre-Mer"; // DOM-TOM
+  return REGION_BY_DEPT[d2] || "Non renseigné";
+}
+
+// Répartition H/F, âge moyen (+ tranches) et régions pour une liste de clients.
+function computeDemographics(list) {
+  let Homme = 0, Femme = 0, nonRenseigne = 0;
+  const ages = [];
+  const tranches = { "< 30 ans": 0, "30–39 ans": 0, "40–49 ans": 0, "50–59 ans": 0, "60 ans et +": 0 };
+  const regions = {};
+  for (const c of list) {
+    const sx = (c.fields["Sexe"] || "").toString().trim();
+    if (sx === "Homme") Homme++;
+    else if (sx === "Femme") Femme++;
+    else nonRenseigne++;
+
+    const age = Number(c.fields["Age"]);
+    if (Number.isFinite(age) && age > 0 && age < 120) {
+      ages.push(age);
+      if (age < 30) tranches["< 30 ans"]++;
+      else if (age < 40) tranches["30–39 ans"]++;
+      else if (age < 50) tranches["40–49 ans"]++;
+      else if (age < 60) tranches["50–59 ans"]++;
+      else tranches["60 ans et +"]++;
+    }
+
+    const rg = regionFromFields(c.fields);
+    regions[rg] = (regions[rg] || 0) + 1;
+  }
+  const ageMoyen = ages.length
+    ? Math.round((ages.reduce((a, b) => a + b, 0) / ages.length) * 10) / 10
+    : null;
+  return {
+    effectif: list.length,
+    genre: { Homme, Femme, nonRenseigne },
+    age: {
+      moyen: ageMoyen,
+      renseignes: ages.length,
+      min: ages.length ? Math.min(...ages) : null,
+      max: ages.length ? Math.max(...ages) : null,
+      tranches,
+    },
+    regions,
+  };
+}
+
 module.exports = async (req, res) => {
   const pw = req.headers["x-dashboard-password"] || "";
   if (!CONFIG.password || pw !== CONFIG.password) {
@@ -78,7 +154,7 @@ module.exports = async (req, res) => {
   try {
     // ---------- AIRTABLE ----------
     const [clients, connect, candidatures] = await Promise.all([
-      airtableAll(T.clients, ["Promo", "Montant", "Statut Paiement", "Produit", "Date Paiement", "Email"]),
+      airtableAll(T.clients, ["Promo", "Montant", "Statut Paiement", "Produit", "Date Paiement", "Email", "Sexe", "Age", "Code postal", "Pays"]),
       airtableAll(T.connect, ["Email", "Nom complet", "Montant", "Statut Paiement", "Date Paiement", "Mode Paiement", "Saison QVEMA", "Statut Membre"]),
       airtableAll(T.candidatures, ["Statut Candidature", "Statut Membre", "Mode de paiement", "Date Candidature", "Sous-cercle d'intérêt", "Saison"]),
     ]);
@@ -212,6 +288,7 @@ module.exports = async (req, res) => {
         paiement: { un_fois: nb1x, quatre_fois: nb4x, installments_collectees: installments },
         statutCounts,
         byDay,
+        demographics: computeDemographics(list),
       };
     };
 
