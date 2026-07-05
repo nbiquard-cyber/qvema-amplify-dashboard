@@ -111,6 +111,32 @@
       <div class="card kpi"><div class="label">Reste à encaisser</div><div class="value purple" id="bc-careste">—</div><div class="sub">échéancier 4x à venir</div></div>
     </div>
 
+    <!-- DÉMOGRAPHIE (source : feuille Clients Airtable) -->
+    <div class="row2">
+      <div class="card">
+        <h3><span class="dot"></span>Répartition Homme / Femme <span id="bc-demo-scope" style="color:var(--muted);font-weight:400"></span></h3>
+        <div class="chart-box"><canvas id="bc-genre-chart"></canvas></div>
+        <div class="note" id="bc-genre-note"></div>
+      </div>
+      <div class="card">
+        <h3><span class="dot"></span>Âge des participants</h3>
+        <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+          <div class="kpi" style="min-width:110px">
+            <div class="label">Âge moyen</div>
+            <div class="value purple" id="bc-age-moy">—</div>
+            <div class="sub" id="bc-age-sub"></div>
+          </div>
+          <div class="chart-box" style="flex:1;min-width:220px;height:200px"><canvas id="bc-age-chart"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h3><span class="dot"></span>Répartition par région <span style="color:var(--muted);font-weight:400">· déduite du code postal</span></h3>
+      <div class="chart-box" style="height:320px"><canvas id="bc-region-chart"></canvas></div>
+      <div class="note" id="bc-region-note"></div>
+    </div>
+
     <div class="row2">
       <div class="card">
         <h3><span class="dot"></span>Inscrits par promo <span style="color:var(--muted);font-weight:400">· clique pour filtrer</span></h3>
@@ -259,6 +285,82 @@ function renderBootcamp(){
     data:{labels:days.map(d=>d[0].slice(5)),datasets:[{data:days.map(d=>d[1]),borderColor:'#ffce3a',backgroundColor:'rgba(255,206,58,.12)',fill:true,tension:.3,pointRadius:2}]},
     options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}
   });
+
+  renderDemographics(s, scopeLabel);
+}
+
+function renderDemographics(s, scopeLabel){
+  const d = s.demographics || {genre:{Homme:0,Femme:0,nonRenseigne:0},age:{moyen:null,renseignes:0,tranches:{}},regions:{}};
+  document.getElementById('bc-demo-scope').textContent = '· '+scopeLabel;
+
+  // --- Genre (Homme / Femme) ---
+  const g = d.genre;
+  const totalSexe = g.Homme + g.Femme;
+  destroy('genre');
+  if(totalSexe===0){
+    document.getElementById('bc-genre-note').textContent = 'Aucun sexe renseigné pour '+scopeLabel+'.';
+    charts.genre = new Chart(document.getElementById('bc-genre-chart'),{
+      type:'doughnut',
+      data:{labels:['Non renseigné'],datasets:[{data:[Math.max(1,g.nonRenseigne)],backgroundColor:['#445067'],borderWidth:0}]},
+      options:{cutout:'62%',plugins:{legend:{position:'bottom'}}}
+    });
+  } else {
+    const gL=['Homme','Femme'], gD=[g.Homme,g.Femme], gC=['#5b8def','#ef5b6b'];
+    if(g.nonRenseigne>0){ gL.push('Non renseigné'); gD.push(g.nonRenseigne); gC.push('#445067'); }
+    charts.genre = new Chart(document.getElementById('bc-genre-chart'),{
+      type:'doughnut',
+      data:{labels:gL,datasets:[{data:gD,backgroundColor:gC,borderWidth:0}]},
+      options:{cutout:'62%',plugins:{legend:{position:'bottom'}}}
+    });
+    const pctH = Math.round(g.Homme/totalSexe*100);
+    document.getElementById('bc-genre-note').innerHTML =
+      `<b>${NUM(g.Homme)}</b> hommes (${pctH}%) · <b>${NUM(g.Femme)}</b> femmes (${100-pctH}%)`
+      + (g.nonRenseigne? ` · ${NUM(g.nonRenseigne)} non renseigné(s)`:'');
+  }
+
+  // --- Âge moyen + distribution par tranche ---
+  // Vue "Toutes" : comparaison de la répartition par âge entre promos (barres groupées).
+  // Vue promo : distribution de la promo sélectionnée.
+  const a = d.age;
+  document.getElementById('bc-age-moy').textContent = a.moyen!=null ? (String(a.moyen).replace('.',',')+' ans') : '—';
+  document.getElementById('bc-age-sub').textContent = a.renseignes ? `${a.renseignes} renseigné(s) · ${a.min}–${a.max} ans` : 'non renseigné';
+  const ageLabels = Object.keys(a.tranches||{});
+  let ageDatasets, ageLegend;
+  if(currentPromo==='Toutes'){
+    const promos = (DATA.bootcamp.promoOrder||[]).filter(p=>p!=='Toutes' && DATA.bootcamp.scopes[p]);
+    ageDatasets = promos.map((p,i)=>{
+      const dem = DATA.bootcamp.scopes[p].demographics || {};
+      const tr = (dem.age && dem.age.tranches) || {};
+      return {label:p, data:ageLabels.map(l=>tr[l]||0), backgroundColor:PALETTE[i%PALETTE.length], borderRadius:5};
+    });
+    ageLegend = promos.length>1;
+  } else {
+    ageDatasets = [{label:currentPromo, data:ageLabels.map(l=>(a.tranches[l]||0)), backgroundColor:'#a779ff', borderRadius:6}];
+    ageLegend = false;
+  }
+  destroy('age');
+  charts.age = new Chart(document.getElementById('bc-age-chart'),{
+    type:'bar',
+    data:{labels:ageLabels,datasets:ageDatasets},
+    options:{plugins:{legend:{display:ageLegend,position:'bottom'}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}
+  });
+
+  // --- Répartition par région (Non renseigné toujours en dernier) ---
+  const re = Object.entries(d.regions||{}).sort((x,y)=>{
+    if(x[0]==='Non renseigné') return 1;
+    if(y[0]==='Non renseigné') return -1;
+    return y[1]-x[1];
+  });
+  destroy('region');
+  charts.region = new Chart(document.getElementById('bc-region-chart'),{
+    type:'bar',
+    data:{labels:re.map(x=>x[0]),datasets:[{data:re.map(x=>x[1]),
+      backgroundColor:re.map(x=>x[0]==='Non renseigné'?'#445067':'#3ecf8e'),borderRadius:5}]},
+    options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{precision:0}}}}
+  });
+  const nrRegion = (d.regions||{})['Non renseigné']||0;
+  document.getElementById('bc-region-note').textContent =
+    nrRegion ? `${NUM(nrRegion)} client(s) sans code postal (exclus de la localisation).` : '';
 }
 
 function renderAmplify(){
