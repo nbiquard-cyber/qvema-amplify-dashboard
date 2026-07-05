@@ -318,16 +318,31 @@ function renderDemographics(s, scopeLabel){
       + (g.nonRenseigne? ` · ${NUM(g.nonRenseigne)} non renseigné(s)`:'');
   }
 
-  // --- Âge moyen + tranches ---
+  // --- Âge moyen + distribution par tranche ---
+  // Vue "Toutes" : comparaison de la répartition par âge entre promos (barres groupées).
+  // Vue promo : distribution de la promo sélectionnée.
   const a = d.age;
   document.getElementById('bc-age-moy').textContent = a.moyen!=null ? (String(a.moyen).replace('.',',')+' ans') : '—';
   document.getElementById('bc-age-sub').textContent = a.renseignes ? `${a.renseignes} renseigné(s) · ${a.min}–${a.max} ans` : 'non renseigné';
-  const te = Object.entries(a.tranches||{});
+  const ageLabels = Object.keys(a.tranches||{});
+  let ageDatasets, ageLegend;
+  if(currentPromo==='Toutes'){
+    const promos = (DATA.bootcamp.promoOrder||[]).filter(p=>p!=='Toutes' && DATA.bootcamp.scopes[p]);
+    ageDatasets = promos.map((p,i)=>{
+      const dem = DATA.bootcamp.scopes[p].demographics || {};
+      const tr = (dem.age && dem.age.tranches) || {};
+      return {label:p, data:ageLabels.map(l=>tr[l]||0), backgroundColor:PALETTE[i%PALETTE.length], borderRadius:5};
+    });
+    ageLegend = promos.length>1;
+  } else {
+    ageDatasets = [{label:currentPromo, data:ageLabels.map(l=>(a.tranches[l]||0)), backgroundColor:'#a779ff', borderRadius:6}];
+    ageLegend = false;
+  }
   destroy('age');
   charts.age = new Chart(document.getElementById('bc-age-chart'),{
     type:'bar',
-    data:{labels:te.map(x=>x[0]),datasets:[{data:te.map(x=>x[1]),backgroundColor:'#a779ff',borderRadius:6}]},
-    options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}
+    data:{labels:ageLabels,datasets:ageDatasets},
+    options:{plugins:{legend:{display:ageLegend,position:'bottom'}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}
   });
 
   // --- Répartition par région (Non renseigné toujours en dernier) ---
