@@ -26,21 +26,23 @@
   .tabs{display:flex;gap:8px;margin:18px 0 22px;border-bottom:1px solid var(--line)}
   .tab{padding:11px 18px;cursor:pointer;color:var(--muted);font-weight:600;font-size:14px;border-bottom:2px solid transparent;margin-bottom:-1px}
   .tab.active{color:var(--txt);border-bottom-color:var(--accent)}
+  .promo-filter{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+  .promo-btn{background:var(--panel2);border:1px solid var(--line);color:var(--muted);padding:8px 14px;border-radius:9px;cursor:pointer;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+  .promo-btn:hover{border-color:var(--accent);color:var(--txt)}
+  .promo-btn.active{background:var(--accent);color:#11151d;border-color:var(--accent)}
+  .promo-btn .cnt{background:var(--line);color:var(--muted);padding:0 7px;border-radius:99px;font-size:11px;font-weight:700}
+  .promo-btn.active .cnt{background:rgba(0,0,0,.18);color:#11151d}
   .grid{display:grid;gap:16px}
   .kpis{grid-template-columns:repeat(4,1fr)}
-  .kpis3{grid-template-columns:repeat(3,1fr)}
-  .kpis5{grid-template-columns:repeat(5,1fr)}
-  @media(max-width:1100px){.kpis5{grid-template-columns:repeat(3,1fr)}}
-  @media(max-width:900px){.kpis,.kpis3,.kpis5{grid-template-columns:repeat(2,1fr)}}
-  @media(max-width:560px){.kpis,.kpis3,.kpis5{grid-template-columns:1fr}}
+  @media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.kpis{grid-template-columns:1fr}}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
   .kpi .label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
   .kpi .value{font-size:30px;font-weight:800;margin-top:8px;line-height:1.1}
   .kpi .sub{font-size:12px;color:var(--muted);margin-top:6px}
   .kpi .value.green{color:var(--green)} .kpi .value.blue{color:var(--accent2)} .kpi .value.yellow{color:var(--accent)} .kpi .value.purple{color:var(--purple)} .kpi .value.red{color:var(--red)}
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
-  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-top:16px}
-  @media(max-width:900px){.row2,.row3{grid-template-columns:1fr}}
+  @media(max-width:900px){.row2{grid-template-columns:1fr}}
   .card h3{font-size:13px;font-weight:700;color:var(--txt);margin-bottom:14px;display:flex;align-items:center;gap:8px}
   .card h3 .dot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
   .chart-box{position:relative;height:240px}
@@ -49,14 +51,8 @@
   th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
   td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
   tr:last-child td{border-bottom:none}
-  .pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:600}
-  .pill.green{background:rgba(62,207,142,.15);color:var(--green)}
-  .pill.yellow{background:rgba(255,206,58,.15);color:var(--accent)}
-  .pill.red{background:rgba(239,91,107,.15);color:var(--red)}
-  .pill.gray{background:rgba(138,148,166,.15);color:var(--muted)}
   .note{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5}
   .hidden{display:none!important}
-  /* gate */
   #gate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:50}
   #gate .box{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:32px;width:340px;text-align:center}
   #gate .logo{width:52px;height:52px;border-radius:13px;background:linear-gradient(135deg,var(--accent),#ff9f1c);display:flex;align-items:center;justify-content:center;font-weight:800;color:#11151d;margin:0 auto 16px;font-size:20px}
@@ -107,9 +103,9 @@
 
   <!-- BOOTCAMP -->
   <section id="view-bootcamp" class="hidden">
-    <div class="grid kpis5">
+    <div class="promo-filter" id="bc-filter"></div>
+    <div class="grid kpis">
       <div class="card kpi"><div class="label">Inscrits payés</div><div class="value yellow" id="bc-inscrits">—</div><div class="sub" id="bc-inscrits-sub"></div></div>
-      <div class="card kpi"><div class="label">Remboursés</div><div class="value red" id="bc-rembourses">—</div><div class="sub" id="bc-rembourses-sub"></div></div>
       <div class="card kpi"><div class="label">CA généré</div><div class="value blue" id="bc-cagenere">—</div><div class="sub">valeur totale des ventes</div></div>
       <div class="card kpi"><div class="label">CA encaissé</div><div class="value green" id="bc-caencaisse">—</div><div class="sub" id="bc-caencaisse-sub"></div></div>
       <div class="card kpi"><div class="label">Reste à encaisser</div><div class="value purple" id="bc-careste">—</div><div class="sub">échéancier 4x à venir</div></div>
@@ -117,7 +113,7 @@
 
     <div class="row2">
       <div class="card">
-        <h3><span class="dot"></span>Inscrits par promo</h3>
+        <h3><span class="dot"></span>Inscrits par promo <span style="color:var(--muted);font-weight:400">· clique pour filtrer</span></h3>
         <div class="chart-box"><canvas id="bc-promo-chart"></canvas></div>
       </div>
       <div class="card">
@@ -183,6 +179,7 @@ Chart.defaults.font.family = "'Inter',sans-serif";
 Chart.defaults.borderColor = '#27303f';
 let charts = {};
 let DATA = null;
+let currentPromo = 'Toutes';
 
 function getPw(){ return sessionStorage.getItem('qvema_pw') || ''; }
 
@@ -193,6 +190,7 @@ async function load(){
   const r = await fetch('/api/data', { headers: { 'x-dashboard-password': getPw() } });
   if(r.status===401){ sessionStorage.removeItem('qvema_pw'); showGate('Mot de passe incorrect'); return; }
   DATA = await r.json();
+  if(DATA.error){ document.getElementById('loading').innerHTML='Erreur : '+DATA.error; return; }
   document.getElementById('loading').classList.add('hidden');
   document.getElementById('updatedAt').textContent = 'Maj : ' + new Date(DATA.generatedAt).toLocaleString('fr-FR');
   render();
@@ -200,47 +198,52 @@ async function load(){
 }
 
 function destroy(id){ if(charts[id]){charts[id].destroy(); delete charts[id];} }
-
-function render(){
-  renderBootcamp();
-  renderAmplify();
-}
+function render(){ renderBootcamp(); renderAmplify(); }
 
 function renderBootcamp(){
-  const b = DATA.bootcamp;
-  document.getElementById('bc-inscrits').textContent = NUM(b.totalInscrits);
-  const promos = Object.keys(b.byPromo).filter(p=>p!=='Test interne');
-  document.getElementById('bc-inscrits-sub').textContent = promos.length+' promo(s) actives · prix '+EUR(b.prixUnitaire);
-  // Remboursés (Bootcamp uniquement — table Clients, hors Amplify Connect)
-  const nbRemb = b.nbRembourses||0;
-  const baseTotale = (b.totalInscrits||0) + nbRemb;            // payés + remboursés
-  const tauxRemb = baseTotale ? (nbRemb/baseTotale*100) : 0;
-  document.getElementById('bc-rembourses').textContent = NUM(nbRemb);
-  document.getElementById('bc-rembourses-sub').textContent = 'Taux '+tauxRemb.toLocaleString('fr-FR',{maximumFractionDigits:1})+' % · '+EUR(b.caRembourse)+' remboursés';
-  document.getElementById('bc-cagenere').textContent = EUR(b.caGenere);
-  document.getElementById('bc-caencaisse').textContent = EUR(b.caEncaisse);
-  const pct = b.caEncaisse!=null && b.caGenere ? Math.round(b.caEncaisse/b.caGenere*100) : null;
-  document.getElementById('bc-caencaisse-sub').textContent = pct!=null ? pct+'% du CA généré' : 'Stripe indispo';
-  document.getElementById('bc-careste').textContent = EUR(b.caRestantAEncaisser);
+  const bc = DATA.bootcamp;
+  if(!bc.scopes[currentPromo]) currentPromo = 'Toutes';
 
-  // promo chart + table
-  const pe = Object.entries(b.byPromo).sort((a,b)=>a[0].localeCompare(b[0]));
+  const bar = document.getElementById('bc-filter');
+  bar.innerHTML='';
+  (bc.promoOrder||['Toutes']).forEach(p=>{
+    const n = bc.scopes[p] ? bc.scopes[p].totalInscrits : 0;
+    const btn=document.createElement('button');
+    btn.className='promo-btn'+(p===currentPromo?' active':'');
+    btn.innerHTML = (p==='Toutes'?'Toutes les promos':p)+' <span class="cnt">'+NUM(n)+'</span>';
+    btn.onclick=()=>{ currentPromo=p; renderBootcamp(); };
+    bar.appendChild(btn);
+  });
+
+  const s = bc.scopes[currentPromo];
+  const scopeLabel = currentPromo==='Toutes' ? 'toutes promos' : currentPromo;
+
+  document.getElementById('bc-inscrits').textContent = NUM(s.totalInscrits);
+  document.getElementById('bc-inscrits-sub').textContent = scopeLabel+' · prix '+EUR(bc.prixUnitaire);
+  document.getElementById('bc-cagenere').textContent = EUR(s.caGenere);
+  document.getElementById('bc-caencaisse').textContent = EUR(s.caEncaisse);
+  const pct = s.caEncaisse!=null && s.caGenere ? Math.round(s.caEncaisse/s.caGenere*100) : null;
+  document.getElementById('bc-caencaisse-sub').textContent = pct!=null ? pct+'% du CA généré' : 'Stripe indispo';
+  document.getElementById('bc-careste').textContent = EUR(s.caRestantAEncaisser);
+
+  const pe = Object.entries(bc.byPromo).sort((a,b)=>a[0].localeCompare(b[0]));
   destroy('promo');
   charts.promo = new Chart(document.getElementById('bc-promo-chart'),{
     type:'bar',
-    data:{labels:pe.map(x=>x[0]),datasets:[{data:pe.map(x=>x[1].count),backgroundColor:PALETTE,borderRadius:6}]},
-    options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}
+    data:{labels:pe.map(x=>x[0]),datasets:[{data:pe.map(x=>x[1].count),
+      backgroundColor:pe.map(x=> (x[0]===currentPromo || currentPromo==='Toutes') ? '#ffce3a' : '#445067'),
+      borderRadius:6}]},
+    options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}},
+      onClick:(e,els)=>{ if(els.length){ currentPromo=pe[els[0].index][0]; renderBootcamp(); } }}
   });
   const tb = document.querySelector('#bc-promo-table tbody'); tb.innerHTML='';
   pe.forEach(([k,v])=>{ tb.insertAdjacentHTML('beforeend',`<tr><td>${k}</td><td class="num">${NUM(v.count)}</td><td class="num">${EUR(v.montant)}</td></tr>`); });
 
-  // statut note
-  const sc = b.statutCounts;
-  const scParts = Object.entries(sc).map(([k,v])=>`${k} : ${v}`).join(' · ');
-  document.getElementById('bc-statut-note').textContent = 'Statuts paiement — '+scParts + (b.nbRembourses?` · Remboursé : ${EUR(b.caRembourse)}`:'');
+  const scnt = s.statutCounts||{};
+  const scParts = Object.entries(scnt).map(([k,v])=>`${k} : ${v}`).join(' · ');
+  document.getElementById('bc-statut-note').textContent = 'Statuts ('+scopeLabel+') — '+scParts + (bc.nbRembourses?` · Remboursé global : ${EUR(bc.caRembourse)}`:'');
 
-  // payment 1x vs 4x
-  const p = b.paiement;
+  const p = s.paiement;
   destroy('pay');
   charts.pay = new Chart(document.getElementById('bc-pay-chart'),{
     type:'doughnut',
@@ -249,8 +252,7 @@ function renderBootcamp(){
   });
   document.getElementById('bc-pay-note').innerHTML = `<b>${NUM(p.un_fois)}</b> en 1 fois · <b>${NUM(p.quatre_fois)}</b> en 4 fois (322,50€/mois ×4). ${p.installments_collectees||0} mensualités encaissées à ce jour.`;
 
-  // by day
-  const days = Object.entries(b.byDay).sort((a,b)=>a[0].localeCompare(b[0]));
+  const days = Object.entries(s.byDay||{}).sort((a,b)=>a[0].localeCompare(b[0]));
   destroy('day');
   charts.day = new Chart(document.getElementById('bc-day-chart'),{
     type:'line',
@@ -269,7 +271,6 @@ function renderAmplify(){
   const val = a.candidatures.byStatut['Validé']||a.candidatures.byStatut['Validée']||0;
   document.getElementById('ac-cand-sub').textContent = val+' validée(s)';
 
-  // candidatures statut
   const ce = Object.entries(a.candidatures.byStatut);
   destroy('cand');
   charts.cand = new Chart(document.getElementById('ac-cand-chart'),{
@@ -278,7 +279,6 @@ function renderAmplify(){
     options:{cutout:'60%',plugins:{legend:{position:'bottom'}}}
   });
 
-  // saison
   const se = Object.entries(a.bySaison).sort((a,b)=>a[0].localeCompare(b[0]));
   destroy('saison');
   charts.saison = new Chart(document.getElementById('ac-saison-chart'),{
@@ -287,12 +287,10 @@ function renderAmplify(){
     options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}
   });
 
-  // sous-cercle table
   const sct = document.querySelector('#ac-sc-table tbody'); sct.innerHTML='';
   Object.entries(a.candidatures.bySousCercle).sort((x,y)=>y[1]-x[1]).forEach(([k,v])=>{
     sct.insertAdjacentHTML('beforeend',`<tr><td>${k}</td><td class="num">${NUM(v)}</td></tr>`);
   });
-  // mode table
   const mt = document.querySelector('#ac-mode-table tbody'); mt.innerHTML='';
   Object.entries(a.byMode).sort((x,y)=>y[1]-x[1]).forEach(([k,v])=>{
     mt.insertAdjacentHTML('beforeend',`<tr><td>${k}</td><td class="num">${NUM(v)}</td></tr>`);
@@ -306,7 +304,6 @@ function showTab(t){
   document.getElementById('view-amplify').classList.toggle('hidden',t!=='amplify');
 }
 
-// gate
 function showGate(err){
   document.getElementById('gate').classList.remove('hidden');
   document.getElementById('app').classList.add('hidden');
@@ -325,7 +322,6 @@ document.getElementById('pwInput').addEventListener('keydown',e=>{if(e.key==='En
 document.getElementById('refreshBtn').onclick = load;
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>showTab(t.dataset.tab));
 
-// auto-enter if pw stored
 if(getPw()){
   document.getElementById('gate').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
