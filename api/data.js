@@ -41,7 +41,6 @@ async function airtableAll(table, fields) {
 }
 
 async function stripeList(resource, params = {}) {
-  // Paginate fully through a Stripe list endpoint
   const out = [];
   let startingAfter = null;
   do {
@@ -69,7 +68,6 @@ function bucket(amount) {
 }
 
 module.exports = async (req, res) => {
-  // --- Auth ---
   const pw = req.headers["x-dashboard-password"] || "";
   if (!CONFIG.password || pw !== CONFIG.password) {
     res.statusCode = 401;
@@ -87,34 +85,41 @@ module.exports = async (req, res) => {
 
     const norm = (s) => (s || "").toString().trim();
     const lower = (s) => norm(s).toLowerCase();
+    const promoOf = (c) => norm(c.fields["Promo"]) || "Sans promo";
 
     // ----- Bootcamp (Clients) -----
     const bcPaid = clients.filter((c) => norm(c.fields["Statut Paiement"]) === "Payé");
+
+    // byPromo (comparatif global : inscrits + CA généré par promo)
     const byPromo = {};
-    let caGenere = 0;
     for (const c of bcPaid) {
-      const promo = norm(c.fields["Promo"]) || "Sans promo";
+      const p = promoOf(c);
       const m = Number(c.fields["Montant"]) || 0;
-      byPromo[promo] = byPromo[promo] || { count: 0, montant: 0 };
-      byPromo[promo].count++;
-      byPromo[promo].montant += m;
-      caGenere += m;
+      byPromo[p] = byPromo[p] || { count: 0, montant: 0 };
+      byPromo[p].count++;
+      byPromo[p].montant += m;
     }
-    const statutCounts = {};
-    for (const c of clients) {
-      const s = norm(c.fields["Statut Paiement"]) || "Inconnu";
-      statutCounts[s] = (statutCounts[s] || 0) + 1;
-    }
+
+    // Remboursements (global, info)
     const refunds = clients.filter((c) => norm(c.fields["Statut Paiement"]) === "Remboursé");
     const caRembourse = refunds.reduce((a, c) => a + (Number(c.fields["Montant"]) || 0), 0);
 
-    // Acquisition par jour (Date Paiement) pour les payés
-    const bcByDay = {};
+    // Statuts de paiement par promo + global
+    const statutGlobal = {};
+    const statutByPromo = {};
+    for (const c of clients) {
+      const s = norm(c.fields["Statut Paiement"]) || "Inconnu";
+      const p = promoOf(c);
+      statutGlobal[s] = (statutGlobal[s] || 0) + 1;
+      statutByPromo[p] = statutByPromo[p] || {};
+      statutByPromo[p][s] = (statutByPromo[p][s] || 0) + 1;
+    }
+
+    // email -> promo (parmi les inscrits payés) pour attribuer les paiements Stripe
+    const emailToPromo = {};
     for (const c of bcPaid) {
-      const d = c.fields["Date Paiement"];
-      if (!d) continue;
-      const day = d.slice(0, 10);
-      bcByDay[day] = (bcByDay[day] || 0) + 1;
+      const em = lower(c.fields["Email"]);
+      if (em) emailToPromo[em] = promoOf(c);
     }
 
     // ----- Amplify Connect (payeurs Airtable) -----
@@ -128,7 +133,6 @@ module.exports = async (req, res) => {
       acBySaison[s] = (acBySaison[s] || 0) + 1;
       acByMode[mode] = (acByMode[mode] || 0) + 1;
     }
-    // Candidatures
     const candByStatut = {};
     const candByMode = {};
     const candBySousCercle = {};
@@ -156,66 +160,81 @@ module.exports = async (req, res) => {
       stripeError = e.message;
     }
 
-    // Charges classification (CA encaissé = argent réellement rentré, net des remboursements)
     const succeeded = charges.filter((c) => c.status === "succeeded" && c.paid);
-    let caEncaisseBootcamp = 0; // 1290€ (1 fois) + 322,50€ (mensualités 4x)
-    let nbCharges1x = 0; // nombre de paiements complets encaissés
-    let nbCharges4x = 0; // nombre de mensualités encaissées
-    const emails4x = new Set(); // e-mails des clients ayant payé en 4x (au moins une mensualité)
-    const chargeEmail = (c) =>
-      lower((c.billing_details && c.billing_details.email) || c.receipt_email || "");
+    const chargeEmail = (c) => lower((c.billing_details && c.billing_details.email) || c.receipt_email || "");
+
+    // Attribution des paiements bootcamp (par promo via e-mail) + set des payeurs 4x
+    let caEncGlobal = 0;
+    let instGlobal = 0; // nb de mensualités 4x encaissées
+    const caEncByPromo = {};
+    const instByPromo = {};
+    const emails4x = new Set();
     for (const c of succeeded) {
-      const net = (c.amount - (c.amount_refunded || 0)) / 100;
       const b = bucket(c.amount);
-      if (b === "b1x") {
-        caEncaisseBootcamp += net;
-        if (c.amount_refunded < c.amount) nbCharges1x++;
-      } else if (b === "b4x") {
-        caEncaisseBootcamp += net;
-        nbCharges4x++;
-        const em = chargeEmail(c);
+      if (b !== "b1x" && b !== "b4x") continue; // Amplify & autres exclus du bootcamp
+      const net = (c.amount - (c.amount_refunded || 0)) / 100;
+      const em = chargeEmail(c);
+      const promo = em && emailToPromo[em] ? emailToPromo[em] : null;
+      caEncGlobal += net;
+      if (promo) caEncByPromo[promo] = (caEncByPromo[promo] || 0) + net;
+      if (b === "b4x") {
+        instGlobal++;
         if (em) emails4x.add(em);
+        if (promo) instByPromo[promo] = (instByPromo[promo] || 0) + 1;
       }
     }
 
-    // Subscriptions classification (santé des abonnements bootcamp)
-    const subProduct = (s) => {
-      try { return s.items.data[0].price.product; } catch (_) { return null; }
-    };
+    // Santé des abonnements bootcamp (global)
+    const subProduct = (s) => { try { return s.items.data[0].price.product; } catch (_) { return null; } };
     const BOOTCAMP_PRODUCTS = ["prod_UZ1KUTItSVpKvk", "prod_UVLeGAeB6HXrRD"];
     const bcSubs = subs.filter((s) => BOOTCAMP_PRODUCTS.includes(subProduct(s)));
     const bcSubsByStatus = {};
     for (const s of bcSubs) bcSubsByStatus[s.status] = (bcSubsByStatus[s.status] || 0) + 1;
 
-    // Split 1x / 4x parmi les 156 inscrits payés (croisement par e-mail) -> somme = total inscrits
-    let nb4x = 0;
-    for (const c of bcPaid) {
-      const em = lower(c.fields["Email"]);
-      if (em && emails4x.has(em)) nb4x++;
+    // Construit un objet d'indicateurs pour une liste d'inscrits payés
+    const buildScope = (list, caEnc, installments, statutCounts) => {
+      let caGenere = 0;
+      const byDay = {};
+      let nb4x = 0;
+      for (const c of list) {
+        caGenere += Number(c.fields["Montant"]) || 0;
+        const d = c.fields["Date Paiement"];
+        if (d) { const day = d.slice(0, 10); byDay[day] = (byDay[day] || 0) + 1; }
+        const em = lower(c.fields["Email"]);
+        if (em && emails4x.has(em)) nb4x++;
+      }
+      const nb1x = Math.max(0, list.length - nb4x);
+      return {
+        totalInscrits: list.length,
+        caGenere,
+        caEncaisse: stripeOk ? Math.round(caEnc * 100) / 100 : null,
+        caRestantAEncaisser: stripeOk ? Math.round((caGenere - caEnc) * 100) / 100 : null,
+        paiement: { un_fois: nb1x, quatre_fois: nb4x, installments_collectees: installments },
+        statutCounts,
+        byDay,
+      };
+    };
+
+    const scopes = {};
+    scopes["Toutes"] = buildScope(bcPaid, caEncGlobal, instGlobal, statutGlobal);
+    const promoList = [...new Set(bcPaid.map(promoOf))];
+    for (const p of promoList) {
+      const list = bcPaid.filter((c) => promoOf(c) === p);
+      scopes[p] = buildScope(list, caEncByPromo[p] || 0, instByPromo[p] || 0, statutByPromo[p] || {});
     }
-    const nb1x = Math.max(0, bcPaid.length - nb4x);
+    // Ordre des boutons : Toutes puis promos (PROMO 1, PROMO 2, ...), on masque "Test interne"
+    const promoOrder = ["Toutes", ...promoList.filter((p) => p !== "Test interne").sort()];
 
     const result = {
       generatedAt: new Date().toISOString(),
       stripe: { ok: stripeOk, error: stripeError, nbCharges: charges.length, nbSubscriptions: subs.length },
       bootcamp: {
-        totalInscrits: bcPaid.length,
+        scopes,
+        promoOrder,
         byPromo,
-        statutCounts,
-        caGenere,
         caRembourse,
         nbRembourses: refunds.length,
-        paiement: {
-          un_fois: nb1x,
-          quatre_fois: nb4x,
-          installments_collectees: nbCharges4x,
-          paiements_complets: nbCharges1x,
-          source: "Stripe (croisement e-mail) : 4x = a au moins une mensualité 322,50€, sinon paiement complet 1290€",
-        },
-        caEncaisse: stripeOk ? Math.round(caEncaisseBootcamp * 100) / 100 : null,
-        caRestantAEncaisser: stripeOk ? Math.round((caGenere - caEncaisseBootcamp) * 100) / 100 : null,
         subsByStatus: bcSubsByStatus,
-        byDay: bcByDay,
         prixUnitaire: 1290,
       },
       amplify: {
