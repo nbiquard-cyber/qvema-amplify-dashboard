@@ -158,7 +158,7 @@ module.exports = async (req, res) => {
       airtableAll(T.clients, ["Promo", "Montant", "Statut Paiement", "Produit", "Date Paiement", "Email", "Sexe", "Age", "Code postal", "Pays"]),
       airtableAll(T.connect, ["Email", "Nom complet", "Montant", "Statut Paiement", "Date Paiement", "Mode Paiement", "Saison QVEMA", "Statut Membre"]),
       airtableAll(T.candidatures, ["Statut Candidature", "Statut Membre", "Mode de paiement", "Date Candidature", "Sous-cercle d'intérêt", "Saison"]),
-      airtableAll(T.accueil, ["Promo", "Secteur d'activité"]),
+      airtableAll(T.accueil, ["Promo", "Secteur d'activité", "Stade d'avancement"]),
     ]);
 
     const norm = (s) => (s || "").toString().trim();
@@ -322,23 +322,34 @@ module.exports = async (req, res) => {
     // La promo Accueil ("Promo 1") est normalisée en MAJ pour matcher les scopes ("PROMO 1").
     const secteurGlobal = {};
     const secteurByPromo = {};
+    const stadeGlobal = {};
+    const stadeByPromo = {};
     for (const a of accueil) {
-      const sec = norm(a.fields["Secteur d'activité"]);
-      if (!sec) continue;
       const p = norm(a.fields["Promo"]).toUpperCase();
-      secteurGlobal[sec] = (secteurGlobal[sec] || 0) + 1;
-      secteurByPromo[p] = secteurByPromo[p] || {};
-      secteurByPromo[p][sec] = (secteurByPromo[p][sec] || 0) + 1;
+      const sec = norm(a.fields["Secteur d'activité"]);
+      if (sec) {
+        secteurGlobal[sec] = (secteurGlobal[sec] || 0) + 1;
+        secteurByPromo[p] = secteurByPromo[p] || {};
+        secteurByPromo[p][sec] = (secteurByPromo[p][sec] || 0) + 1;
+      }
+      const st = norm(a.fields["Stade d'avancement"]);
+      if (st) {
+        stadeGlobal[st] = (stadeGlobal[st] || 0) + 1;
+        stadeByPromo[p] = stadeByPromo[p] || {};
+        stadeByPromo[p][st] = (stadeByPromo[p][st] || 0) + 1;
+      }
     }
 
     const scopes = {};
     scopes["Toutes"] = buildScope(bcPaid, caEncGlobal, instGlobal, statutGlobal);
     scopes["Toutes"].secteurs = secteurGlobal;
+    scopes["Toutes"].stades = stadeGlobal;
     const promoList = [...new Set(bcPaid.map(promoOf))];
     for (const p of promoList) {
       const list = bcPaid.filter((c) => promoOf(c) === p);
       scopes[p] = buildScope(list, caEncByPromo[p] || 0, instByPromo[p] || 0, statutByPromo[p] || {});
       scopes[p].secteurs = secteurByPromo[p] || {};
+      scopes[p].stades = stadeByPromo[p] || {};
     }
     // Remboursements par scope : nombre (Airtable), montant réel (Stripe amount_refunded), taux.
     const attachRefund = (scopeObj, count, montantReel, montantContrat) => {

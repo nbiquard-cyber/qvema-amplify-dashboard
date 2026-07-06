@@ -148,6 +148,12 @@
       <div class="note" id="bc-secteur-note"></div>
     </div>
 
+    <div class="card" style="margin-top:16px">
+      <h3><span class="dot"></span>Stade d'avancement <span style="color:var(--muted);font-weight:400">· source Accueil Bootcamp</span></h3>
+      <div class="chart-box"><canvas id="bc-stade-chart"></canvas></div>
+      <div class="note" id="bc-stade-note"></div>
+    </div>
+
     <div class="row2">
       <div class="card">
         <h3><span class="dot"></span>Inscrits par promo <span style="color:var(--muted);font-weight:400">· clique pour filtrer</span></h3>
@@ -397,6 +403,21 @@ function renderDemographics(s, scopeLabel){
   document.getElementById('bc-secteur-note').textContent = seTotal
     ? `${NUM(seTotal)} apprenant(s) renseigné(s) · ${scopeLabel} · survole une barre pour le %`
     : 'Aucune donnée secteur pour '+scopeLabel;
+
+  // --- Stade d'avancement (source Accueil Bootcamp) ---
+  const st = Object.entries(s.stades||{}).sort((x,y)=>y[1]-x[1]);
+  const stTotal = st.reduce((a,x)=>a+x[1],0);
+  destroy('stade');
+  charts.stade = new Chart(document.getElementById('bc-stade-chart'),{
+    type:'doughnut',
+    data:{labels:st.map(x=>x[0]),datasets:[{data:st.map(x=>x[1]),backgroundColor:['#ffce3a','#5b8def','#3ecf8e','#a779ff','#ef5b6b'],borderWidth:0}]},
+    options:{cutout:'60%',plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:(ctx)=>{
+      const v=ctx.parsed; return `${ctx.label} : ${NUM(v)} · ${stTotal?Math.round(v/stTotal*100):0}%`;
+    }}}}}
+  });
+  document.getElementById('bc-stade-note').textContent = stTotal
+    ? `${NUM(stTotal)} apprenant(s) · ${scopeLabel}`
+    : 'Aucune donnée pour '+scopeLabel;
 }
 
 function renderAmplify(){
