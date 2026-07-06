@@ -111,6 +111,11 @@
       <div class="card kpi"><div class="label">Reste à encaisser</div><div class="value purple" id="bc-careste">—</div><div class="sub">échéancier 4x à venir</div></div>
     </div>
 
+    <div class="card" style="margin-top:16px;display:flex;align-items:center;gap:12px;border-left:3px solid var(--red)">
+      <span style="font-size:20px">↩️</span>
+      <div id="bc-refund" style="font-size:14px">—</div>
+    </div>
+
     <!-- DÉMOGRAPHIE (source : feuille Clients Airtable) -->
     <div class="row2">
       <div class="card">
@@ -268,6 +273,11 @@ function renderBootcamp(){
   const scnt = s.statutCounts||{};
   const scParts = Object.entries(scnt).map(([k,v])=>`${k} : ${v}`).join(' · ');
   document.getElementById('bc-statut-note').textContent = 'Statuts ('+scopeLabel+') — '+scParts + (bc.nbRembourses?` · Remboursé global : ${EUR(bc.caRembourse)}`:'');
+
+  const rf = s.refund || {count:0, montant:0};
+  document.getElementById('bc-refund').innerHTML = rf.count
+    ? `<b>${NUM(rf.count)}</b> remboursement(s) · <b>${EUR(rf.montant)}</b> remboursés <span style="color:var(--muted)">· ${scopeLabel}</span>`
+    : `Aucun remboursement <span style="color:var(--muted)">· ${scopeLabel}</span>`;
 
   const p = s.paiement;
   destroy('pay');

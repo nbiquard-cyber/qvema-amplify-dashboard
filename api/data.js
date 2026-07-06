@@ -176,9 +176,17 @@ module.exports = async (req, res) => {
       byPromo[p].montant += m;
     }
 
-    // Remboursements (global, info)
+    // Remboursements (global + par promo)
     const refunds = clients.filter((c) => norm(c.fields["Statut Paiement"]) === "Remboursé");
     const caRembourse = refunds.reduce((a, c) => a + (Number(c.fields["Montant"]) || 0), 0);
+    const refundByPromo = {};
+    for (const c of refunds) {
+      const p = promoOf(c);
+      const m = Number(c.fields["Montant"]) || 0;
+      refundByPromo[p] = refundByPromo[p] || { count: 0, montant: 0 };
+      refundByPromo[p].count++;
+      refundByPromo[p].montant += m;
+    }
 
     // Statuts de paiement par promo + global
     const statutGlobal = {};
@@ -294,10 +302,12 @@ module.exports = async (req, res) => {
 
     const scopes = {};
     scopes["Toutes"] = buildScope(bcPaid, caEncGlobal, instGlobal, statutGlobal);
+    scopes["Toutes"].refund = { count: refunds.length, montant: caRembourse };
     const promoList = [...new Set(bcPaid.map(promoOf))];
     for (const p of promoList) {
       const list = bcPaid.filter((c) => promoOf(c) === p);
       scopes[p] = buildScope(list, caEncByPromo[p] || 0, instByPromo[p] || 0, statutByPromo[p] || {});
+      scopes[p].refund = refundByPromo[p] || { count: 0, montant: 0 };
     }
     // Ordre des boutons : Toutes puis promos (PROMO 1, PROMO 2, ...), on masque "Test interne"
     const promoOrder = ["Toutes", ...promoList.filter((p) => p !== "Test interne").sort()];
