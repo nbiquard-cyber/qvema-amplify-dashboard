@@ -205,6 +205,12 @@ module.exports = async (req, res) => {
       const em = lower(c.fields["Email"]);
       if (em) emailToPromo[em] = promoOf(c);
     }
+    // email -> promo pour TOUS les clients (dont remboursés) : attribution des refunds Stripe
+    const emailToPromoAll = {};
+    for (const c of clients) {
+      const em = lower(c.fields["Email"]);
+      if (em) emailToPromoAll[em] = promoOf(c);
+    }
 
     // ----- Amplify Connect (payeurs Airtable) -----
     const acMembers = connect;
@@ -253,6 +259,9 @@ module.exports = async (req, res) => {
     const caEncByPromo = {};
     const instByPromo = {};
     const emails4x = new Set();
+    // Montant RÉELLEMENT remboursé (Stripe amount_refunded), pas la valeur du contrat.
+    let refundEncGlobal = 0;
+    const refundEncByPromo = {};
     for (const c of succeeded) {
       const b = bucket(c.amount);
       if (b !== "b1x" && b !== "b4x") continue; // Amplify & autres exclus du bootcamp
@@ -265,6 +274,13 @@ module.exports = async (req, res) => {
         instGlobal++;
         if (em) emails4x.add(em);
         if (promo) instByPromo[promo] = (instByPromo[promo] || 0) + 1;
+      }
+      // Refund réel (une ou plusieurs mensualités selon le cas)
+      const refd = (c.amount_refunded || 0) / 100;
+      if (refd > 0) {
+        refundEncGlobal += refd;
+        const rp = em && emailToPromoAll[em] ? emailToPromoAll[em] : null;
+        if (rp) refundEncByPromo[rp] = (refundEncByPromo[rp] || 0) + refd;
       }
     }
 
@@ -302,12 +318,25 @@ module.exports = async (req, res) => {
 
     const scopes = {};
     scopes["Toutes"] = buildScope(bcPaid, caEncGlobal, instGlobal, statutGlobal);
-    scopes["Toutes"].refund = { count: refunds.length, montant: caRembourse };
     const promoList = [...new Set(bcPaid.map(promoOf))];
     for (const p of promoList) {
       const list = bcPaid.filter((c) => promoOf(c) === p);
       scopes[p] = buildScope(list, caEncByPromo[p] || 0, instByPromo[p] || 0, statutByPromo[p] || {});
-      scopes[p].refund = refundByPromo[p] || { count: 0, montant: 0 };
+    }
+    // Remboursements par scope : nombre (Airtable), montant réel (Stripe amount_refunded), taux.
+    const attachRefund = (scopeObj, count, montantReel, montantContrat) => {
+      const denom = scopeObj.totalInscrits + count; // ventes = payés restants + remboursés
+      scopeObj.refund = {
+        count,
+        montant: stripeOk ? Math.round(montantReel * 100) / 100 : null,
+        montantContrat: Math.round(montantContrat * 100) / 100,
+        taux: denom ? Math.round((count / denom) * 1000) / 10 : 0,
+      };
+    };
+    attachRefund(scopes["Toutes"], refunds.length, refundEncGlobal, caRembourse);
+    for (const p of promoList) {
+      const r = refundByPromo[p] || { count: 0, montant: 0 };
+      attachRefund(scopes[p], r.count, refundEncByPromo[p] || 0, r.montant);
     }
     // Ordre des boutons : Toutes puis promos (PROMO 1, PROMO 2, ...), on masque "Test interne"
     const promoOrder = ["Toutes", ...promoList.filter((p) => p !== "Test interne").sort()];
