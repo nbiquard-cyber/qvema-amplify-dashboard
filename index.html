@@ -142,6 +142,12 @@
       <div class="note" id="bc-region-note"></div>
     </div>
 
+    <div class="card" style="margin-top:16px">
+      <h3><span class="dot"></span>Secteur d'activité <span style="color:var(--muted);font-weight:400">· source Accueil Bootcamp</span></h3>
+      <div class="chart-box" style="height:380px"><canvas id="bc-secteur-chart"></canvas></div>
+      <div class="note" id="bc-secteur-note"></div>
+    </div>
+
     <div class="row2">
       <div class="card">
         <h3><span class="dot"></span>Inscrits par promo <span style="color:var(--muted);font-weight:400">· clique pour filtrer</span></h3>
@@ -376,6 +382,21 @@ function renderDemographics(s, scopeLabel){
   const nrRegion = (d.regions||{})['Non renseigné']||0;
   document.getElementById('bc-region-note').textContent =
     nrRegion ? `${NUM(nrRegion)} client(s) sans code postal (exclus de la localisation).` : '';
+
+  // --- Secteur d'activité (source Accueil Bootcamp) ---
+  const se = Object.entries(s.secteurs||{}).sort((x,y)=>y[1]-x[1]);
+  const seTotal = se.reduce((a,x)=>a+x[1],0);
+  destroy('secteur');
+  charts.secteur = new Chart(document.getElementById('bc-secteur-chart'),{
+    type:'bar',
+    data:{labels:se.map(x=>x[0]),datasets:[{data:se.map(x=>x[1]),backgroundColor:'#5b8def',borderRadius:5}]},
+    options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>{
+      const v=ctx.parsed.x; return `${NUM(v)} · ${seTotal?Math.round(v/seTotal*100):0}%`;
+    }}}},scales:{x:{beginAtZero:true,ticks:{precision:0}}}}
+  });
+  document.getElementById('bc-secteur-note').textContent = seTotal
+    ? `${NUM(seTotal)} apprenant(s) renseigné(s) · ${scopeLabel} · survole une barre pour le %`
+    : 'Aucune donnée secteur pour '+scopeLabel;
 }
 
 function renderAmplify(){
