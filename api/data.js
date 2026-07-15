@@ -155,7 +155,7 @@ module.exports = async (req, res) => {
   try {
     // ---------- AIRTABLE ----------
     const [clients, connect, candidatures, accueil] = await Promise.all([
-      airtableAll(T.clients, ["Promo", "Montant", "Statut Paiement", "Produit", "Date Paiement", "Email", "Sexe", "Age", "Code postal", "Pays"]),
+      airtableAll(T.clients, ["Promo", "Montant", "Statut Paiement", "Produit", "Date Paiement", "Email", "Sexe", "Age", "Code postal", "Pays", "Mode de paiement"]),
       airtableAll(T.connect, ["Email", "Nom complet", "Montant", "Statut Paiement", "Date Paiement", "Mode Paiement", "Saison QVEMA", "Statut Membre"]),
       airtableAll(T.candidatures, ["Statut Candidature", "Statut Membre", "Mode de paiement", "Date Candidature", "Sous-cercle d'intérêt", "Saison"]),
       airtableAll(T.accueil, ["Promo", "Secteur d'activité", "Stade d'avancement"]),
@@ -302,8 +302,14 @@ module.exports = async (req, res) => {
         caGenere += Number(c.fields["Montant"]) || 0;
         const d = c.fields["Date Paiement"];
         if (d) { const day = d.slice(0, 10); byDay[day] = (byDay[day] || 0) + 1; }
+        // 4x/1x : on se base sur le champ Airtable "Mode de paiement" (1x / 4x).
+        // Fallback sur les charges Stripe (emails4x) uniquement quand le mode n'est
+        // pas renseigné (ex. promos où le champ n'est pas encore saisi), pour ne pas
+        // casser leur décompte historique.
+        const mode = norm(c.fields["Mode de paiement"]).toLowerCase();
         const em = lower(c.fields["Email"]);
-        if (em && emails4x.has(em)) nb4x++;
+        const is4x = mode === "4x" ? true : mode === "1x" ? false : (em && emails4x.has(em));
+        if (is4x) nb4x++;
       }
       const nb1x = Math.max(0, list.length - nb4x);
       return {
