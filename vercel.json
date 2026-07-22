@@ -11,6 +11,9 @@
     },
     "api/crm-update.js": {
       "maxDuration": 30
+    },
+    "api/crm-activity.js": {
+      "maxDuration": 30
     }
   }
 }

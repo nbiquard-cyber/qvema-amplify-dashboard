@@ -244,6 +244,28 @@
   .crm-th-sort{cursor:pointer;user-select:none;white-space:nowrap}
   .crm-th-sort:hover{color:var(--txt)}
   .crm-th-sort .ar{color:var(--accent);font-size:10px}
+  /* CRM — activités / timeline */
+  .crm-acts{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+  .crm-acts-h{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700;margin-bottom:10px}
+  .crm-comp{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:14px}
+  .crm-comp-tabs{display:flex;gap:6px;margin-bottom:8px}
+  .crm-comp-tab{background:var(--panel);border:1px solid var(--line);color:var(--muted);font-weight:600;font-size:12.5px;padding:5px 11px;border-radius:8px;cursor:pointer;font-family:inherit}
+  .crm-comp-tab.on{background:var(--accent);color:#11151d;border-color:var(--accent)}
+  .crm-comp textarea{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--txt);font-size:14px;font-family:inherit;resize:vertical}
+  .crm-comp-row{display:flex;gap:8px;margin-top:8px}
+  .crm-comp-row input{flex:1;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--txt);font-size:13px;font-family:inherit}
+  .crm-comp-act{display:flex;justify-content:flex-end;margin-top:8px}
+  .crm-tl{display:flex;flex-direction:column;gap:8px}
+  .crm-tli{display:flex;gap:10px;align-items:flex-start;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .crm-tli.done .crm-tli-txt{text-decoration:line-through;color:var(--muted)}
+  .crm-tli-ic{font-size:15px;flex-shrink:0;line-height:1.4}
+  .crm-tli-b{flex:1;min-width:0}
+  .crm-tli-txt{font-size:13.5px;color:var(--txt);white-space:pre-wrap;word-break:break-word}
+  .crm-tli-meta{font-size:11px;color:var(--muted);margin-top:3px}
+  .crm-tli-badge{background:var(--panel);border:1px solid var(--line);border-radius:99px;padding:1px 7px;font-weight:600;color:var(--accent)}
+  .crm-tli-actions{display:flex;gap:5px;flex-shrink:0}
+  .crm-tli-btn{background:var(--panel);border:1px solid var(--line);color:var(--muted);width:26px;height:26px;border-radius:7px;cursor:pointer;font-size:12px}
+  .crm-tli-btn:hover{border-color:var(--accent);color:var(--txt)}
 
   @media print{
     #gate,.tabs,.subtabs,.promo-filter,.fb-controls,header.top,.noprint{display:none!important}
@@ -1418,8 +1440,9 @@ if(AUTH && AUTH.token){
         + selectRow("Stade d'avancement",'f-stade', stades, rec.stade)
         + selectRow('Statut paiement','f-statut', statuts, rec.statutPaiement)
         + textRow('Notes','f-notes', rec.notes)
-        + '<div class="crm-actions"><button id="crm-save" class="crm-save">💾 Enregistrer</button><span id="crm-saved" class="crm-saved"></span></div></div>';
-      openPanel();
+        + '<div class="crm-actions"><button id="crm-save" class="crm-save">💾 Enregistrer</button><span id="crm-saved" class="crm-saved"></span></div></div>'
+        + '<div class="crm-acts" id="crm-acts"></div>';
+      openPanel(); loadActivities(rec);
       $('crm-save').onclick = async ()=>{
         const patch = { stade: $('f-stade').value, statutPaiement: $('f-statut').value, notes: $('f-notes').value };
         $('crm-save').disabled=true; $('crm-saved').textContent='Enregistrement…';
@@ -1436,8 +1459,9 @@ if(AUTH && AUTH.token){
         + '<div class="crm-edit"><h4>Modifier</h4>'
         + selectRow('Statut membre','f-statutm', statutsM, rec.statutMembre)
         + textRow('Notes','f-notes', rec.notes)
-        + '<div class="crm-actions"><button id="crm-save" class="crm-save">💾 Enregistrer</button><span id="crm-saved" class="crm-saved"></span></div></div>';
-      openPanel();
+        + '<div class="crm-actions"><button id="crm-save" class="crm-save">💾 Enregistrer</button><span id="crm-saved" class="crm-saved"></span></div></div>'
+        + '<div class="crm-acts" id="crm-acts"></div>';
+      openPanel(); loadActivities(rec);
       $('crm-save').onclick = async ()=>{
         const patch = { statutMembre: $('f-statutm').value, notes: $('f-notes').value };
         $('crm-save').disabled=true; $('crm-saved').textContent='Enregistrement…';
@@ -1469,6 +1493,59 @@ if(AUTH && AUTH.token){
       if(j.accueilId && obj==='apprenants') rec.accueilId=j.accueilId;
       return true;
     }catch(e){ return false; }
+  }
+
+  /* ---- Activités : notes & tâches (timeline dans la fiche) ---- */
+  let actMode='note';
+  function objetKey(){ return obj==='apprenants' ? 'apprenant' : 'amplify'; }
+  function fdate(d){ if(!d)return''; const p=String(d).slice(0,10).split('-'); return p.length===3?(p[2]+'/'+p[1]+'/'+p[0]):d; }
+  async function postAct(payload){ try{ const r=await fetch('/api/crm-activity',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},authHeaders()),body:JSON.stringify(payload)}); const j=await r.json(); return r.ok&&j.ok; }catch(e){ return false; } }
+
+  async function loadActivities(rec){
+    const box=$('crm-acts'); if(!box) return;
+    box.innerHTML='<div class="crm-acts-h">Activité</div><div id="act-composer"></div><div class="crm-tl" id="crm-tl"><div class="crm-muted" style="padding:10px 2px">Chargement…</div></div>';
+    renderComposer(rec);
+    let items=[];
+    try{ const r=await fetch('/api/crm-activity?ref='+encodeURIComponent(rec.id)+'&objet='+objetKey(), { headers: authHeaders() }); const j=await r.json(); if(j.ok) items=j.items||[]; }catch(e){}
+    renderTimeline(rec, items);
+  }
+  function renderComposer(rec){
+    const c=$('act-composer'); if(!c) return;
+    c.innerHTML='<div class="crm-comp"><div class="crm-comp-tabs">'
+      +'<button class="crm-comp-tab'+(actMode==='note'?' on':'')+'" data-m="note">🗒 Note</button>'
+      +'<button class="crm-comp-tab'+(actMode==='tache'?' on':'')+'" data-m="tache">✅ Tâche</button></div>'
+      +'<textarea id="act-text" rows="2" placeholder="'+(actMode==='note'?'Écrire une note…':'Décrire la tâche…')+'"></textarea>'
+      +(actMode==='tache'?'<div class="crm-comp-row"><input type="date" id="act-ech"><input type="text" id="act-resp" placeholder="Responsable (email)"></div>':'')
+      +'<div class="crm-comp-act"><button class="crm-save" id="act-add">Ajouter</button></div></div>';
+    [...c.querySelectorAll('.crm-comp-tab')].forEach(b=>b.onclick=()=>{ actMode=b.dataset.m; renderComposer(rec); });
+    $('act-add').onclick=()=>addActivity(rec);
+  }
+  async function addActivity(rec){
+    const text=(($('act-text')||{}).value||'').trim(); if(!text) return;
+    const contact = obj==='apprenants' ? ((rec.prenom+' '+rec.nom).trim()||rec.email) : (rec.nom||rec.email);
+    const payload={ action:'create', objet:objetKey(), ref:rec.id, email:rec.email||'', contact, type: actMode==='tache'?'Tâche':'Note', contenu:text };
+    if(actMode==='tache'){ payload.echeance=(($('act-ech')||{}).value)||''; payload.responsable=(($('act-resp')||{}).value)||''; payload.statut='À faire'; }
+    const btn=$('act-add'); btn.disabled=true; btn.textContent='…';
+    const ok=await postAct(payload); btn.disabled=false; btn.textContent='Ajouter';
+    if(ok) loadActivities(rec); else alert('Échec de l\'ajout.');
+  }
+  function renderTimeline(rec, items){
+    const tl=$('crm-tl'); if(!tl) return;
+    if(!items.length){ tl.innerHTML='<div class="crm-muted" style="padding:10px 2px">Aucune activité pour l\'instant.</div>'; return; }
+    tl.innerHTML=items.map(it=>{
+      const when=(it.createdTime||'').slice(0,10);
+      const isTask=it.type==='Tâche', done=it.statut==='Fait';
+      const meta=[it.auteur, fdate(when), (isTask&&it.echeance)?('échéance '+fdate(it.echeance)):'', (isTask?it.responsable:'')].filter(Boolean).join(' · ');
+      return '<div class="crm-tli'+(done?' done':'')+'">'
+        +'<div class="crm-tli-ic">'+(isTask?(done?'✅':'⬜'):'🗒')+'</div>'
+        +'<div class="crm-tli-b"><div class="crm-tli-txt">'+esc(it.contenu)+'</div>'
+        +'<div class="crm-tli-meta">'+(isTask?'<span class="crm-tli-badge">'+esc(it.statut||'À faire')+'</span> · ':'')+esc(meta)+'</div></div>'
+        +'<div class="crm-tli-actions">'
+        +(isTask?'<button class="crm-tli-btn" data-act="toggle" data-id="'+esc(it.id)+'" title="Marquer '+(done?'à faire':'fait')+'">'+(done?'↺':'✓')+'</button>':'')
+        +'<button class="crm-tli-btn" data-act="del" data-id="'+esc(it.id)+'" title="Supprimer">✕</button></div></div>';
+    }).join('');
+    [...tl.querySelectorAll('[data-act="toggle"]')].forEach(b=>b.onclick=async()=>{ const it=items.find(x=>x.id===b.dataset.id); const ns=(it&&it.statut==='Fait')?'À faire':'Fait'; if(await postAct({action:'update',objet:objetKey(),id:b.dataset.id,patch:{statut:ns}})) loadActivities(rec); });
+    [...tl.querySelectorAll('[data-act="del"]')].forEach(b=>b.onclick=async()=>{ if(!confirm('Supprimer cette activité ?'))return; if(await postAct({action:'delete',objet:objetKey(),id:b.dataset.id})) loadActivities(rec); });
   }
 
   $('crm-objs').addEventListener('click',e=>{ const b=e.target.closest('.crm-obj'); if(!b)return; obj=b.dataset.obj; selection.clear(); renderAll(); });
