@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>QVEMA Amplify — Agent commercial</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#141925; --panel2:#1b2230; --line:#27303f;
+    --txt:#e6ebf2; --muted:#8a94a6; --accent:#ffce3a; --accent2:#5b8def;
+    --green:#3ecf8e; --red:#ef5b6b; --purple:#a779ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--txt);-webkit-font-smoothing:antialiased;height:100vh;display:flex;flex-direction:column}
+  header{display:flex;align-items:center;gap:12px;padding:16px 22px;border-bottom:1px solid var(--line)}
+  .logo{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#ff9f1c);display:flex;align-items:center;justify-content:center;font-weight:800;color:#11151d}
+  header h1{font-size:15px;margin:0;font-weight:700}
+  header p{font-size:12px;color:var(--muted);margin:2px 0 0}
+  header .spacer{flex:1}
+  header a{font-size:12px;color:var(--muted);text-decoration:none;border:1px solid var(--line);padding:7px 12px;border-radius:8px}
+  header a:hover{border-color:var(--accent);color:var(--txt)}
+  main{flex:1;overflow-y:auto;padding:22px;max-width:860px;width:100%;margin:0 auto}
+  .msg{display:flex;gap:12px;margin-bottom:18px;line-height:1.55}
+  .msg .av{width:30px;height:30px;border-radius:8px;flex:0 0 30px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800}
+  .msg.user .av{background:var(--accent2);color:#08111f}
+  .msg.assistant .av{background:linear-gradient(135deg,var(--accent),#ff9f1c);color:#11151d}
+  .msg .bubble{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 15px;font-size:14px;white-space:pre-wrap;word-wrap:break-word;max-width:100%}
+  .msg.user .bubble{background:var(--panel2)}
+  .msg .role{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+  .empty{color:var(--muted);font-size:13px;text-align:center;margin-top:40px;line-height:1.7}
+  .empty b{color:var(--txt)}
+  footer{border-top:1px solid var(--line);padding:14px 22px}
+  .composer{max-width:860px;margin:0 auto;display:flex;gap:10px;align-items:flex-end}
+  textarea{flex:1;resize:none;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:10px;padding:12px 14px;font:inherit;font-size:14px;max-height:180px;min-height:48px}
+  textarea:focus{outline:none;border-color:var(--accent)}
+  .send{background:var(--accent);color:#11151d;border:none;border-radius:10px;padding:0 20px;height:48px;font-weight:700;cursor:pointer;font-size:14px}
+  .send:disabled{opacity:.5;cursor:not-allowed}
+  .hint{max-width:860px;margin:8px auto 0;font-size:11px;color:var(--muted)}
+  /* gate */
+  #gate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:50}
+  #gate .box{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:32px;width:340px;text-align:center}
+  #gate .glogo{width:52px;height:52px;border-radius:13px;background:linear-gradient(135deg,var(--accent),#ff9f1c);display:flex;align-items:center;justify-content:center;font-weight:800;color:#11151d;margin:0 auto 16px;font-size:20px}
+  #gate p{font-size:13px;color:var(--muted);margin-bottom:18px}
+  #gate input{width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);font-size:14px;margin-bottom:12px}
+  #gate button{width:100%;padding:11px;border-radius:9px;border:none;background:var(--accent);color:#11151d;font-weight:700;cursor:pointer;font-size:14px}
+  #gate .err{color:var(--red);font-size:12px;min-height:16px;margin-bottom:8px}
+  .typing{color:var(--muted);font-size:13px;font-style:italic}
+</style>
+</head>
+<body>
+  <div id="gate">
+    <div class="box">
+      <div class="glogo">QA</div>
+      <p>Agent commercial QVEMA Amplify.<br/>Entre le mot de passe du dashboard.</p>
+      <div class="err" id="gateErr"></div>
+      <input id="gatePw" type="password" placeholder="Mot de passe" autocomplete="current-password" />
+      <button id="gateBtn">Entrer</button>
+    </div>
+  </div>
+
+  <header>
+    <div class="logo">QA</div>
+    <div>
+      <h1>Agent commercial QVEMA Amplify</h1>
+      <p>Copilote Annonceurs / brand content + Amplify Connect</p>
+    </div>
+    <div class="spacer"></div>
+    <a href="/index.html">← Dashboard</a>
+    <a href="#" id="resetBtn" style="margin-left:8px">Nouvelle conversation</a>
+  </header>
+
+  <main id="thread">
+    <div class="empty" id="empty">
+      <b>Bonjour 👋</b><br/>
+      Je suis ton copilote commercial. Pose-moi une question, demande un brouillon de mail,<br/>
+      une relance, une fiche d'appel, un reporting… je prépare, tu valides.
+    </div>
+  </main>
+
+  <footer>
+    <div class="composer">
+      <textarea id="input" placeholder="Écris ton message… (Entrée pour envoyer, Maj+Entrée pour un retour à la ligne)"></textarea>
+      <button class="send" id="send">Envoyer</button>
+    </div>
+    <div class="hint">L'agent prépare des brouillons — il n'envoie ni n'écrit jamais dans une source de vérité sans ta validation.</div>
+  </footer>
+
+<script>
+  const PW_KEY = "qvema_dash_pw";
+  let pw = sessionStorage.getItem(PW_KEY) || "";
+  const messages = []; // { role, content }
+
+  const gate = document.getElementById("gate");
+  const gatePw = document.getElementById("gatePw");
+  const gateBtn = document.getElementById("gateBtn");
+  const gateErr = document.getElementById("gateErr");
+  const thread = document.getElementById("thread");
+  const empty = document.getElementById("empty");
+  const input = document.getElementById("input");
+  const sendBtn = document.getElementById("send");
+
+  function showGate(){ gate.style.display = "flex"; gatePw.focus(); }
+  function hideGate(){ gate.style.display = "none"; input.focus(); }
+
+  if (pw) hideGate(); else showGate();
+
+  gateBtn.onclick = async () => {
+    const val = gatePw.value.trim();
+    if (!val) return;
+    gateErr.textContent = "";
+    // valide via /api/auth
+    try {
+      const r = await fetch("/api/auth", { headers: { "x-dashboard-password": val } });
+      const j = await r.json();
+      if (j.ok) { pw = val; sessionStorage.setItem(PW_KEY, val); hideGate(); }
+      else gateErr.textContent = "Mot de passe incorrect.";
+    } catch { gateErr.textContent = "Erreur de connexion."; }
+  };
+  gatePw.addEventListener("keydown", (e) => { if (e.key === "Enter") gateBtn.click(); });
+
+  document.getElementById("resetBtn").onclick = (e) => {
+    e.preventDefault();
+    messages.length = 0;
+    thread.querySelectorAll(".msg").forEach((n) => n.remove());
+    empty.style.display = "";
+  };
+
+  function esc(s){ return s.replace(/[&<>]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;" }[c])); }
+
+  function addMsg(role, content){
+    empty.style.display = "none";
+    const wrap = document.createElement("div");
+    wrap.className = "msg " + role;
+    wrap.innerHTML =
+      '<div class="av">' + (role === "user" ? "moi" : "QA") + '</div>' +
+      '<div><div class="role">' + (role === "user" ? "Toi" : "Agent") + '</div>' +
+      '<div class="bubble">' + esc(content) + '</div></div>';
+    thread.appendChild(wrap);
+    thread.scrollTop = thread.scrollHeight;
+    return wrap;
+  }
+
+  async function send(){
+    const text = input.value.trim();
+    if (!text || !pw) return;
+    input.value = "";
+    input.style.height = "auto";
+    addMsg("user", text);
+    messages.push({ role: "user", content: text });
+
+    sendBtn.disabled = true;
+    const pending = addMsg("assistant", "…");
+    pending.querySelector(".bubble").innerHTML = '<span class="typing">L\'agent réfléchit…</span>';
+
+    try {
+      const r = await fetch("/api/agent", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-dashboard-password": pw },
+        body: JSON.stringify({ messages }),
+      });
+      const j = await r.json();
+      if (!r.ok) {
+        pending.querySelector(".bubble").innerHTML = '<span style="color:var(--red)">' + esc(j.error || "Erreur") + '</span>';
+      } else {
+        const reply = j.reply || "(réponse vide)";
+        pending.querySelector(".bubble").textContent = reply;
+        messages.push({ role: "assistant", content: reply });
+      }
+    } catch (e) {
+      pending.querySelector(".bubble").innerHTML = '<span style="color:var(--red)">Erreur de connexion.</span>';
+    } finally {
+      sendBtn.disabled = false;
+      thread.scrollTop = thread.scrollHeight;
+      input.focus();
+    }
+  }
+
+  sendBtn.onclick = send;
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+  });
+  input.addEventListener("input", () => {
+    input.style.height = "auto";
+    input.style.height = Math.min(input.scrollHeight, 180) + "px";
+  });
+</script>
+</body>
+</html>
