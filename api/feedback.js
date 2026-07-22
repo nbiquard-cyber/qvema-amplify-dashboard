@@ -9,6 +9,11 @@ const auth = require("./_auth.js");
 const ENDPOINT =
   "https://script.google.com/macros/s/AKfycbzVcNiXd0lAOFtyBWOE4vOaZOj0LHJDqO8zJ_yn6B_nRVtA4mTjfHcR9itlnjL-cAyJnA/exec";
 
+// Cache mémoire court (instance chaude) : le Google Apps Script est lent (~4 s),
+// on évite de le rappeler à chaque ouverture rapprochée de l'onglet Feedbacks.
+let _fbCache = { at: 0, body: null };
+const _FB_TTL = 60000;
+
 module.exports = async (req, res) => {
   res.setHeader("content-type", "application/json; charset=utf-8");
   res.setHeader("cache-control", "no-store");
@@ -37,6 +42,12 @@ module.exports = async (req, res) => {
     );
   }
 
+  // Cache chaud : réponse instantanée si les feedbacks ont < 60 s.
+  if (_fbCache.body && Date.now() - _fbCache.at < _FB_TTL) {
+    res.statusCode = 200;
+    return res.end(_fbCache.body);
+  }
+
   // 3) Lecture côté serveur ; la source renvoie du JSON pur.
   try {
     const url =
@@ -46,6 +57,7 @@ module.exports = async (req, res) => {
     // Filet de sécurité si la source venait à renvoyer du JSONP « cb({...}) ».
     const m = body.match(/^[A-Za-z_$][\w$]*\((([\s\S]*))\)\s*;?\s*$/);
     if (m) body = m[1];
+    if (body.indexOf('"ok":true') >= 0) _fbCache = { at: Date.now(), body };
     res.statusCode = 200;
     return res.end(body);
   } catch (e) {
