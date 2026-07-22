@@ -161,7 +161,7 @@ module.exports = async (req, res) => {
 
   try {
     // ---------- AIRTABLE ----------
-    const [clients, connect, candidatures, accueil] = await Promise.all([
+    const [clientsRaw, connect, candidatures, accueilRaw] = await Promise.all([
       airtableAll(T.clients, ["Promo", "Montant", "Statut Paiement", "Produit", "Date Paiement", "Email", "Sexe", "Age", "Code postal", "Pays", "Mode de paiement"]),
       airtableAll(T.connect, ["Email", "Nom complet", "Montant", "Statut Paiement", "Date Paiement", "Mode Paiement", "Saison QVEMA", "Statut Membre"]),
       airtableAll(T.candidatures, ["Statut Candidature", "Statut Membre", "Mode de paiement", "Date Candidature", "Sous-cercle d'intérêt", "Saison"]),
@@ -171,6 +171,12 @@ module.exports = async (req, res) => {
     const norm = (s) => (s || "").toString().trim();
     const lower = (s) => norm(s).toLowerCase();
     const promoOf = (c) => norm(c.fields["Promo"]) || "Sans promo";
+
+    // Exclusion des TESTS INTERNES (Promo contenant "test") : ne doivent jamais
+    // apparaître ni fausser les stats (inscrits, CA, démographie, secteurs/stades…).
+    const isTestInterne = (rec) => /test/i.test(norm(rec.fields["Promo"]));
+    const clients = clientsRaw.filter((c) => !isTestInterne(c));
+    const accueil = accueilRaw.filter((a) => !isTestInterne(a));
 
     // ----- Bootcamp (Clients) -----
     const bcPaid = clients.filter((c) => norm(c.fields["Statut Paiement"]) === "Payé");

@@ -84,7 +84,8 @@ module.exports = async (req, res) => {
         if (em) accByEmail[em] = a;
       }
       out.apprenants = clients
-        .filter((c) => norm(c.fields["Statut Paiement"]) === "Payé")
+        // Exclut les tests internes (Promo contenant "test") + garde les payés.
+        .filter((c) => norm(c.fields["Statut Paiement"]) === "Payé" && !/test/i.test(norm(c.fields["Promo"])))
         .map((c) => {
           const f = c.fields;
           const em = lower(f["Email"]);

@@ -931,7 +931,7 @@ if(AUTH && AUTH.token){
       return;
     }
     RECORDS=[];bugCount=0;
-    AIRTABLE=(resp.airtable||[]).map(a=>({sexe:a.sexe||'',age:(typeof a.age==='number'?a.age:num(a.age)),cp:a.cp||'',dob:a.dob||'',promo:canonPromo(a.promo),region:cpToRegion(a.cp)}));
+    AIRTABLE=(resp.airtable||[]).map(a=>({sexe:a.sexe||'',age:(typeof a.age==='number'?a.age:num(a.age)),cp:a.cp||'',dob:a.dob||'',promo:canonPromo(a.promo),region:cpToRegion(a.cp)})).filter(a=>!/test/i.test(a.promo||''));
     const tabs=resp.tabs||{};
     Object.keys(tabs).forEach(tab=>{
       const mod=moduleOf(tab);
@@ -945,7 +945,7 @@ if(AUTH && AUTH.token){
           email:(r["Email"]||"").toString(),date:(r["Horodatage"]||"").toString().slice(0,10),raw:r,bug:false};
         const _nums=[rec.sat].concat(Object.keys(rec.notes).map(k=>rec.notes[k])).filter(x=>x!=null);
         if(rec.module==="0-1" && _nums.length>=6 && _nums.every(x=>x===1)){rec.bug=true;rec.sat=null;rec.nps=null;rec.ped="";rec.notes={};bugCount++;}
-        RECORDS.push(rec);
+        if(!/test/i.test(rec.promo)) RECORDS.push(rec);
       });
     });
     const promos=[...new Set(RECORDS.map(r=>r.promo).concat(AIRTABLE.map(a=>a.promo)))].sort();
