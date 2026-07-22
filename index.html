@@ -171,7 +171,7 @@
   <div class="tabs">
     <div class="tab active" data-tab="bootcamp">🎓 Bootcamp</div>
     <div class="tab" data-tab="amplify">🔗 Amplify Connect</div>
-    <div class="tab" data-tab="liz">🤝 Agent Liz</div>
+    <div class="tab" data-tab="liz">🤝 Feature Liz</div>
   </div>
 
   <div id="loading"><div class="spinner"></div>Chargement des données…</div>
@@ -319,10 +319,29 @@
     </div>
   </section>
 
-  <!-- AGENT LIZ -->
+  <!-- FEATURE LIZ -->
   <section id="view-liz" class="hidden">
     <style>
-      #view-liz .liz-wrap{display:flex;flex-direction:column;height:calc(100vh - 210px);min-height:460px}
+      #view-liz .liz-subtabs{display:flex;gap:8px;margin-bottom:16px}
+      #view-liz .liz-subtab{padding:8px 16px;cursor:pointer;color:var(--muted);font-weight:600;font-size:13px;border:1px solid var(--line);border-radius:9px;background:var(--panel2)}
+      #view-liz .liz-subtab:hover{border-color:var(--accent);color:var(--txt)}
+      #view-liz .liz-subtab.active{background:var(--accent);color:#11151d;border-color:var(--accent)}
+      #view-liz .liz-pane{display:none} #view-liz .liz-pane.active{display:block}
+      #view-liz .liz-config{display:none;background:var(--panel);border:1px solid var(--red);border-left:3px solid var(--red);border-radius:12px;padding:14px 16px;margin-bottom:16px;font-size:13px;line-height:1.6}
+      #view-liz .liz-config b{color:var(--txt)} #view-liz .liz-config code{background:#0b0e14;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:12px}
+      #view-liz .liz-drop{border:1.5px dashed var(--line);border-radius:14px;padding:26px;text-align:center;color:var(--muted);cursor:pointer;background:var(--panel)}
+      #view-liz .liz-drop:hover,#view-liz .liz-drop.drag{border-color:var(--accent);color:var(--txt)}
+      #view-liz .liz-drop b{color:var(--txt)}
+      #view-liz .liz-toolbar{display:flex;align-items:center;gap:10px;margin:16px 0 10px}
+      #view-liz .liz-toolbar .sp{flex:1}
+      #view-liz .liz-btn{background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:7px 13px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;text-decoration:none;display:inline-block}
+      #view-liz .liz-btn:hover{border-color:var(--accent)}
+      #view-liz .liz-files{width:100%;border-collapse:collapse;font-size:13px}
+      #view-liz .liz-files th{text-align:left;color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:8px}
+      #view-liz .liz-files td{padding:9px 8px;border-top:1px solid var(--line)}
+      #view-liz .liz-files a{color:var(--accent2);text-decoration:none} #view-liz .liz-files a:hover{text-decoration:underline}
+      #view-liz .liz-note{font-size:12px;color:var(--muted);margin-top:10px}
+      #view-liz .liz-wrap{display:flex;flex-direction:column;height:calc(100vh - 250px);min-height:440px}
       #view-liz .liz-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
       #view-liz .liz-head .qa{background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:8px 13px;border-radius:9px;cursor:pointer;font-size:13px;font-weight:600}
       #view-liz .liz-head .qa:hover{border-color:var(--accent)}
@@ -357,24 +376,54 @@
       #view-liz .liz-send:disabled{opacity:.5;cursor:not-allowed}
       #view-liz .liz-hint{font-size:11px;color:var(--muted);margin-top:7px}
     </style>
-    <div class="liz-wrap">
-      <div class="liz-head">
-        <button class="qa" id="liz-qa-fiche">📞 Fiche d'appel &amp; objections</button>
-        <button class="qa" id="liz-qa-report">📊 Reporting pipe Connect</button>
-        <button class="qa ghost" id="liz-reset">Nouvelle conversation</button>
+    <div class="liz-subtabs">
+      <div class="liz-subtab active" data-liz="data">🗂️ Données</div>
+      <div class="liz-subtab" data-liz="chat">💬 Chatbot</div>
+    </div>
+
+    <div class="liz-config" id="liz-config"></div>
+
+    <!-- SOUS-ONGLET : DONNÉES -->
+    <div class="liz-pane active" id="liz-pane-data">
+      <div class="liz-drop" id="liz-drop">
+        <b>Dépose des documents ici</b> ou clique pour choisir un fichier<br/>
+        <span style="font-size:12px">Envoyés directement dans le dossier Google Drive « LIZ QVEMA »</span>
+        <input type="file" id="liz-file" multiple style="display:none"/>
       </div>
-      <div class="liz-thread" id="liz-thread">
-        <div class="liz-empty" id="liz-empty">
-          <b>Salut, c'est ton copilote Amplify Connect 🤝</b><br/>
-          Débrief d'appel à transformer en relance ? Un mail à préparer ? Une fiche d'appel, une objection à traiter, un point sur le pipe ?<br/>
-          Balance, je prépare — tu valides et tu envoies.
+      <div class="liz-toolbar">
+        <div style="font-size:13px;color:var(--muted)" id="liz-files-count">—</div>
+        <div class="sp"></div>
+        <a class="liz-btn" id="liz-open-drive" target="_blank" rel="noopener" href="#">Ouvrir le dossier Drive ↗</a>
+        <button class="liz-btn" id="liz-refresh">↻ Rafraîchir</button>
+      </div>
+      <table class="liz-files">
+        <thead><tr><th>Nom</th><th>Modifié</th><th></th></tr></thead>
+        <tbody id="liz-files-body"><tr><td colspan="3" style="color:var(--muted)">Chargement…</td></tr></tbody>
+      </table>
+      <div class="liz-note">Donnée en temps réel : modifie un fichier sur Drive, le chatbot en tient compte au message suivant.</div>
+    </div>
+
+    <!-- SOUS-ONGLET : CHATBOT -->
+    <div class="liz-pane" id="liz-pane-chat">
+      <div class="liz-wrap">
+        <div class="liz-head">
+          <button class="qa" id="liz-qa-who">🔎 Retrouver un participant</button>
+          <button class="qa" id="liz-qa-status">📋 Statut d'un prospect</button>
+          <button class="qa ghost" id="liz-reset">Nouvelle conversation</button>
         </div>
+        <div class="liz-thread" id="liz-thread">
+          <div class="liz-empty" id="liz-empty">
+            <b>Pose ta question 💬</b><br/>
+            Ex. « X était dans quelle saison et a pitché quoi ? », « statut du dossier PILLQARE ? », « la fiche d'appel d'INVITIN ».<br/>
+            Je réponds à partir des documents du dossier LIZ QVEMA.
+          </div>
+        </div>
+        <div class="liz-composer">
+          <textarea id="liz-input" placeholder="Ta question… (Entrée pour envoyer, Maj+Entrée = retour à la ligne)"></textarea>
+          <button class="liz-send" id="liz-send">Envoyer</button>
+        </div>
+        <div class="liz-hint">Le chatbot lit les documents Google Drive en temps réel. Réponses basées uniquement sur ces documents.</div>
       </div>
-      <div class="liz-composer">
-        <textarea id="liz-input" placeholder="Écris ton message… (Entrée pour envoyer, Maj+Entrée = retour à la ligne)"></textarea>
-        <button class="liz-send" id="liz-send">Envoyer</button>
-      </div>
-      <div class="liz-hint">L'agent prépare des brouillons et lit les données live du dashboard — il n'envoie rien et n'écrit dans aucune source de vérité sans ta validation.</div>
     </div>
   </section>
 </div>
@@ -678,132 +727,153 @@ if(getPw()){
 }
 
 /* ==================================================================
-   MODULE AGENT LIZ  (copilote Amplify Connect)
-   Chat via le proxy serverless /api/agent (même mot de passe que le
-   dashboard). L'agent lit les données live via l'outil get_dashboard_data
-   côté serveur. Aucune clé API dans la page (ANTHROPIC_API_KEY vit dans
-   les variables d'environnement Vercel).
+   MODULE FEATURE LIZ  (Données Drive + Chatbot documentaire)
+   - Données : liste / upload des fichiers du dossier Google Drive
+     "LIZ QVEMA" via /api/drive (compte de service côté serveur).
+   - Chatbot : Q&R sur ces documents via /api/liz-chat.
+   Même mot de passe que le dashboard. Aucune clé/API dans la page.
    ================================================================== */
 (function(){
-  const msgs = [];          // { role, content } — historique envoyé à l'API
-  let busy = false;
-  const thread = document.getElementById('liz-thread');
-  const empty  = document.getElementById('liz-empty');
-  const input  = document.getElementById('liz-input');
-  const sendBtn= document.getElementById('liz-send');
+  const msgs=[]; let busy=false; let firstOpen=true;
+  const $=(id)=>document.getElementById(id);
+  const thread=$('liz-thread'), empty=$('liz-empty'), input=$('liz-input'), sendBtn=$('liz-send');
+  const filesBody=$('liz-files-body'), filesCount=$('liz-files-count'), configBox=$('liz-config');
 
   function escHtml(s){ return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+  function fmtDate(iso){ try{ return new Date(iso).toLocaleString('fr-FR'); }catch(_){ return iso||''; } }
 
-  // Mini rendu Markdown (sûr : on échappe d'abord, puis on réintroduit un
-  // sous-ensemble de balises). Gère titres, gras/italique, listes, tableaux,
-  // liens, code inline et blocs de code.
+  // Mini rendu Markdown (sûr) pour les réponses du chatbot.
   function md(src){
-    src = String(src).replace(/\r\n/g,'\n');
-    // blocs de code ```…``` (protégés avant tout le reste)
-    const blocks = [];
-    src = src.replace(/```(\w+)?\n([\s\S]*?)```/g,(_,lang,code)=>{
-      blocks.push('<pre><code>'+escHtml(code.replace(/\n$/,''))+'</code></pre>');
-      return ' B'+(blocks.length-1)+' ';
-    });
-    src = escHtml(src);
-    const lines = src.split('\n');
-    let out=[], i=0;
-    function inline(t){
-      return t
-        .replace(/`([^`]+)`/g,'<code>$1</code>')
-        .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>')
-        .replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')
-        .replace(/(^|[^*])\*([^*\n]+)\*/g,'$1<em>$2</em>');
-    }
+    src=String(src).replace(/\r\n/g,'\n');
+    const blocks=[];
+    src=src.replace(/```(\w+)?\n([\s\S]*?)```/g,(_,l,code)=>{ blocks.push('<pre><code>'+escHtml(code.replace(/\n$/,''))+'</code></pre>'); return ' B'+(blocks.length-1)+' '; });
+    src=escHtml(src);
+    const lines=src.split('\n'); let out=[],i=0;
+    function inline(t){ return t
+      .replace(/`([^`]+)`/g,'<code>$1</code>')
+      .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>')
+      .replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')
+      .replace(/(^|[^*])\*([^*\n]+)\*/g,'$1<em>$2</em>'); }
     while(i<lines.length){
       let l=lines[i];
-      if(/^ B\d+ $/.test(l.trim())){ out.push(l.trim()); i++; continue; }
+      if(/^ B\d+ $/.test(l.trim())){ out.push(l.trim()); i++; continue; }
       if(!l.trim()){ i++; continue; }
-      // tableau
       if(/^\s*\|.*\|\s*$/.test(l) && i+1<lines.length && /^\s*\|[\s:|-]+\|\s*$/.test(lines[i+1])){
         const cells=r=>r.trim().replace(/^\|/,'').replace(/\|$/,'').split('|').map(c=>c.trim());
         const head=cells(l); i+=2; let rows=[];
         while(i<lines.length && /^\s*\|.*\|\s*$/.test(lines[i])){ rows.push(cells(lines[i])); i++; }
-        out.push('<table><thead><tr>'+head.map(h=>'<th>'+inline(h)+'</th>').join('')+'</tr></thead><tbody>'+
-          rows.map(r=>'<tr>'+r.map(c=>'<td>'+inline(c)+'</td>').join('')+'</tr>').join('')+'</tbody></table>');
-        continue;
+        out.push('<table><thead><tr>'+head.map(h=>'<th>'+inline(h)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map(c=>'<td>'+inline(c)+'</td>').join('')+'</tr>').join('')+'</tbody></table>'); continue;
       }
       let m;
       if((m=l.match(/^\s*(#{1,3})\s+(.*)$/))){ const n=m[1].length; out.push('<h'+n+'>'+inline(m[2])+'</h'+n+'>'); i++; continue; }
-      // citation / encadré (le ">" a été échappé en "&gt;")
-      if(/^\s*&gt;\s?/.test(l)){
-        let q=[]; while(i<lines.length && /^\s*&gt;\s?/.test(lines[i])){ q.push(lines[i].replace(/^\s*&gt;\s?/,'')); i++; }
-        out.push('<blockquote><p>'+inline(q.join('<br>'))+'</p></blockquote>'); continue;
-      }
-      // liste à puces
-      if(/^\s*[-*]\s+/.test(l)){
-        let items=[]; while(i<lines.length && /^\s*[-*]\s+/.test(lines[i])){ items.push('<li>'+inline(lines[i].replace(/^\s*[-*]\s+/,''))+'</li>'); i++; }
-        out.push('<ul>'+items.join('')+'</ul>'); continue;
-      }
-      // liste numérotée
-      if(/^\s*\d+\.\s+/.test(l)){
-        let items=[]; while(i<lines.length && /^\s*\d+\.\s+/.test(lines[i])){ items.push('<li>'+inline(lines[i].replace(/^\s*\d+\.\s+/,''))+'</li>'); i++; }
-        out.push('<ol>'+items.join('')+'</ol>'); continue;
-      }
-      // paragraphe (fusionne les lignes consécutives)
+      if(/^\s*&gt;\s?/.test(l)){ let q=[]; while(i<lines.length && /^\s*&gt;\s?/.test(lines[i])){ q.push(lines[i].replace(/^\s*&gt;\s?/,'')); i++; } out.push('<blockquote><p>'+inline(q.join('<br>'))+'</p></blockquote>'); continue; }
+      if(/^\s*[-*]\s+/.test(l)){ let it=[]; while(i<lines.length && /^\s*[-*]\s+/.test(lines[i])){ it.push('<li>'+inline(lines[i].replace(/^\s*[-*]\s+/,''))+'</li>'); i++; } out.push('<ul>'+it.join('')+'</ul>'); continue; }
+      if(/^\s*\d+\.\s+/.test(l)){ let it=[]; while(i<lines.length && /^\s*\d+\.\s+/.test(lines[i])){ it.push('<li>'+inline(lines[i].replace(/^\s*\d+\.\s+/,''))+'</li>'); i++; } out.push('<ol>'+it.join('')+'</ol>'); continue; }
       let para=[l]; i++;
-      while(i<lines.length && lines[i].trim() && !/^\s*([-*]|\d+\.|#{1,3}\s|\|)/.test(lines[i]) && !/^ B\d+ $/.test(lines[i].trim())){ para.push(lines[i]); i++; }
+      while(i<lines.length && lines[i].trim() && !/^\s*([-*]|\d+\.|#{1,3}\s|\||&gt;)/.test(lines[i]) && !/^ B\d+ $/.test(lines[i].trim())){ para.push(lines[i]); i++; }
       out.push('<p>'+inline(para.join('<br>'))+'</p>');
     }
-    let html=out.join('\n');
-    html=html.replace(/ B(\d+) /g,(_,n)=>blocks[n]);
-    return html;
+    return out.join('\n').replace(/ B(\d+) /g,(_,n)=>blocks[n]);
   }
 
-  function addMsg(role, content, asMarkdown){
+  function showConfig(msg){
+    configBox.style.display='block';
+    configBox.innerHTML='<b>⚙️ Accès Google Drive non configuré.</b><br>'+escHtml(msg||'')+
+      '<br>Ajoute <code>GOOGLE_SA_EMAIL</code>, <code>GOOGLE_SA_PRIVATE_KEY</code> et <code>GDRIVE_LIZ_FOLDER_ID</code> dans les variables d’environnement Vercel, et partage le dossier « LIZ QVEMA » avec le compte de service (Éditeur).';
+  }
+  function hideConfig(){ configBox.style.display='none'; }
+
+  /* ---------- DONNÉES ---------- */
+  async function loadFiles(){
+    const pw=getPw(); if(!pw){ showGate('Connecte-toi'); return; }
+    filesBody.innerHTML='<tr><td colspan="3" style="color:var(--muted)">Chargement…</td></tr>';
+    try{
+      const r=await fetch('/api/drive',{headers:{'x-dashboard-password':pw}});
+      const j=await r.json();
+      if(r.status===503){ showConfig(j.error); filesBody.innerHTML='<tr><td colspan="3" style="color:var(--muted)">—</td></tr>'; filesCount.textContent=''; return; }
+      if(!r.ok){ filesBody.innerHTML='<tr><td colspan="3" style="color:var(--red)">'+escHtml(j.error||'Erreur')+'</td></tr>'; return; }
+      hideConfig();
+      const files=j.files||[];
+      $('liz-open-drive').href='https://drive.google.com/drive/folders/'+(j.folderId||'');
+      filesCount.textContent=files.length+' fichier'+(files.length>1?'s':'');
+      filesBody.innerHTML = files.length
+        ? files.map(f=>'<tr><td>'+escHtml(f.name)+'</td><td style="color:var(--muted)">'+fmtDate(f.modifiedTime)+'</td><td><a href="'+(f.webViewLink||'#')+'" target="_blank" rel="noopener">ouvrir ↗</a></td></tr>').join('')
+        : '<tr><td colspan="3" style="color:var(--muted)">Dossier vide — dépose des fichiers ci-dessus.</td></tr>';
+    }catch(e){ filesBody.innerHTML='<tr><td colspan="3" style="color:var(--red)">Erreur de connexion.</td></tr>'; }
+  }
+
+  function uploadFiles(fileList){
+    const pw=getPw(); if(!pw) return;
+    Array.from(fileList).forEach(file=>{
+      const reader=new FileReader();
+      reader.onload=async()=>{
+        const b64=String(reader.result).split(',')[1]||'';
+        try{
+          const r=await fetch('/api/drive',{method:'POST',headers:{'content-type':'application/json','x-dashboard-password':pw},body:JSON.stringify({name:file.name,mimeType:file.type,base64:b64})});
+          const j=await r.json();
+          if(r.status===503){ showConfig(j.error); return; }
+          if(!r.ok){ alert('Échec upload '+file.name+' : '+(j.error||'')); return; }
+          loadFiles();
+        }catch(e){ alert('Échec upload '+file.name); }
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  const drop=$('liz-drop'), fileInput=$('liz-file');
+  drop.onclick=()=>fileInput.click();
+  fileInput.onchange=()=>{ if(fileInput.files.length){ uploadFiles(fileInput.files); fileInput.value=''; } };
+  ['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{ e.preventDefault(); drop.classList.add('drag'); }));
+  ['dragleave'].forEach(ev=>drop.addEventListener(ev,e=>{ e.preventDefault(); drop.classList.remove('drag'); }));
+  drop.addEventListener('drop',e=>{ e.preventDefault(); drop.classList.remove('drag'); if(e.dataTransfer&&e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files); });
+  $('liz-refresh').onclick=loadFiles;
+
+  /* ---------- SOUS-ONGLETS ---------- */
+  function showSub(which){
+    document.querySelectorAll('#view-liz .liz-subtab').forEach(x=>x.classList.toggle('active',x.dataset.liz===which));
+    $('liz-pane-data').classList.toggle('active',which==='data');
+    $('liz-pane-chat').classList.toggle('active',which==='chat');
+    if(which==='chat') setTimeout(()=>input.focus(),50);
+  }
+  document.querySelectorAll('#view-liz .liz-subtab').forEach(t=>t.onclick=()=>showSub(t.dataset.liz));
+
+  /* ---------- CHATBOT ---------- */
+  function addMsg(role,content,asMd){
     empty.style.display='none';
     const wrap=document.createElement('div');
     wrap.className='msg '+role;
-    const body = asMarkdown ? md(content) : escHtml(content);
     wrap.innerHTML='<div class="av">'+(role==='user'?'moi':'QA')+'</div>'+
-      '<div style="min-width:0;flex:1"><div class="role">'+(role==='user'?'Toi':'Agent Liz')+'</div>'+
-      '<div class="bubble">'+body+'</div></div>';
-    thread.appendChild(wrap);
-    thread.scrollTop=thread.scrollHeight;
-    return wrap;
+      '<div style="min-width:0;flex:1"><div class="role">'+(role==='user'?'Toi':'Feature Liz')+'</div>'+
+      '<div class="bubble">'+(asMd?md(content):escHtml(content))+'</div></div>';
+    thread.appendChild(wrap); thread.scrollTop=thread.scrollHeight; return wrap;
   }
 
   async function send(text){
-    text=(text!=null?text:input.value).trim();
-    if(!text || busy) return;
-    const pw=getPw();
-    if(!pw){ showGate('Connecte-toi d’abord'); return; }
+    text=(text!=null?text:input.value).trim(); if(!text||busy) return;
+    const pw=getPw(); if(!pw){ showGate('Connecte-toi'); return; }
     input.value=''; input.style.height='auto';
-    addMsg('user', text, false);
-    msgs.push({role:'user',content:text});
+    addMsg('user',text,false); msgs.push({role:'user',content:text});
     busy=true; sendBtn.disabled=true;
     const pending=addMsg('assistant','',true);
-    pending.querySelector('.bubble').innerHTML='<span class="typing">L’agent réfléchit…</span>';
+    pending.querySelector('.bubble').innerHTML='<span class="typing">Je cherche dans les documents…</span>';
     try{
-      const r=await fetch('/api/agent',{method:'POST',headers:{'content-type':'application/json','x-dashboard-password':pw},body:JSON.stringify({messages:msgs})});
+      const r=await fetch('/api/liz-chat',{method:'POST',headers:{'content-type':'application/json','x-dashboard-password':pw},body:JSON.stringify({messages:msgs})});
       const j=await r.json();
-      if(!r.ok){
-        pending.querySelector('.bubble').innerHTML='<span style="color:var(--red)">'+escHtml(j.error||('Erreur '+r.status))+'</span>';
-      }else{
-        const reply=j.reply||'(réponse vide)';
-        pending.querySelector('.bubble').innerHTML=md(reply);
-        msgs.push({role:'assistant',content:reply});
-      }
-    }catch(e){
-      pending.querySelector('.bubble').innerHTML='<span style="color:var(--red)">Erreur de connexion.</span>';
-    }finally{
-      busy=false; sendBtn.disabled=false; thread.scrollTop=thread.scrollHeight; input.focus();
-    }
+      if(r.status===503){ pending.querySelector('.bubble').innerHTML='<span style="color:var(--red)">Accès Drive non configuré — voir l’onglet Données.</span>'; showConfig(j.error); }
+      else if(!r.ok){ pending.querySelector('.bubble').innerHTML='<span style="color:var(--red)">'+escHtml(j.error||('Erreur '+r.status))+'</span>'; }
+      else{ const reply=j.reply||'(réponse vide)'; pending.querySelector('.bubble').innerHTML=md(reply); msgs.push({role:'assistant',content:reply}); }
+    }catch(e){ pending.querySelector('.bubble').innerHTML='<span style="color:var(--red)">Erreur de connexion.</span>'; }
+    finally{ busy=false; sendBtn.disabled=false; thread.scrollTop=thread.scrollHeight; input.focus(); }
   }
-
   sendBtn.onclick=()=>send();
   input.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); send(); } });
   input.addEventListener('input',()=>{ input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,170)+'px'; });
-  document.getElementById('liz-reset').onclick=()=>{ msgs.length=0; thread.querySelectorAll('.msg').forEach(n=>n.remove()); empty.style.display=''; input.focus(); };
-  document.getElementById('liz-qa-fiche').onclick=()=>send('Prépare-moi une fiche d’appel Amplify Connect (1 page : bandeau + faits clés + objectif de l’appel + 4 étapes + phrases prêtes à dire en encadré), puis les réponses aux 3 objections les plus fréquentes. Pose-moi d’abord les 2-3 questions dont tu as besoin (à qui on parle, contexte) avant de rédiger.');
-  document.getElementById('liz-qa-report').onclick=()=>send('Fais-moi un reporting de la température du pipe Amplify Connect à partir des données live du dashboard : membres payants, CA encaissé, ARR, candidatures par statut, par sous-cercle et par mode de paiement. Distingue bien intérêt ≠ adhésion payée, et termine par les 3 prochaines actions prioritaires.');
+  $('liz-reset').onclick=()=>{ msgs.length=0; thread.querySelectorAll('.msg').forEach(n=>n.remove()); empty.style.display=''; input.focus(); };
+  $('liz-qa-who').onclick=()=>{ input.value='Retrouve ce participant (saison QVEMA + ce qu’il a pitché + statut CRM s’il existe) : '; showSub('chat'); setTimeout(()=>input.focus(),60); };
+  $('liz-qa-status').onclick=()=>{ input.value='Statut CRM de ce prospect (statut, dernier contact, prochaine action, notes) : '; showSub('chat'); setTimeout(()=>input.focus(),60); };
 
-  window.LIZ={ focus:()=>{ setTimeout(()=>input.focus(),50); } };
+  // Chargé au premier affichage de l'onglet Feature Liz.
+  window.LIZ={ focus:()=>{ if(firstOpen){ firstOpen=false; loadFiles(); } } };
 })();
 
 /* ==================================================================

@@ -6,7 +6,10 @@
     "api/feedback.js": {
       "maxDuration": 60
     },
-    "api/agent.js": {
+    "api/drive.js": {
+      "maxDuration": 60
+    },
+    "api/liz-chat.js": {
       "maxDuration": 60
     }
   }
