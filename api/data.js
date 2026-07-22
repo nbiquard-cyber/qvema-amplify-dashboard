@@ -145,6 +145,11 @@ function computeDemographics(list) {
   };
 }
 
+// Cache mémoire court (instance chaude) : évite de ré-agréger Airtable + Stripe
+// à chaque appel rapproché. Non partagé entre instances, mais absorbe les rafales.
+let _cache = { at: 0, data: null };
+const _CACHE_TTL = 60000;
+
 module.exports = async (req, res) => {
   const user = auth.authFromRequest(req);
   if (!user) {
@@ -160,6 +165,17 @@ module.exports = async (req, res) => {
   }
 
   try {
+    // Cache chaud : réponse quasi instantanée si les données ont < 60 s.
+    if (_cache.data && Date.now() - _cache.at < _CACHE_TTL) {
+      const out = { ..._cache.data };
+      if (!auth.has(user.perms, "bootcamp")) delete out.bootcamp;
+      if (!auth.has(user.perms, "amplify")) delete out.amplify;
+      res.statusCode = 200;
+      res.setHeader("Content-Type", "application/json");
+      res.setHeader("Cache-Control", "no-store");
+      return res.end(JSON.stringify(out));
+    }
+
     // ---------- AIRTABLE ----------
     const [clientsRaw, connect, candidatures, accueilRaw] = await Promise.all([
       airtableAll(T.clients, ["Promo", "Montant", "Statut Paiement", "Produit", "Date Paiement", "Email", "Sexe", "Age", "Code postal", "Pays", "Mode de paiement"]),
@@ -418,14 +434,17 @@ module.exports = async (req, res) => {
       },
     };
 
-    // Filtrage par permissions : on ne renvoie que les domaines autorisés.
-    if (!auth.has(user.perms, "bootcamp")) delete result.bootcamp;
-    if (!auth.has(user.perms, "amplify")) delete result.amplify;
+    _cache = { at: Date.now(), data: result };
+
+    // Filtrage par permissions (copie, pour ne pas altérer le cache).
+    const out = { ...result };
+    if (!auth.has(user.perms, "bootcamp")) delete out.bootcamp;
+    if (!auth.has(user.perms, "amplify")) delete out.amplify;
 
     res.statusCode = 200;
     res.setHeader("Content-Type", "application/json");
     res.setHeader("Cache-Control", "no-store");
-    return res.end(JSON.stringify(result));
+    return res.end(JSON.stringify(out));
   } catch (e) {
     res.statusCode = 500;
     res.setHeader("Content-Type", "application/json");
