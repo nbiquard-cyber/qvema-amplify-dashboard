@@ -77,6 +77,14 @@ module.exports = async (req, res) => {
         if (promo === "PROMO 2") p2amounts[a] = (p2amounts[a] || 0) + 1;
       } else if (bootSet.has(a)) { unattributedBoot.count++; unattributedBoot.net += net; }
     }
+    // Index TOUS les clients par email (tous statuts) pour tracer les payeurs 1200€.
+    const emailToClient = {};
+    clients.forEach((c) => { const em = lower(c.fields["Email"]); if (em) emailToClient[em] = { promo: norm(c.fields["Promo"]), statut: norm(c.fields["Statut Paiement"]), montant: Number(c.fields["Montant"]) || 0 }; });
+    const detail1200 = succeeded.filter((c) => c.amount === 120000).map((c) => {
+      const em = chargeEmail(c);
+      return { email: em, date: new Date((c.created || 0) * 1000).toISOString().slice(0, 10), airtable: emailToClient[em] || "ABSENT d'Airtable" };
+    });
+
     const round = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, Math.round(v * 100) / 100]));
     res.statusCode = 200;
     return res.end(JSON.stringify({
@@ -87,6 +95,7 @@ module.exports = async (req, res) => {
       bucketByPromo: round(bucketByPromo),
       promo2AmountCounts: p2amounts,
       unattributedBootcampCharges: { count: unattributedBoot.count, net: Math.round(unattributedBoot.net * 100) / 100 },
+      detail1200,
     }, null, 2));
   } catch (e) { res.statusCode = 500; return res.end(JSON.stringify({ error: e.message })); }
 };
