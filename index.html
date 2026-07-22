@@ -143,10 +143,11 @@
   <div class="box">
     <div class="logo">QV</div>
     <h2>Cockpit QVEMA Amplify</h2>
-    <p>Accès protégé — entre le mot de passe</p>
+    <p>Connexion — accès réservé à l'équipe</p>
     <div class="err" id="gateErr"></div>
-    <input type="password" id="pwInput" placeholder="Mot de passe" autofocus />
-    <button id="pwBtn">Accéder</button>
+    <input type="email" id="emailInput" placeholder="Email" autocomplete="username" autofocus />
+    <input type="password" id="pwInput" placeholder="Mot de passe" autocomplete="current-password" />
+    <button id="pwBtn">Se connecter</button>
   </div>
 </div>
 
@@ -160,10 +161,12 @@
       </div>
     </div>
     <div class="meta">
+      <div id="whoami" style="margin-bottom:2px;color:var(--txt);font-weight:600"></div>
       <div id="updatedAt">—</div>
-      <div style="display:flex;gap:8px;margin-top:6px">
-        <a href="/board.html" style="background:var(--accent);border:1px solid var(--accent);color:#11151d;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none">📊 Board mensuel →</a>
+      <div style="display:flex;gap:8px;margin-top:6px;justify-content:flex-end;flex-wrap:wrap">
+        <a id="boardBtn" href="/board.html" style="background:var(--accent);border:1px solid var(--accent);color:#11151d;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none">📊 Board mensuel →</a>
         <button id="refreshBtn">↻ Rafraîchir</button>
+        <button id="logoutBtn">Déconnexion</button>
       </div>
     </div>
   </header>
@@ -331,25 +334,40 @@ let DATA = null;
 let currentPromo = 'Toutes';
 let currentBcSub = 'pilotage';
 let fbLoaded = false;
+let AUTH = null;
 
-function getPw(){ return sessionStorage.getItem('qvema_pw') || ''; }
+function loadAuth(){ try{ AUTH = JSON.parse(sessionStorage.getItem('qvema_auth')||'null'); }catch(e){ AUTH=null; } return AUTH; }
+function getToken(){ return (AUTH && AUTH.token) || ''; }
+function hasPerm(k){ return !!(AUTH && AUTH.perms && (AUTH.perms.indexOf('admin')>=0 || AUTH.perms.indexOf(k)>=0)); }
+function authHeaders(){ return { 'Authorization': 'Bearer ' + getToken() }; }
 
 async function load(){
-  document.getElementById('loading').classList.remove('hidden');
-  document.getElementById('view-bootcamp').classList.add('hidden');
-  document.getElementById('view-amplify').classList.add('hidden');
-  const r = await fetch('/api/data', { headers: { 'x-dashboard-password': getPw() } });
-  if(r.status===401){ sessionStorage.removeItem('qvema_pw'); showGate('Mot de passe incorrect'); return; }
-  DATA = await r.json();
-  if(DATA.error){ document.getElementById('loading').innerHTML='Erreur : '+DATA.error; return; }
-  document.getElementById('loading').classList.add('hidden');
-  document.getElementById('updatedAt').textContent = 'Maj : ' + new Date(DATA.generatedAt).toLocaleString('fr-FR');
-  render();
-  showTab(document.querySelector('.tab.active').dataset.tab);
+  // Données business (/api/data) : uniquement si l'utilisateur a Bootcamp ou Amplify.
+  if(hasPerm('bootcamp') || hasPerm('amplify')){
+    document.getElementById('loading').classList.remove('hidden');
+    document.getElementById('view-bootcamp').classList.add('hidden');
+    document.getElementById('view-amplify').classList.add('hidden');
+    let r;
+    try{ r = await fetch('/api/data', { headers: authHeaders() }); }
+    catch(e){ document.getElementById('loading').innerHTML='Erreur réseau.'; return; }
+    if(r.status===401){ logout('Session expirée, reconnecte-toi.'); return; }
+    if(r.status===403){ document.getElementById('loading').classList.add('hidden'); }
+    else {
+      DATA = await r.json();
+      if(DATA.error){ document.getElementById('loading').innerHTML='Erreur : '+DATA.error; return; }
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('updatedAt').textContent = 'Maj : ' + new Date(DATA.generatedAt).toLocaleString('fr-FR');
+      render();
+    }
+  } else {
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('updatedAt').textContent = '';
+  }
+  applyPerms();
 }
 
 function destroy(id){ if(charts[id]){charts[id].destroy(); delete charts[id];} }
-function render(){ renderBootcamp(); renderAmplify(); }
+function render(){ if(DATA && DATA.bootcamp) renderBootcamp(); if(DATA && DATA.amplify) renderAmplify(); }
 
 /* ====== BOOTCAMP ====== */
 function renderBootcamp(){
@@ -595,21 +613,61 @@ function showGate(err){
   document.getElementById('app').classList.add('hidden');
   document.getElementById('gateErr').textContent = err||'';
 }
-function enter(){
-  const v = document.getElementById('pwInput').value;
-  if(!v) return;
-  sessionStorage.setItem('qvema_pw', v);
+function logout(msg){
+  AUTH = null;
+  try{ sessionStorage.removeItem('qvema_auth'); }catch(e){}
+  showGate(msg||'');
+}
+async function enter(){
+  const email = document.getElementById('emailInput').value.trim();
+  const pw = document.getElementById('pwInput').value;
+  if(!email || !pw){ document.getElementById('gateErr').textContent='Email et mot de passe requis.'; return; }
+  document.getElementById('gateErr').textContent='Connexion…';
+  let r, j;
+  try{
+    r = await fetch('/api/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email, password: pw}) });
+    j = await r.json();
+  }catch(e){ document.getElementById('gateErr').textContent='Erreur réseau. Réessaie.'; return; }
+  if(!r.ok || !j.ok){ document.getElementById('gateErr').textContent = (j && j.error) ? j.error : 'Identifiants invalides.'; return; }
+  AUTH = { token:j.token, perms:j.perms||[], email:j.email, name:j.name };
+  try{ sessionStorage.setItem('qvema_auth', JSON.stringify(AUTH)); }catch(e){}
+  document.getElementById('pwInput').value='';
   document.getElementById('gate').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
+  fbLoaded = false;
   load();
 }
+
+function labelPerms(){
+  if(hasPerm('admin')) return 'Admin';
+  const m={bootcamp:'Bootcamp',feedback:'Feedbacks',amplify:'Amplify'};
+  return (AUTH && AUTH.perms || []).map(p=>m[p]||p).join(' · ');
+}
+// Affiche/masque onglets, sous-onglets et bouton board selon les droits ; ouvre une vue autorisée.
+function applyPerms(){
+  const canBoot=hasPerm('bootcamp'), canFeed=hasPerm('feedback'), canAmp=hasPerm('amplify');
+  document.querySelector('.tab[data-tab="bootcamp"]').classList.toggle('hidden', !(canBoot||canFeed));
+  document.querySelector('.tab[data-tab="amplify"]').classList.toggle('hidden', !canAmp);
+  document.querySelector('#bc-subtabs .subtab[data-sub="pilotage"]').classList.toggle('hidden', !canBoot);
+  document.querySelector('#bc-subtabs .subtab[data-sub="demo"]').classList.toggle('hidden', !canBoot);
+  document.querySelector('#bc-subtabs .subtab[data-sub="feedback"]').classList.toggle('hidden', !canFeed);
+  document.getElementById('boardBtn').classList.toggle('hidden', !hasPerm('admin'));
+  document.getElementById('whoami').textContent = AUTH ? ((AUTH.name||AUTH.email||'')+' — '+labelPerms()) : '';
+  const tab = (canBoot||canFeed) ? 'bootcamp' : (canAmp ? 'amplify' : null);
+  currentBcSub = canBoot ? 'pilotage' : (canFeed ? 'feedback' : 'pilotage');
+  if(tab){ showTab(tab); if(tab==='bootcamp') showBcSub(currentBcSub); }
+}
+
 document.getElementById('pwBtn').onclick = enter;
+document.getElementById('emailInput').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('pwInput').focus();});
 document.getElementById('pwInput').addEventListener('keydown',e=>{if(e.key==='Enter')enter();});
 document.getElementById('refreshBtn').onclick = ()=>{ fbLoaded=false; load(); };
+document.getElementById('logoutBtn').onclick = ()=>logout('');
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>showTab(t.dataset.tab));
 document.querySelectorAll('#bc-subtabs .subtab').forEach(t=>t.onclick=()=>showBcSub(t.dataset.sub));
 
-if(getPw()){
+loadAuth();
+if(AUTH && AUTH.token){
   document.getElementById('gate').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   load();
@@ -649,8 +707,9 @@ if(getPw()){
     $('fb-root').innerHTML='<div class="fb-loading"><div class="spin"></div>Lecture des feedbacks…</div>';
     let resp;
     try{
-      const r = await fetch('/api/feedback', { headers: { 'x-dashboard-password': getPw() } });
-      if(r.status===401){ $('fb-root').innerHTML='<div class="fb-err">Accès refusé. Reconnecte-toi au cockpit.</div>'; return; }
+      const r = await fetch('/api/feedback', { headers: authHeaders() });
+      if(r.status===401){ $('fb-root').innerHTML='<div class="fb-err">Session expirée. Reconnecte-toi au cockpit.</div>'; return; }
+      if(r.status===403){ $('fb-root').innerHTML='<div class="fb-err">Tu n\'as pas accès aux feedbacks.</div>'; return; }
       resp = await r.json();
     }catch(e){
       $('fb-root').innerHTML='<div class="fb-err">Source des feedbacks injoignable. Réessaie.</div>'; return;

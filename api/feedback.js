@@ -4,6 +4,8 @@
 // en injectant la clé feedback (variable d'environnement Vercel : FEEDBACK_KEY).
 // => un seul mot de passe pour tout le cockpit, et la clé feedback n'est jamais
 //    exposée au navigateur (le HTML reste public, mais pas la clé).
+const auth = require("./_auth.js");
+
 const ENDPOINT =
   "https://script.google.com/macros/s/AKfycbzVcNiXd0lAOFtyBWOE4vOaZOj0LHJDqO8zJ_yn6B_nRVtA4mTjfHcR9itlnjL-cAyJnA/exec";
 
@@ -11,11 +13,15 @@ module.exports = async (req, res) => {
   res.setHeader("content-type", "application/json; charset=utf-8");
   res.setHeader("cache-control", "no-store");
 
-  // 1) Même porte que le reste du cockpit.
-  const pw = req.headers["x-dashboard-password"] || "";
-  if (!process.env.DASHBOARD_PASSWORD || pw !== process.env.DASHBOARD_PASSWORD) {
+  // 1) Auth cockpit + permission "feedback".
+  const user = auth.authFromRequest(req);
+  if (!user) {
     res.statusCode = 401;
     return res.end(JSON.stringify({ ok: false, error: "unauthorized" }));
+  }
+  if (!auth.has(user.perms, "feedback")) {
+    res.statusCode = 403;
+    return res.end(JSON.stringify({ ok: false, error: "forbidden" }));
   }
 
   // 2) Clé feedback (à configurer dans Vercel : FEEDBACK_KEY).

@@ -1,6 +1,7 @@
 // QVEMA Amplify — Live dashboard data API
 // Aggregates Airtable (CRM) + Stripe (paiements) and returns JSON.
-// Read-only. Auth via shared password (header x-dashboard-password).
+// Read-only. Auth via token cockpit (Authorization: Bearer) + permissions par vue.
+const auth = require("./_auth.js");
 
 const CONFIG = {
   airtableToken: process.env.AIRTABLE_TOKEN || "",
@@ -145,11 +146,17 @@ function computeDemographics(list) {
 }
 
 module.exports = async (req, res) => {
-  const pw = req.headers["x-dashboard-password"] || "";
-  if (!CONFIG.password || pw !== CONFIG.password) {
+  const user = auth.authFromRequest(req);
+  if (!user) {
     res.statusCode = 401;
     res.setHeader("Content-Type", "application/json");
     return res.end(JSON.stringify({ error: "unauthorized" }));
+  }
+  // Accès aux données business : nécessite Bootcamp ou Amplify (ou Admin).
+  if (!auth.has(user.perms, "bootcamp") && !auth.has(user.perms, "amplify")) {
+    res.statusCode = 403;
+    res.setHeader("Content-Type", "application/json");
+    return res.end(JSON.stringify({ error: "forbidden" }));
   }
 
   try {
@@ -404,6 +411,10 @@ module.exports = async (req, res) => {
         },
       },
     };
+
+    // Filtrage par permissions : on ne renvoie que les domaines autorisés.
+    if (!auth.has(user.perms, "bootcamp")) delete result.bootcamp;
+    if (!auth.has(user.perms, "amplify")) delete result.amplify;
 
     res.statusCode = 200;
     res.setHeader("Content-Type", "application/json");
