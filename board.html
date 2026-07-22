@@ -644,8 +644,9 @@ function boot(){
 document.getElementById('pwBtn').onclick=enter;
 document.getElementById('pwInput').addEventListener('keydown',e=>{if(e.key==='Enter')enter();});
 
-/* auto-login si déjà authentifié sur le dashboard temps réel */
-(async()=>{const pw=getPw();if(pw&&await validate(pw))showApp();else showGate('');})();
+/* Accès géré par le cockpit (Board = admin only) + données 100% locales à ce
+   navigateur : ouverture directe, sans mot de passe. */
+showApp();
 </script>
 </body>
 </html>
