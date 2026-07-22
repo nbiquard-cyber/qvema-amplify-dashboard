@@ -127,6 +127,63 @@
   .fbwrap .rephead .s{font-size:12px;color:var(--muted)}
   .fbwrap .btn-print{background:var(--accent);color:#11151d;border:none;font-weight:700;padding:8px 12px;border-radius:9px;cursor:pointer}
 
+  /* ===== CRM (façon Twenty) ===== */
+  .crm-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+  .crm-objs,.crm-views{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .crm-obj,.crm-view{border:none;background:var(--panel2);color:var(--muted);font-weight:600;font-size:13px;padding:8px 13px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px}
+  .crm-obj.on,.crm-view.on{background:var(--accent);color:#11151d}
+  .crm-obj .cnt{background:var(--line);color:var(--muted);border-radius:99px;padding:0 6px;font-size:11px;font-weight:700}
+  .crm-obj.on .cnt{background:rgba(0,0,0,.18);color:#11151d}
+  .crm-search{flex:1;min-width:200px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);color:var(--txt);font-size:14px}
+  .crm-reload{padding:9px 13px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);color:var(--accent);cursor:pointer;font-weight:700}
+  .crm-count{font-size:12px;color:var(--muted);margin-bottom:8px}
+  .crm-tablewrap{overflow:auto;border:1px solid var(--line);border-radius:12px;max-height:70vh}
+  .crm-table{width:100%;border-collapse:collapse;font-size:13px}
+  .crm-table th{position:sticky;top:0;background:var(--panel2);color:var(--muted);text-transform:uppercase;font-size:11px;letter-spacing:.4px;text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);z-index:1}
+  .crm-table td{padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+  .crm-table td.num,.crm-table th.num{text-align:right;font-variant-numeric:tabular-nums}
+  .crm-table tbody tr{cursor:pointer}
+  .crm-table tbody tr:hover{background:var(--panel2)}
+  .crm-name{font-weight:700;color:var(--txt)}
+  .crm-muted{color:var(--muted)}
+  .crm-pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11px;font-weight:600;background:var(--panel2);border:1px solid var(--line);color:var(--txt)}
+  .crm-pill.green{color:var(--green);border-color:rgba(62,207,142,.35)}
+  .crm-pill.red{color:var(--red);border-color:rgba(239,91,107,.35)}
+  .crm-loading,.crmwrap .empty{text-align:center;color:var(--muted);padding:44px}
+  .crm-loading .spin{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;margin:0 auto 14px;animation:spin 1s linear infinite}
+  .crm-kanban{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;align-items:flex-start}
+  .crm-col{flex:0 0 260px;background:var(--panel);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;max-height:74vh}
+  .crm-col.over{border-color:var(--accent);box-shadow:0 0 0 2px rgba(255,206,58,.25)}
+  .crm-col-h{padding:11px 13px;font-size:12px;font-weight:700;color:var(--txt);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  .crm-col-h .cnt{background:var(--panel2);color:var(--muted);border-radius:99px;padding:0 7px;font-size:11px}
+  .crm-col-body{padding:10px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;min-height:44px}
+  .crm-card{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer}
+  .crm-card:hover{border-color:var(--accent)}
+  .crm-card.dragging{opacity:.4}
+  .crm-card-t{font-weight:700;font-size:13px;color:var(--txt)}
+  .crm-card-s{font-size:12px;color:var(--muted);margin-top:2px}
+  .crm-panel{position:fixed;inset:0;z-index:60}
+  .crm-panel-bg{position:absolute;inset:0;background:rgba(0,0,0,.55)}
+  .crm-panel-card{position:absolute;top:0;right:0;height:100%;width:430px;max-width:92vw;background:var(--panel);border-left:1px solid var(--line);overflow-y:auto;padding:0 20px 24px}
+  .crm-dh{position:sticky;top:0;background:var(--panel);padding:20px 0 14px;border-bottom:1px solid var(--line);margin-bottom:14px}
+  .crm-dh-t{font-size:18px;font-weight:800;color:var(--txt);padding-right:34px}
+  .crm-dh-s{font-size:13px;color:var(--muted);margin-top:2px}
+  .crm-close{position:absolute;top:18px;right:0;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:14px}
+  .crm-kv{display:flex;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13px}
+  .crm-kv .crm-k{color:var(--muted);min-width:120px;max-width:120px;flex-shrink:0}
+  .crm-kv .crm-v{color:var(--txt);word-break:break-word}
+  .crm-kv a{color:var(--accent2)}
+  .crm-edit{margin-top:18px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .crm-edit h4{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:12px}
+  .crm-fl{display:block;font-size:12px;color:var(--muted);font-weight:600;margin-bottom:12px}
+  .crm-fl select,.crm-fl textarea{width:100%;margin-top:5px;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--txt);font-size:14px;font-family:inherit}
+  .crm-fl textarea{resize:vertical}
+  .crm-actions{display:flex;align-items:center;gap:12px;margin-top:4px}
+  .crm-save{background:var(--accent);color:#11151d;border:none;border-radius:9px;padding:10px 16px;font-weight:700;cursor:pointer;font-size:14px}
+  .crm-save:disabled{opacity:.6}
+  .crm-saved{font-size:13px;color:var(--green)}
+  @media(max-width:560px){.crm-panel-card{width:100%}}
+
   @media print{
     #gate,.tabs,.subtabs,.promo-filter,.fb-controls,header.top,.noprint{display:none!important}
     body{background:#fff!important;color:#111!important}
@@ -171,6 +228,7 @@
   <div class="tabs">
     <div class="tab active" data-tab="bootcamp">🎓 Bootcamp</div>
     <div class="tab" data-tab="amplify">🔗 Amplify Connect</div>
+    <div class="tab" data-tab="crm">🗂️ CRM</div>
   </div>
 
   <div id="loading"><div class="spinner"></div>Chargement des données…</div>
@@ -317,6 +375,28 @@
       </div>
     </div>
   </section>
+
+  <!-- CRM (façon Twenty) -->
+  <section id="view-crm" class="hidden crmwrap">
+    <div class="crm-toolbar">
+      <div class="crm-objs" id="crm-objs">
+        <button class="crm-obj on" id="crm-obj-apprenants" data-obj="apprenants">🎓 Apprenants <span class="cnt" id="crm-cnt-apprenants">0</span></button>
+        <button class="crm-obj" id="crm-obj-amplify" data-obj="amplify">🔗 Amplify <span class="cnt" id="crm-cnt-amplify">0</span></button>
+      </div>
+      <div class="crm-views" id="crm-views">
+        <button class="crm-view on" data-view="table">⊞ Table</button>
+        <button class="crm-view" data-view="kanban">▤ Kanban</button>
+      </div>
+      <input class="crm-search" id="crm-search" placeholder="🔎 Rechercher (nom, email, ville…)" />
+      <button class="crm-reload" id="crm-reload" title="Recharger">↻</button>
+    </div>
+    <div id="crm-root"><div class="crm-loading"><div class="spin"></div>Chargement du CRM…</div></div>
+  </section>
+
+  <div id="crm-panel" class="crm-panel hidden">
+    <div class="crm-panel-bg" id="crm-panel-bg"></div>
+    <div class="crm-panel-card" id="crm-panel-card"></div>
+  </div>
 </div>
 
 <script>
@@ -331,6 +411,7 @@ let DATA = null;
 let currentPromo = 'Toutes';
 let currentBcSub = 'pilotage';
 let fbLoaded = false;
+let crmLoaded = false;
 let AUTH = null;
 
 function loadAuth(){ try{ AUTH = JSON.parse(sessionStorage.getItem('qvema_auth')||'null'); }catch(e){ AUTH=null; } return AUTH; }
@@ -592,6 +673,8 @@ function showTab(t){
   document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.tab===t));
   document.getElementById('view-bootcamp').classList.toggle('hidden',t!=='bootcamp');
   document.getElementById('view-amplify').classList.toggle('hidden',t!=='amplify');
+  document.getElementById('view-crm').classList.toggle('hidden',t!=='crm');
+  if(t==='crm' && !crmLoaded){ crmLoaded=true; window.CRM.load(); }
 }
 
 function showBcSub(sub){
@@ -645,6 +728,7 @@ function applyPerms(){
   const canBoot=hasPerm('bootcamp'), canFeed=hasPerm('feedback'), canAmp=hasPerm('amplify');
   document.querySelector('.tab[data-tab="bootcamp"]').classList.toggle('hidden', !(canBoot||canFeed));
   document.querySelector('.tab[data-tab="amplify"]').classList.toggle('hidden', !canAmp);
+  document.querySelector('.tab[data-tab="crm"]').classList.toggle('hidden', !(canBoot||canAmp));
   document.querySelector('#bc-subtabs .subtab[data-sub="pilotage"]').classList.toggle('hidden', !canBoot);
   document.querySelector('#bc-subtabs .subtab[data-sub="demo"]').classList.toggle('hidden', !canBoot);
   document.querySelector('#bc-subtabs .subtab[data-sub="feedback"]').classList.toggle('hidden', !canFeed);
@@ -658,7 +742,7 @@ function applyPerms(){
 document.getElementById('pwBtn').onclick = enter;
 document.getElementById('emailInput').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('pwInput').focus();});
 document.getElementById('pwInput').addEventListener('keydown',e=>{if(e.key==='Enter')enter();});
-document.getElementById('refreshBtn').onclick = ()=>{ fbLoaded=false; load(); };
+document.getElementById('refreshBtn').onclick = ()=>{ fbLoaded=false; crmLoaded=false; load(); };
 document.getElementById('logoutBtn').onclick = ()=>logout('');
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>showTab(t.dataset.tab));
 document.querySelectorAll('#bc-subtabs .subtab').forEach(t=>t.onclick=()=>showBcSub(t.dataset.sub));
@@ -945,6 +1029,216 @@ if(AUTH && AUTH.token){
   $('fb-reload').addEventListener('click',load);
 
   window.FB = { load: load };
+})();
+
+/* ==================================================================
+   MODULE CRM (façon Twenty) — apprenants (Clients payés) + Amplify.
+   Lecture via /api/crm, édition légère via /api/crm-update. Gated par
+   permissions (bootcamp / amplify). Table + Kanban + fiche détail.
+   ================================================================== */
+(function(){
+  let DATAC = { apprenants: [], amplify: [] };
+  let obj = 'apprenants';
+  let view = 'table';
+  const $ = (id)=>document.getElementById(id);
+  const esc = (s)=>{const d=document.createElement('div');d.textContent=(s==null?'':s);return d.innerHTML;};
+  const EURc = (n)=> (n==null?'—':new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n));
+
+  async function load(){
+    $('crm-root').innerHTML='<div class="crm-loading"><div class="spin"></div>Chargement du CRM…</div>';
+    let resp;
+    try{
+      const r = await fetch('/api/crm', { headers: authHeaders() });
+      if(r.status===401){ $('crm-root').innerHTML='<div class="fb-err">Session expirée. Reconnecte-toi.</div>'; return; }
+      if(r.status===403){ $('crm-root').innerHTML='<div class="fb-err">Accès CRM refusé.</div>'; return; }
+      resp = await r.json();
+    }catch(e){ $('crm-root').innerHTML='<div class="fb-err">CRM injoignable. Réessaie.</div>'; return; }
+    if(resp.error){ $('crm-root').innerHTML='<div class="fb-err">Erreur : '+esc(resp.error)+'</div>'; return; }
+    DATAC.apprenants = resp.apprenants||[];
+    DATAC.amplify = resp.amplify||[];
+    const hasA = hasPerm('bootcamp'), hasM = hasPerm('amplify');
+    $('crm-obj-apprenants').classList.toggle('hidden', !hasA);
+    $('crm-obj-amplify').classList.toggle('hidden', !hasM);
+    if(obj==='apprenants' && !hasA) obj='amplify';
+    if(obj==='amplify' && !hasM) obj='apprenants';
+    $('crm-cnt-apprenants').textContent = DATAC.apprenants.length;
+    $('crm-cnt-amplify').textContent = DATAC.amplify.length;
+    syncButtons(); render();
+  }
+
+  function syncButtons(){
+    [...document.querySelectorAll('#crm-objs .crm-obj')].forEach(b=>b.classList.toggle('on',b.dataset.obj===obj));
+    [...document.querySelectorAll('#crm-views .crm-view')].forEach(b=>b.classList.toggle('on',b.dataset.view===view));
+  }
+
+  function rows(){
+    const q = ($('crm-search').value||'').toLowerCase().trim();
+    let list = DATAC[obj]||[];
+    if(q){
+      list = list.filter(r=>{
+        const hay = (obj==='apprenants')
+          ? [r.prenom,r.nom,r.email,r.ville,r.promo,r.stade,r.secteur,r.tel].join(' ').toLowerCase()
+          : [r.nom,r.email,r.entreprise,r.ville,r.statutMembre,r.saison].join(' ').toLowerCase();
+        return hay.includes(q);
+      });
+    }
+    return list;
+  }
+  function render(){ if(view==='table') renderTable(); else renderKanban(); }
+
+  function distinct(list, key, extra){
+    const s = new Set();
+    (list||[]).forEach(r=>{ const v=(r[key]||'').trim(); if(v) s.add(v); });
+    (extra||[]).forEach(v=>{ if(v && v.trim()) s.add(v.trim()); });
+    return [...s].sort((a,b)=>a.localeCompare(b,'fr'));
+  }
+  function pill(txt, kind){ return '<span class="crm-pill'+(kind?' '+kind:'')+'">'+esc(txt||'—')+'</span>'; }
+
+  function renderTable(){
+    const list = rows();
+    let html='';
+    if(obj==='apprenants'){
+      html = '<div class="crm-tablewrap"><table class="crm-table"><thead><tr>'
+        + '<th>Nom</th><th>Promo</th><th>Stade</th><th>Email</th><th>Téléphone</th><th>Ville</th><th class="num">Montant</th><th>Paiement</th><th>Statut</th></tr></thead><tbody>'
+        + list.map(r=>`<tr data-id="${esc(r.id)}"><td class="crm-name">${esc((r.prenom+' '+r.nom).trim()||'—')}</td><td>${pill(r.promo)}</td><td>${esc(r.stade||'—')}</td><td class="crm-muted">${esc(r.email)}</td><td class="crm-muted">${esc(r.tel||'—')}</td><td>${esc(r.ville||'—')}</td><td class="num">${EURc(r.montant)}</td><td>${esc(r.mode||'—')}</td><td>${pill(r.statutPaiement, r.statutPaiement==='Remboursé'?'red':(r.statutPaiement==='Payé'?'green':''))}</td></tr>`).join('')
+        + '</tbody></table></div>';
+    } else {
+      html = '<div class="crm-tablewrap"><table class="crm-table"><thead><tr>'
+        + '<th>Nom</th><th>Entreprise</th><th>Email</th><th>Statut membre</th><th>Saison</th><th class="num">Montant</th><th>Mode</th><th>Date</th></tr></thead><tbody>'
+        + list.map(r=>`<tr data-id="${esc(r.id)}"><td class="crm-name">${esc(r.nom||'—')}</td><td>${esc(r.entreprise||'—')}</td><td class="crm-muted">${esc(r.email)}</td><td>${pill(r.statutMembre)}</td><td>${esc(r.saison||'—')}</td><td class="num">${EURc(r.montant)}</td><td>${esc(r.mode||'—')}</td><td>${esc((r.date||'').slice(0,10)||'—')}</td></tr>`).join('')
+        + '</tbody></table></div>';
+    }
+    $('crm-root').innerHTML = '<div class="crm-count">'+list.length+' fiche(s)</div>'+ (list.length?html:'<div class="empty">Aucune fiche.</div>');
+    [...document.querySelectorAll('#crm-root tr[data-id]')].forEach(tr=>tr.addEventListener('click',()=>openDetail(tr.dataset.id)));
+  }
+
+  function renderKanban(){
+    const list = rows();
+    const key = obj==='apprenants' ? 'stade' : 'statutMembre';
+    const cols = distinct(DATAC[obj], key);
+    const NR='(Non renseigné)';
+    if(list.some(r=>!(r[key]||'').trim())) cols.push(NR);
+    const byCol={}; cols.forEach(c=>byCol[c]=[]);
+    list.forEach(r=>{ const v=(r[key]||'').trim()||NR; (byCol[v]=byCol[v]||[]).push(r); });
+    let html='<div class="crm-kanban">';
+    cols.forEach(c=>{
+      html += `<div class="crm-col" data-col="${esc(c)}"><div class="crm-col-h"><span>${esc(c)}</span><span class="cnt">${(byCol[c]||[]).length}</span></div><div class="crm-col-body" data-col="${esc(c)}">`;
+      (byCol[c]||[]).forEach(r=>{
+        const title = obj==='apprenants' ? ((r.prenom+' '+r.nom).trim()||r.email) : (r.nom||r.email);
+        const sub = obj==='apprenants' ? [r.promo,r.ville].filter(Boolean).join(' · ') : (r.entreprise||'');
+        html += `<div class="crm-card" draggable="true" data-id="${esc(r.id)}"><div class="crm-card-t">${esc(title)}</div><div class="crm-card-s">${esc(sub)}</div></div>`;
+      });
+      html += '</div></div>';
+    });
+    html+='</div>';
+    $('crm-root').innerHTML = '<div class="crm-count">'+list.length+' fiche(s) · glisse une carte pour changer '+(obj==='apprenants'?'le stade':'le statut membre')+'</div>'+html;
+    wireKanban();
+  }
+
+  function wireKanban(){
+    [...document.querySelectorAll('#crm-root .crm-card')].forEach(card=>{
+      card.addEventListener('click',()=>{ if(!card.classList.contains('dragging')) openDetail(card.dataset.id); });
+      card.addEventListener('dragstart',(e)=>{ card.classList.add('dragging'); e.dataTransfer.setData('text/plain',card.dataset.id); });
+      card.addEventListener('dragend',()=>card.classList.remove('dragging'));
+    });
+    [...document.querySelectorAll('#crm-root .crm-col-body')].forEach(body=>{
+      const col=body.parentElement;
+      body.addEventListener('dragover',(e)=>{ e.preventDefault(); col.classList.add('over'); });
+      body.addEventListener('dragleave',()=>col.classList.remove('over'));
+      body.addEventListener('drop',(e)=>{ e.preventDefault(); col.classList.remove('over'); moveCard(e.dataTransfer.getData('text/plain'), body.dataset.col); });
+    });
+  }
+
+  async function moveCard(id, col){
+    const NR='(Non renseigné)';
+    const rec = (DATAC[obj]||[]).find(r=>r.id===id);
+    if(!rec) return;
+    const key = obj==='apprenants' ? 'stade' : 'statutMembre';
+    if(col===NR) return;               // on ne "dé-renseigne" pas par glisser-déposer
+    if((rec[key]||'')===col) return;
+    const prev = rec[key];
+    rec[key]=col; renderKanban();       // optimiste
+    const ok = await save(rec, obj==='apprenants'?{stade:col}:{statutMembre:col});
+    if(!ok){ rec[key]=prev; renderKanban(); alert('Échec de la mise à jour dans Airtable.'); }
+  }
+
+  /* ----- Fiche détail (slide-over) ----- */
+  function openDetail(id){
+    const rec = (DATAC[obj]||[]).find(r=>r.id===id);
+    if(!rec) return;
+    const card = $('crm-panel-card');
+    if(obj==='apprenants'){
+      const stades = distinct(DATAC.apprenants,'stade',[rec.stade]);
+      const statuts = distinct(DATAC.apprenants,'statutPaiement',[rec.statutPaiement,'Payé']);
+      card.innerHTML = detailHeader((rec.prenom+' '+rec.nom).trim()||rec.email, rec.promo)
+        + kv('Email', rec.email) + kv('Téléphone', rec.tel) + kv('Ville', [rec.ville,rec.cp].filter(Boolean).join(' '))
+        + kv('Secteur', rec.secteur) + kv('Projet', rec.projet) + kv('Montant', EURc(rec.montant)+(rec.mode?' · '+rec.mode:''))
+        + (rec.description?kv('Description', rec.description):'') + (rec.recherche?kv('Recherche', rec.recherche):'')
+        + (rec.linkedin?kvLink('LinkedIn', rec.linkedin):'') + (rec.circleUrl?kvLink('Circle', rec.circleUrl):'')
+        + '<div class="crm-edit"><h4>Modifier</h4>'
+        + selectRow("Stade d'avancement",'f-stade', stades, rec.stade)
+        + selectRow('Statut paiement','f-statut', statuts, rec.statutPaiement)
+        + textRow('Notes','f-notes', rec.notes)
+        + '<div class="crm-actions"><button id="crm-save" class="crm-save">💾 Enregistrer</button><span id="crm-saved" class="crm-saved"></span></div></div>';
+      openPanel();
+      $('crm-save').onclick = async ()=>{
+        const patch = { stade: $('f-stade').value, statutPaiement: $('f-statut').value, notes: $('f-notes').value };
+        $('crm-save').disabled=true; $('crm-saved').textContent='Enregistrement…';
+        const ok = await save(rec, patch);
+        $('crm-save').disabled=false;
+        if(ok){ rec.stade=patch.stade; rec.statutPaiement=patch.statutPaiement; rec.notes=patch.notes; $('crm-saved').textContent='✓ Enregistré'; render(); }
+        else { $('crm-saved').textContent='✗ Échec (voir Airtable)'; }
+      };
+    } else {
+      const statutsM = distinct(DATAC.amplify,'statutMembre',[rec.statutMembre]);
+      card.innerHTML = detailHeader(rec.nom||rec.email, rec.entreprise)
+        + kv('Email', rec.email) + kv('Téléphone', rec.tel) + kv('Entreprise', rec.entreprise) + kv('Ville', rec.ville)
+        + kv('Saison', rec.saison) + kv('Montant', EURc(rec.montant)+(rec.mode?' · '+rec.mode:'')) + kv('Statut paiement', rec.statutPaiement) + kv('Date', (rec.date||'').slice(0,10))
+        + '<div class="crm-edit"><h4>Modifier</h4>'
+        + selectRow('Statut membre','f-statutm', statutsM, rec.statutMembre)
+        + textRow('Notes','f-notes', rec.notes)
+        + '<div class="crm-actions"><button id="crm-save" class="crm-save">💾 Enregistrer</button><span id="crm-saved" class="crm-saved"></span></div></div>';
+      openPanel();
+      $('crm-save').onclick = async ()=>{
+        const patch = { statutMembre: $('f-statutm').value, notes: $('f-notes').value };
+        $('crm-save').disabled=true; $('crm-saved').textContent='Enregistrement…';
+        const ok = await save(rec, patch);
+        $('crm-save').disabled=false;
+        if(ok){ rec.statutMembre=patch.statutMembre; rec.notes=patch.notes; $('crm-saved').textContent='✓ Enregistré'; render(); }
+        else { $('crm-saved').textContent='✗ Échec (voir Airtable)'; }
+      };
+    }
+  }
+  function detailHeader(title, sub){ return `<div class="crm-dh"><div class="crm-dh-t">${esc(title)}</div><div class="crm-dh-s">${esc(sub||'')}</div><button class="crm-close" id="crm-close">✕</button></div>`; }
+  function kv(k,v){ return v?`<div class="crm-kv"><div class="crm-k">${esc(k)}</div><div class="crm-v">${esc(v)}</div></div>`:''; }
+  function kvLink(k,v){ const href=/^https?:/.test(v)?v:('https://'+v); return `<div class="crm-kv"><div class="crm-k">${esc(k)}</div><div class="crm-v"><a href="${esc(href)}" target="_blank" rel="noopener">${esc(v)}</a></div></div>`; }
+  function selectRow(label,id,options,cur){
+    const opts = options.map(o=>`<option value="${esc(o)}"${o===cur?' selected':''}>${esc(o)}</option>`).join('');
+    return `<label class="crm-fl">${esc(label)}<select id="${id}">${opts}</select></label>`;
+  }
+  function textRow(label,id,cur){ return `<label class="crm-fl">${esc(label)}<textarea id="${id}" rows="4">${esc(cur||'')}</textarea></label>`; }
+  function openPanel(){ $('crm-panel').classList.remove('hidden'); $('crm-close').onclick = closePanel; }
+  function closePanel(){ $('crm-panel').classList.add('hidden'); }
+
+  async function save(rec, patch){
+    const body = { object: obj==='apprenants'?'apprenant':'amplify', id: rec.id, patch };
+    if(obj==='apprenants'){ body.accueilId = rec.accueilId||null; body.email=rec.email; body.promo=rec.promo; }
+    try{
+      const r = await fetch('/api/crm-update', { method:'POST', headers: Object.assign({'Content-Type':'application/json'}, authHeaders()), body: JSON.stringify(body) });
+      const j = await r.json();
+      if(!r.ok || !j.ok) return false;
+      if(j.accueilId && obj==='apprenants') rec.accueilId=j.accueilId;
+      return true;
+    }catch(e){ return false; }
+  }
+
+  $('crm-objs').addEventListener('click',e=>{ const b=e.target.closest('.crm-obj'); if(!b)return; obj=b.dataset.obj; syncButtons(); render(); });
+  $('crm-views').addEventListener('click',e=>{ const b=e.target.closest('.crm-view'); if(!b)return; view=b.dataset.view; syncButtons(); render(); });
+  $('crm-search').addEventListener('input',render);
+  $('crm-reload').addEventListener('click',load);
+  $('crm-panel-bg').addEventListener('click',closePanel);
+
+  window.CRM = { load: load };
 })();
 </script>
 </body>

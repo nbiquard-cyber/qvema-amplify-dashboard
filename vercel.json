@@ -5,6 +5,12 @@
     },
     "api/feedback.js": {
       "maxDuration": 60
+    },
+    "api/crm.js": {
+      "maxDuration": 60
+    },
+    "api/crm-update.js": {
+      "maxDuration": 30
     }
   }
 }
