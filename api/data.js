@@ -19,8 +19,8 @@ const T = {
 };
 
 // Stripe amount buckets (in cents / centimes)
-const BOOTCAMP_1X = [129000, 99000]; // paiement 1 fois (1290€, ancien 990€)
-const BOOTCAMP_4X = [32250, 46666]; // mensualité plan 4x (322,50€, ancien 466,66€)
+const BOOTCAMP_1X = [129000, 99000, 149000]; // paiement 1 fois (1290€, ancien 990€, PROMO 2 = 1490€)
+const BOOTCAMP_4X = [32250, 46666, 37250]; // mensualité plan 4x (322,50€, ancien 466,66€, PROMO 2 = 372,50€ = 1490/4)
 const AMPLIFY = [100000]; // Amplify Connect (1000€) - jamais compté dans le bootcamp
 
 async function airtableAll(table, fields) {
