@@ -793,9 +793,26 @@ if(getPw()){
   function renderLearner(){
     const p=$('fb-fPromo').value;
     const base=RECORDS.filter(r=>!p||r.promo===p);
+    // Regroupement par personne. Les formulaires "0&1" n'avaient pas d'email :
+    // on rattache ces fiches à la bonne personne via nom+prénom (normalisé,
+    // sans accents ni casse) pour éviter les doublons.
+    const normName=(s)=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+    const nameToEmail={};
+    base.forEach(r=>{const em=(r.email||'').trim().toLowerCase();if(!em)return;const nn=normName(r.prenom+' '+r.nom);if(nn&&!nameToEmail[nn])nameToEmail[nn]=em;});
+    function personKey(r){
+      const em=(r.email||'').trim().toLowerCase();
+      if(em)return 'em:'+em;
+      const nn=normName(r.prenom+' '+r.nom);
+      if(nn&&nameToEmail[nn])return 'em:'+nameToEmail[nn]; // rattaché au même individu
+      if(nn)return 'nm:'+nn;
+      return '?';
+    }
     const map={};
-    base.forEach(r=>{const key=((r.email||'').toLowerCase())||((r.prenom+' '+r.nom).trim().toLowerCase())||'?';
-      if(!map[key])map[key]={name:(r.prenom+' '+r.nom).trim()||r.email||'—',email:r.email,recs:[]};map[key].recs.push(r);});
+    base.forEach(r=>{const key=personKey(r);
+      if(!map[key])map[key]={name:(r.prenom+' '+r.nom).trim()||r.email||'—',email:(r.email||'').trim(),recs:[]};
+      const g=map[key];g.recs.push(r);
+      if(!g.email&&(r.email||'').trim())g.email=(r.email||'').trim();
+      if((!g.name||g.name==='—')&&(r.prenom+' '+r.nom).trim())g.name=(r.prenom+' '+r.nom).trim();});
     const people=Object.values(map).sort((a,b)=>a.name.localeCompare(b.name,'fr'));
     $('fb-root').innerHTML=`<input class="search" id="fb-lsearch" placeholder="🔎 Rechercher un apprenant (nom ou email)…" /><div id="fb-llist"></div>`;
     function draw(q){
