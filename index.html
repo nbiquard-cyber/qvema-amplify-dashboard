@@ -288,6 +288,11 @@
   .crm-tli-actions{display:flex;gap:5px;flex-shrink:0}
   .crm-tli-btn{background:var(--panel);border:1px solid var(--line);color:var(--muted);width:26px;height:26px;border-radius:7px;cursor:pointer;font-size:12px}
   .crm-tli-btn:hover{border-color:var(--accent);color:var(--txt)}
+  .crm-cols{position:relative}
+  .crm-cols-pop{position:absolute;right:0;top:calc(100% + 6px);background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 14px 34px rgba(0,0,0,.4);padding:8px;z-index:25;min-width:180px;display:flex;flex-direction:column;gap:2px}
+  .crm-colitem{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;font-size:13px;color:var(--txt);cursor:pointer}
+  .crm-colitem:hover{background:var(--panel2)}
+  .crm-colitem input{accent-color:var(--accent)}
 
   @media print{
     #gate,.tabs,.subtabs,.promo-filter,.fb-controls,header.top,.noprint{display:none!important}
@@ -515,6 +520,7 @@
       <div class="crm-actions-right">
         <label class="crm-groupby hidden" id="crm-groupby-wrap">Grouper&nbsp;: <select id="crm-groupby"></select></label>
         <div class="crm-savedviews" id="crm-savedviews"></div>
+        <div class="crm-cols hidden" id="crm-cols"></div>
         <button class="crm-btn" id="crm-export" title="Exporter la vue filtrée en CSV">⬇ CSV</button>
       </div>
     </div>
@@ -1357,7 +1363,7 @@ if(AUTH && AUTH.token){
     return list;
   }
 
-  function renderAll(){ renderFilterbar(); renderGroupby(); renderSaved(); renderStats(); renderBulk(); syncButtons(); render(); }
+  function renderAll(){ renderFilterbar(); renderGroupby(); renderSaved(); renderColsMenu(); renderStats(); renderBulk(); syncButtons(); render(); }
   function render(){ if(view==='table') renderTable(); else renderKanban(); }
 
   function renderStats(){
@@ -1461,16 +1467,69 @@ if(AUTH && AUTH.token){
   function th(label,f){ return f?`<th class="crm-th-sort" data-sort="${esc(f)}">${esc(label)}${sortArrow(f)}</th>`:`<th>${esc(label)}</th>`; }
   function pill(txt, kind){ return '<span class="crm-pill'+(kind?' '+kind:'')+'">'+esc(txt||'—')+'</span>'; }
 
+  // Colonnes disponibles par objet (off:true = masquée par défaut). Ordre = ordre d'affichage.
+  const COLS = {
+    apprenants: [
+      {key:'nom', label:'Nom', sortable:'nom', cell:r=>'<td class="crm-name">'+esc((r.prenom+' '+r.nom).trim()||'—')+'</td>'},
+      {key:'promo', label:'Promo', sortable:'promo', cell:r=>'<td>'+pill(r.promo)+'</td>'},
+      {key:'stade', label:'Stade', sortable:'stade', cell:r=>'<td>'+esc(r.stade||'—')+'</td>'},
+      {key:'email', label:'Email', sortable:'email', cell:r=>'<td class="crm-muted">'+esc(r.email)+'</td>'},
+      {key:'tel', label:'Téléphone', sortable:'tel', cell:r=>'<td class="crm-muted">'+esc(r.tel||'—')+'</td>'},
+      {key:'ville', label:'Ville', sortable:'ville', cell:r=>'<td>'+esc(r.ville||'—')+'</td>'},
+      {key:'secteur', label:'Secteur', sortable:'secteur', off:true, cell:r=>'<td>'+esc(r.secteur||'—')+'</td>'},
+      {key:'montant', label:'Montant', sortable:'montant', num:true, cell:r=>'<td class="num">'+EURc(r.montant)+'</td>'},
+      {key:'mode', label:'Paiement', sortable:'mode', cell:r=>'<td>'+esc(r.mode||'—')+'</td>'},
+      {key:'statutPaiement', label:'Statut', sortable:'statutPaiement', cell:r=>'<td>'+pill(r.statutPaiement, r.statutPaiement==='Remboursé'?'red':(r.statutPaiement==='Payé'?'green':''))+'</td>'},
+    ],
+    amplify: [
+      {key:'nom', label:'Nom', sortable:'nom', cell:r=>'<td class="crm-name">'+esc(r.nom||'—')+'</td>'},
+      {key:'entreprise', label:'Entreprise', sortable:'entreprise', cell:r=>'<td>'+esc(r.entreprise||'—')+'</td>'},
+      {key:'email', label:'Email', sortable:'email', cell:r=>'<td class="crm-muted">'+esc(r.email)+'</td>'},
+      {key:'statutMembre', label:'Statut membre', sortable:'statutMembre', cell:r=>'<td>'+pill(r.statutMembre)+'</td>'},
+      {key:'saison', label:'Saison', sortable:'saison', cell:r=>'<td>'+esc(r.saison||'—')+'</td>'},
+      {key:'montant', label:'Montant', sortable:'montant', num:true, cell:r=>'<td class="num">'+EURc(r.montant)+'</td>'},
+      {key:'mode', label:'Mode', sortable:'mode', cell:r=>'<td>'+esc(r.mode||'—')+'</td>'},
+      {key:'date', label:'Date', sortable:'date', cell:r=>'<td>'+esc((r.date||'').slice(0,10)||'—')+'</td>'},
+      {key:'tel', label:'Téléphone', sortable:'tel', off:true, cell:r=>'<td class="crm-muted">'+esc(r.tel||'—')+'</td>'},
+      {key:'ville', label:'Ville', sortable:'ville', off:true, cell:r=>'<td>'+esc(r.ville||'—')+'</td>'},
+    ],
+  };
+  function visibleCols(){
+    let saved=null; try{ saved=JSON.parse(localStorage.getItem('qvema_crm_cols_'+obj)||'null'); }catch(e){}
+    const all=COLS[obj];
+    if(saved && Array.isArray(saved) && saved.length) return all.filter(c=>saved.indexOf(c.key)>=0);
+    return all.filter(c=>!c.off);
+  }
+  function setColVisible(key,on){
+    const cur=new Set(visibleCols().map(c=>c.key));
+    if(on)cur.add(key); else cur.delete(key);
+    const arr=COLS[obj].filter(c=>cur.has(c.key)).map(c=>c.key);
+    try{ localStorage.setItem('qvema_crm_cols_'+obj, JSON.stringify(arr)); }catch(e){}
+  }
+  function renderColsMenu(){
+    const wrap=$('crm-cols'); if(!wrap) return;
+    wrap.classList.toggle('hidden', view!=='table');
+    if(view!=='table'){ wrap.innerHTML=''; return; }
+    const vis=new Set(visibleCols().map(c=>c.key));
+    const items=COLS[obj].map(c=>'<label class="crm-colitem"><input type="checkbox" data-key="'+c.key+'"'+(vis.has(c.key)?' checked':'')+'> '+esc(c.label)+'</label>').join('');
+    wrap.innerHTML='<button class="crm-btn" id="crm-cols-btn">☰ Colonnes</button><div class="crm-cols-pop hidden" id="crm-cols-pop">'+items+'</div>';
+    $('crm-cols-btn').onclick=(e)=>{ e.stopPropagation(); $('crm-cols-pop').classList.toggle('hidden'); };
+    const pop=$('crm-cols-pop'); pop.addEventListener('click',e=>e.stopPropagation());
+    [...pop.querySelectorAll('input[data-key]')].forEach(cb=>cb.onchange=()=>{
+      if([...pop.querySelectorAll('input[data-key]:checked')].length===0){ cb.checked=true; return; }
+      setColVisible(cb.dataset.key, cb.checked); renderTable();
+    });
+  }
+
   function renderTable(){
     const list=rows(); const fav=favSet();
-    let head, bodyRows;
-    if(obj==='apprenants'){
-      head = '<th style="width:24px"></th><th style="width:24px"></th>'+th('Nom','nom')+th('Promo','promo')+th('Stade','stade')+th('Email','email')+th('Téléphone','tel')+th('Ville','ville')+'<th class="num crm-th-sort" data-sort="montant">Montant'+sortArrow('montant')+'</th>'+th('Paiement','mode')+th('Statut','statutPaiement');
-      bodyRows = list.map(r=>`<tr data-id="${esc(r.id)}"><td><input type="checkbox" class="crm-check" data-id="${esc(r.id)}"${selection.has(r.id)?' checked':''}></td><td><button class="crm-star${fav.has(r.id)?' on':''}" data-id="${esc(r.id)}">${fav.has(r.id)?'★':'☆'}</button></td><td class="crm-name">${esc((r.prenom+' '+r.nom).trim()||'—')}</td><td>${pill(r.promo)}</td><td>${esc(r.stade||'—')}</td><td class="crm-muted">${esc(r.email)}</td><td class="crm-muted">${esc(r.tel||'—')}</td><td>${esc(r.ville||'—')}</td><td class="num">${EURc(r.montant)}</td><td>${esc(r.mode||'—')}</td><td>${pill(r.statutPaiement, r.statutPaiement==='Remboursé'?'red':(r.statutPaiement==='Payé'?'green':''))}</td></tr>`).join('');
-    } else {
-      head = '<th style="width:24px"></th><th style="width:24px"></th>'+th('Nom','nom')+th('Entreprise','entreprise')+th('Email','email')+th('Statut membre','statutMembre')+th('Saison','saison')+'<th class="num crm-th-sort" data-sort="montant">Montant'+sortArrow('montant')+'</th>'+th('Mode','mode')+th('Date','date');
-      bodyRows = list.map(r=>`<tr data-id="${esc(r.id)}"><td><input type="checkbox" class="crm-check" data-id="${esc(r.id)}"${selection.has(r.id)?' checked':''}></td><td><button class="crm-star${fav.has(r.id)?' on':''}" data-id="${esc(r.id)}">${fav.has(r.id)?'★':'☆'}</button></td><td class="crm-name">${esc(r.nom||'—')}</td><td>${esc(r.entreprise||'—')}</td><td class="crm-muted">${esc(r.email)}</td><td>${pill(r.statutMembre)}</td><td>${esc(r.saison||'—')}</td><td class="num">${EURc(r.montant)}</td><td>${esc(r.mode||'—')}</td><td>${esc((r.date||'').slice(0,10)||'—')}</td></tr>`).join('');
-    }
+    const cols=visibleCols();
+    const head='<th style="width:24px"></th><th style="width:24px"></th>'
+      + cols.map(c=>'<th class="'+(c.num?'num ':'')+(c.sortable?'crm-th-sort':'')+'"'+(c.sortable?' data-sort="'+c.sortable+'"':'')+'>'+esc(c.label)+(c.sortable?sortArrow(c.sortable):'')+'</th>').join('');
+    const bodyRows=list.map(r=>'<tr data-id="'+esc(r.id)+'">'
+      +'<td><input type="checkbox" class="crm-check" data-id="'+esc(r.id)+'"'+(selection.has(r.id)?' checked':'')+'></td>'
+      +'<td><button class="crm-star'+(fav.has(r.id)?' on':'')+'" data-id="'+esc(r.id)+'">'+(fav.has(r.id)?'★':'☆')+'</button></td>'
+      + cols.map(c=>c.cell(r)).join('')+'</tr>').join('');
     $('crm-root').innerHTML='<div class="crm-count">'+list.length+' fiche(s)</div>'+(list.length?`<div class="crm-tablewrap"><table class="crm-table"><thead><tr>${head}</tr></thead><tbody>${bodyRows}</tbody></table></div>`:'<div class="empty">Aucune fiche.</div>');
     [...document.querySelectorAll('#crm-root th[data-sort]')].forEach(h=>h.onclick=()=>{ const f=h.dataset.sort; const s=S(); s.sort=(s.sort&&s.sort.field===f&&s.sort.dir==='asc')?{field:f,dir:'desc'}:((s.sort&&s.sort.field===f&&s.sort.dir==='desc')?null:{field:f,dir:'asc'}); renderAll(); });
     [...document.querySelectorAll('#crm-root .crm-check')].forEach(c=>c.onclick=(e)=>{ e.stopPropagation(); toggleSel(c.dataset.id, c.checked); });
@@ -1666,6 +1725,7 @@ if(AUTH && AUTH.token){
   $('crm-reload').addEventListener('click',load);
   $('crm-export').addEventListener('click',exportCSV);
   $('crm-panel-bg').addEventListener('click',closePanel);
+  document.addEventListener('click',()=>{ const p=$('crm-cols-pop'); if(p) p.classList.add('hidden'); });
 
   window.CRM = {
     load: load,
