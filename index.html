@@ -138,7 +138,7 @@
   #app{display:flex;min-height:100vh}
   .sidebar{width:250px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;gap:14px;padding:18px 12px;position:sticky;top:0;height:100vh;overflow-y:auto}
   .content{flex:1;min-width:0;padding:24px 28px;max-width:1300px}
-  .board-frame{width:100%;height:calc(100vh - 48px);border:0;border-radius:12px;background:var(--panel);display:block}
+  .board-frame{width:100%;height:calc(100vh - 40px);border:0;background:transparent;display:block}
   @media(max-width:820px){.board-frame{height:calc(100vh - 90px)}}
   .sb-brand{display:flex;justify-content:center;padding:10px 8px 8px}
   .sb-logo{height:56px;width:auto;max-width:92%;display:block}
@@ -827,7 +827,7 @@ function showTab(t){
   document.getElementById('view-crm').classList.toggle('hidden',t!=='crm');
   document.getElementById('view-board').classList.toggle('hidden',t!=='board');
   if(t==='crm' && !crmLoaded){ crmLoaded=true; window.CRM.load(); }
-  if(t==='board'){ const f=document.getElementById('board-frame'); if(f && !f.getAttribute('src')) f.setAttribute('src','/board.html'); }
+  if(t==='board'){ const f=document.getElementById('board-frame'); if(f && !f.getAttribute('src')) f.setAttribute('src','/board.html?embed=1&theme='+(document.documentElement.getAttribute('data-theme')||'dark')); }
 }
 
 function showBcSub(sub){
@@ -932,6 +932,7 @@ function applyTheme(t){
   document.querySelectorAll('.sb-logo,.gatelogo').forEach(img=>img.setAttribute('src', dark ? '/logo.png' : '/logo-dark.png'));
   const tt=document.getElementById('themeToggle'); if(tt) tt.textContent = dark ? '☀️ Thème clair' : '🌙 Thème sombre';
   if(window.Chart){ Chart.defaults.borderColor = dark ? '#27303f' : '#e2e6ec'; Chart.defaults.color = dark ? '#8a94a6' : '#697084'; }
+  const bf=document.getElementById('board-frame'); if(bf && bf.getAttribute('src')){ try{ bf.contentWindow.postMessage({type:'qvema-theme',theme:t},'*'); }catch(e){} }
 }
 applyTheme(currentTheme());
 document.getElementById('themeToggle').onclick = ()=>{

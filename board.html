@@ -12,6 +12,16 @@
     --txt:#e6ebf2; --muted:#8a94a6; --accent:#ffce3a; --accent2:#5b8def;
     --green:#3ecf8e; --red:#ef5b6b; --purple:#a779ff; --cyan:#4dd0e1;
   }
+  :root[data-theme="light"]{
+    --bg:#f5f2ea; --panel:#ffffff; --panel2:#eef1f5; --line:#e2e6ec;
+    --txt:#1b2536; --muted:#697084; --accent:#c28f00; --accent2:#3b6fd6;
+    --green:#1f9d5b; --red:#d64545; --purple:#7c5cff; --cyan:#0e9aa7;
+  }
+  /* Mode intégré dans le cockpit (iframe) : on retire le chrome propre du board. */
+  body.embedded{background:transparent}
+  body.embedded .wrap{max-width:none;padding:14px 2px 32px}
+  body.embedded .brand,body.embedded .navlink{display:none!important}
+  body.embedded header.top{justify-content:flex-end;margin-bottom:6px}
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--txt);-webkit-font-smoothing:antialiased}
   a{color:inherit;text-decoration:none}
@@ -643,6 +653,24 @@ function boot(){
 }
 document.getElementById('pwBtn').onclick=enter;
 document.getElementById('pwInput').addEventListener('keydown',e=>{if(e.key==='Enter')enter();});
+
+/* Mode intégré (iframe cockpit) + thème passés par l'URL ; thème synchronisé
+   ensuite par postMessage depuis le cockpit. */
+(function(){
+  try{
+    const p=new URLSearchParams(location.search);
+    if(p.get('embed')==='1') document.body.classList.add('embedded');
+    const th=p.get('theme');
+    if(th) document.documentElement.setAttribute('data-theme', th);
+    if(th==='light') document.querySelectorAll('.brandlogo,.gatelogo').forEach(i=>i.setAttribute('src','/logo-dark.png'));
+  }catch(e){}
+})();
+window.addEventListener('message',(e)=>{
+  if(e.data && e.data.type==='qvema-theme'){
+    document.documentElement.setAttribute('data-theme', e.data.theme);
+    document.querySelectorAll('.brandlogo,.gatelogo').forEach(i=>i.setAttribute('src', e.data.theme==='light'?'/logo-dark.png':'/logo.png'));
+  }
+});
 
 /* Accès géré par le cockpit (Board = admin only) + données 100% locales à ce
    navigateur : ouverture directe, sans mot de passe. */
