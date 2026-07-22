@@ -16,9 +16,8 @@
   a{color:inherit}
   .wrap{max-width:1240px;margin:0 auto;padding:24px}
   header.top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:8px}
-  .brand{display:flex;align-items:center;gap:12px}
-  .brand .logo{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#ff9f1c);display:flex;align-items:center;justify-content:center;font-weight:800;color:#11151d}
-  .brand h1{font-size:18px;font-weight:700;letter-spacing:.2px}
+  .brand{display:flex;flex-direction:column;align-items:flex-start;gap:5px}
+  .brandlogo{height:52px;width:auto;display:block}
   .brand p{font-size:12px;color:var(--muted)}
   .meta{font-size:12px;color:var(--muted);text-align:right}
   .meta button{margin-top:6px;background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px}
@@ -60,6 +59,7 @@
   #gate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:50}
   #gate .box{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:32px;width:340px;text-align:center}
   #gate .logo{width:52px;height:52px;border-radius:13px;background:linear-gradient(135deg,var(--accent),#ff9f1c);display:flex;align-items:center;justify-content:center;font-weight:800;color:#11151d;margin:0 auto 16px;font-size:20px}
+  .gatelogo{height:64px;width:auto;max-width:80%;display:block;margin:0 auto 18px}
   #gate h2{font-size:17px;margin-bottom:6px}
   #gate p{font-size:13px;color:var(--muted);margin-bottom:18px}
   #gate input{width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);font-size:14px;margin-bottom:12px}
@@ -141,7 +141,7 @@
 
 <div id="gate">
   <div class="box">
-    <div class="logo">QV</div>
+    <img src="/logo.png" alt="Qui Veut Être Mon Associé — Amplify" class="gatelogo" />
     <h2>Cockpit QVEMA Amplify</h2>
     <p>Connexion — accès réservé à l'équipe</p>
     <div class="err" id="gateErr"></div>
@@ -154,11 +154,8 @@
 <div class="wrap hidden" id="app">
   <header class="top">
     <div class="brand">
-      <div class="logo">QV</div>
-      <div>
-        <h1>Qui Veut Être Mon Associé — Amplify</h1>
-        <p>Cockpit de pilotage 360 · Bootcamp · Feedbacks · Amplify Connect</p>
-      </div>
+      <img src="/logo.png" alt="Qui Veut Être Mon Associé — Amplify" class="brandlogo" />
+      <p>Cockpit de pilotage 360 · Bootcamp · Feedbacks · Amplify Connect</p>
     </div>
     <div class="meta">
       <div id="whoami" style="margin-bottom:2px;color:var(--txt);font-weight:600"></div>
