@@ -903,11 +903,11 @@ function applyPerms(){
   show('.sb-item[data-nav="feedback"]', canFeed);
   show('.sb-item[data-nav="amplify"]', canAmp);
   show('.sb-item[data-nav="crm"]', canBoot||canAmp);
-  show('#sb-board', hasPerm('admin'));
+  show('#sb-board', hasPerm('board'));
   show('#sbg-bootcamp', canBoot||canFeed);
   show('#sbg-amplify', canAmp);
   show('#sbg-crm', canBoot||canAmp);
-  show('#sbg-outils', hasPerm('admin'));
+  show('#sbg-outils', hasPerm('board'));
   const nm = AUTH ? (AUTH.name||AUTH.email||'') : '';
   document.getElementById('whoami').textContent = nm || '—';
   document.getElementById('sb-role').textContent = AUTH ? labelPerms() : '';
