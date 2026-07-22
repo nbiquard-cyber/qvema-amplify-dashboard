@@ -215,6 +215,35 @@
   .crm-save:disabled{opacity:.6}
   .crm-saved{font-size:13px;color:var(--green)}
   @media(max-width:560px){.crm-panel-card{width:100%}}
+  /* CRM — filtres, stats, bulk, favoris */
+  .crm-actions2{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+  .crm-filterbar{display:flex;gap:7px;align-items:center;flex-wrap:wrap;flex:1;min-width:200px}
+  .crm-actions-right{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .crm-chip{display:inline-flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:4px 6px 4px 11px;font-size:12px;color:var(--txt)}
+  .crm-chip b{color:var(--accent);font-weight:700}
+  .crm-chip .x{cursor:pointer;background:var(--line);color:var(--txt);border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;font-size:11px;line-height:1}
+  .crm-chip .x:hover{background:var(--red);color:#fff}
+  .crm-btn,.crm-savedviews select,.crm-groupby select,.crm-fav-toggle{font-family:inherit;font-size:12.5px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--txt);cursor:pointer}
+  .crm-addf{display:inline-flex;align-items:center;gap:4px;padding:3px 6px;border:1px dashed var(--line);border-radius:8px;background:var(--panel2)}
+  .crm-addf select{background:transparent;border:none;color:var(--txt);font-family:inherit;font-size:12.5px;cursor:pointer;outline:none;max-width:160px}
+  .crm-addf .plus{background:var(--accent);color:#11151d;border:none;border-radius:6px;width:22px;height:22px;font-weight:800;cursor:pointer}
+  .crm-btn:hover,.crm-fav-toggle:hover{border-color:var(--accent)}
+  .crm-fav-toggle.on{background:var(--accent);color:#11151d;border-color:var(--accent);font-weight:700}
+  .crm-groupby{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .crm-stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .crm-stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 14px;min-width:108px}
+  .crm-stat .l{font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:600}
+  .crm-stat .v{font-size:18px;font-weight:800;color:var(--txt);margin-top:2px}
+  .crm-bulk{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--panel2);border:1px solid var(--accent);border-radius:10px;padding:9px 13px;margin-bottom:12px;font-size:13px}
+  .crm-bulk select{padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--txt);font-family:inherit;font-size:13px}
+  .crm-bulk .b-apply{background:var(--accent);color:#11151d;border:none;border-radius:8px;padding:7px 12px;font-weight:700;cursor:pointer}
+  .crm-bulk .b-clear{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:7px 12px;cursor:pointer}
+  .crm-check{cursor:pointer;width:15px;height:15px;accent-color:var(--accent)}
+  .crm-star{cursor:pointer;color:var(--muted);font-size:15px;background:none;border:none;padding:0}
+  .crm-star.on{color:var(--accent)}
+  .crm-th-sort{cursor:pointer;user-select:none;white-space:nowrap}
+  .crm-th-sort:hover{color:var(--txt)}
+  .crm-th-sort .ar{color:var(--accent);font-size:10px}
 
   @media print{
     #gate,.tabs,.subtabs,.promo-filter,.fb-controls,header.top,.noprint{display:none!important}
@@ -434,6 +463,16 @@
       <input class="crm-search" id="crm-search" placeholder="🔎 Rechercher (nom, email, ville…)" />
       <button class="crm-reload" id="crm-reload" title="Recharger">↻</button>
     </div>
+    <div class="crm-actions2">
+      <div class="crm-filterbar" id="crm-filterbar"></div>
+      <div class="crm-actions-right">
+        <label class="crm-groupby hidden" id="crm-groupby-wrap">Grouper&nbsp;: <select id="crm-groupby"></select></label>
+        <div class="crm-savedviews" id="crm-savedviews"></div>
+        <button class="crm-btn" id="crm-export" title="Exporter la vue filtrée en CSV">⬇ CSV</button>
+      </div>
+    </div>
+    <div class="crm-stats" id="crm-stats"></div>
+    <div class="crm-bulk hidden" id="crm-bulk"></div>
     <div id="crm-root"><div class="crm-loading"><div class="spin"></div>Chargement du CRM…</div></div>
   </section>
 
@@ -1100,16 +1139,45 @@ if(AUTH && AUTH.token){
 
 /* ==================================================================
    MODULE CRM (façon Twenty) — apprenants (Clients payés) + Amplify.
-   Lecture via /api/crm, édition légère via /api/crm-update. Gated par
-   permissions (bootcamp / amplify). Table + Kanban + fiche détail.
+   Lot 1 : filtres, tri, group-by kanban, stats, sélection multiple +
+   action groupée, export CSV, vues enregistrées, favoris.
+   Lecture /api/crm, écriture /api/crm-update. Gated par permissions.
    ================================================================== */
 (function(){
   let DATAC = { apprenants: [], amplify: [] };
   let obj = 'apprenants';
   let view = 'table';
+  const st = {
+    apprenants:{ filters:[], sort:null, groupBy:'stade', favOnly:false },
+    amplify:{ filters:[], sort:null, groupBy:'statutMembre', favOnly:false },
+  };
+  let selection = new Set();
   const $ = (id)=>document.getElementById(id);
   const esc = (s)=>{const d=document.createElement('div');d.textContent=(s==null?'':s);return d.innerHTML;};
   const EURc = (n)=> (n==null?'—':new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n));
+  const EMPTY='(vide)';
+
+  const FIELDS = {
+    apprenants:{
+      filter:[['promo','Promo'],['stade','Stade'],['secteur','Secteur'],['statutPaiement','Statut'],['mode','Paiement'],['ville','Ville'],['sexe','Sexe']],
+      editable:[['stade','Stade'],['statutPaiement','Statut paiement']],
+      csv:[['prenom','Prénom'],['nom','Nom'],['email','Email'],['tel','Téléphone'],['promo','Promo'],['stade','Stade'],['secteur','Secteur'],['ville','Ville'],['cp','Code postal'],['montant','Montant'],['mode','Mode'],['statutPaiement','Statut'],['notes','Notes']],
+    },
+    amplify:{
+      filter:[['statutMembre','Statut membre'],['statutPaiement','Statut paiement'],['saison','Saison'],['mode','Mode'],['ville','Ville']],
+      editable:[['statutMembre','Statut membre']],
+      csv:[['nom','Nom'],['email','Email'],['entreprise','Entreprise'],['tel','Téléphone'],['saison','Saison'],['montant','Montant'],['mode','Mode'],['statutPaiement','Statut'],['statutMembre','Statut membre'],['notes','Notes']],
+    }
+  };
+  const S = ()=>st[obj];
+
+  function favSet(){ try{ return new Set(JSON.parse(localStorage.getItem('qvema_crm_fav')||'[]')); }catch(e){ return new Set(); } }
+  function favSave(s){ try{ localStorage.setItem('qvema_crm_fav', JSON.stringify([...s])); }catch(e){} }
+  function toggleFav(id){ const s=favSet(); s.has(id)?s.delete(id):s.add(id); favSave(s); }
+
+  const viewsKey = ()=>'qvema_crm_views_'+obj;
+  function loadViews(){ try{ return JSON.parse(localStorage.getItem(viewsKey())||'{}'); }catch(e){ return {}; } }
+  function saveViews(v){ try{ localStorage.setItem(viewsKey(), JSON.stringify(v)); }catch(e){} }
 
   async function load(){
     $('crm-root').innerHTML='<div class="crm-loading"><div class="spin"></div>Chargement du CRM…</div>';
@@ -1130,7 +1198,8 @@ if(AUTH && AUTH.token){
     if(obj==='amplify' && !hasM) obj='apprenants';
     $('crm-cnt-apprenants').textContent = DATAC.apprenants.length;
     $('crm-cnt-amplify').textContent = DATAC.amplify.length;
-    syncButtons(); render();
+    selection.clear();
+    renderAll();
   }
 
   function syncButtons(){
@@ -1138,98 +1207,201 @@ if(AUTH && AUTH.token){
     [...document.querySelectorAll('#crm-views .crm-view')].forEach(b=>b.classList.toggle('on',b.dataset.view===view));
   }
 
-  function rows(){
-    const q = ($('crm-search').value||'').toLowerCase().trim();
-    let list = DATAC[obj]||[];
-    if(q){
-      list = list.filter(r=>{
-        const hay = (obj==='apprenants')
-          ? [r.prenom,r.nom,r.email,r.ville,r.promo,r.stade,r.secteur,r.tel].join(' ').toLowerCase()
-          : [r.nom,r.email,r.entreprise,r.ville,r.statutMembre,r.saison].join(' ').toLowerCase();
-        return hay.includes(q);
-      });
-    }
-    return list;
-  }
-  function render(){ if(view==='table') renderTable(); else renderKanban(); }
-
   function distinct(list, key, extra){
     const s = new Set();
-    (list||[]).forEach(r=>{ const v=(r[key]||'').trim(); if(v) s.add(v); });
+    (list||[]).forEach(r=>{ const v=(r[key]||'').toString().trim(); if(v) s.add(v); });
     (extra||[]).forEach(v=>{ if(v && v.trim()) s.add(v.trim()); });
     return [...s].sort((a,b)=>a.localeCompare(b,'fr'));
   }
+  function searchHay(r){ return (obj==='apprenants'?[r.prenom,r.nom,r.email,r.ville,r.promo,r.stade,r.secteur,r.tel]:[r.nom,r.email,r.entreprise,r.ville,r.statutMembre,r.saison]).join(' ').toLowerCase(); }
+  function cmp(a,b){
+    if(typeof a==='number' || typeof b==='number') return (Number(a)||0)-(Number(b)||0);
+    const na=parseFloat(a), nb=parseFloat(b);
+    if(!isNaN(na)&&!isNaN(nb)&&String(a).trim()!==''&&String(b).trim()!=='') return na-nb;
+    return String(a==null?'':a).localeCompare(String(b==null?'':b),'fr');
+  }
+
+  function rows(){
+    const q=($('crm-search').value||'').toLowerCase().trim();
+    const s=S(); let list=(DATAC[obj]||[]).slice();
+    if(s.favOnly){ const f=favSet(); list=list.filter(r=>f.has(r.id)); }
+    s.filters.forEach(fl=>{ list=list.filter(r=>{ const v=(r[fl.field]||'').toString().trim(); return fl.value===EMPTY ? !v : v===fl.value; }); });
+    if(q){ list=list.filter(r=>searchHay(r).includes(q)); }
+    if(s.sort){ const f=s.sort.field, d=s.sort.dir==='desc'?-1:1; list.sort((a,b)=>cmp(a[f],b[f])*d); }
+    return list;
+  }
+
+  function renderAll(){ renderFilterbar(); renderGroupby(); renderSaved(); renderStats(); renderBulk(); syncButtons(); render(); }
+  function render(){ if(view==='table') renderTable(); else renderKanban(); }
+
+  function renderStats(){
+    const list = rows();
+    const sum = list.reduce((a,r)=>a+(r.montant||0),0);
+    const avg = list.length? sum/list.length : 0;
+    const fav = favSet();
+    const nbFav = list.filter(r=>fav.has(r.id)).length;
+    const stats = [['Fiches', list.length],['CA total', EURc(sum)],['Panier moyen', EURc(Math.round(avg))],['Favoris', nbFav]];
+    $('crm-stats').innerHTML = stats.map(s=>`<div class="crm-stat"><div class="l">${esc(s[0])}</div><div class="v">${esc(String(s[1]))}</div></div>`).join('');
+  }
+
+  function renderFilterbar(){
+    const s=S(); const flds = FIELDS[obj].filter;
+    const chips = s.filters.map((fl,i)=>{
+      const lab=(flds.find(f=>f[0]===fl.field)||[fl.field,fl.field])[1];
+      return `<span class="crm-chip"><b>${esc(lab)}</b> ${esc(fl.value)} <span class="x" data-i="${i}">✕</span></span>`;
+    }).join('');
+    const fieldOpts = '<option value="">+ Filtre…</option>'+flds.map(f=>`<option value="${esc(f[0])}">${esc(f[1])}</option>`).join('');
+    const addCtl = `<span class="crm-addf"><select id="crm-fl-field">${fieldOpts}</select><select id="crm-fl-value" class="hidden"></select><button class="plus hidden" id="crm-fl-add">+</button></span>`;
+    const favBtn = `<button class="crm-fav-toggle${s.favOnly?' on':''}" id="crm-favtog">★ Favoris</button>`;
+    const resetBtn = (s.filters.length||s.favOnly||s.sort)?`<button class="crm-btn" id="crm-reset">Réinitialiser</button>`:'';
+    $('crm-filterbar').innerHTML = chips + addCtl + favBtn + resetBtn;
+    [...document.querySelectorAll('#crm-filterbar .crm-chip .x')].forEach(x=>x.onclick=()=>{ s.filters.splice(+x.dataset.i,1); renderAll(); });
+    const fldSel=$('crm-fl-field'), valSel=$('crm-fl-value'), addBtn=$('crm-fl-add');
+    fldSel.onchange=()=>{
+      const f=fldSel.value;
+      if(!f){ valSel.classList.add('hidden'); addBtn.classList.add('hidden'); return; }
+      const vals = distinct(DATAC[obj], f);
+      const hasEmpty = (DATAC[obj]||[]).some(r=>!(r[f]||'').toString().trim());
+      valSel.innerHTML = vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('') + (hasEmpty?`<option value="${EMPTY}">${EMPTY}</option>`:'');
+      valSel.classList.remove('hidden'); addBtn.classList.remove('hidden');
+    };
+    addBtn.onclick=()=>{ const f=fldSel.value, v=valSel.value; if(!f||!v)return; if(!s.filters.some(x=>x.field===f&&x.value===v)) s.filters.push({field:f,value:v}); renderAll(); };
+    $('crm-favtog').onclick=()=>{ s.favOnly=!s.favOnly; renderAll(); };
+    if($('crm-reset')) $('crm-reset').onclick=()=>{ s.filters=[]; s.favOnly=false; s.sort=null; renderAll(); };
+  }
+
+  function renderGroupby(){
+    const wrap=$('crm-groupby-wrap'); wrap.classList.toggle('hidden', view!=='kanban');
+    const sel=$('crm-groupby'); const flds=FIELDS[obj].filter;
+    sel.innerHTML = flds.map(f=>`<option value="${esc(f[0])}"${S().groupBy===f[0]?' selected':''}>${esc(f[1])}</option>`).join('');
+    sel.onchange=()=>{ S().groupBy=sel.value; renderKanban(); };
+  }
+
+  function renderSaved(){
+    const v=loadViews(); const names=Object.keys(v);
+    const opts='<option value="">Vues…</option>'+names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('')+'<option value="__save">💾 Enregistrer la vue…</option>'+(names.length?'<option value="__del">🗑 Supprimer une vue…</option>':'');
+    $('crm-savedviews').innerHTML=`<select id="crm-viewsel">${opts}</select>`;
+    $('crm-viewsel').onchange=(e)=>{
+      const val=e.target.value; e.target.value='';
+      if(!val) return;
+      if(val==='__save'){ const name=prompt('Nom de la vue :'); if(!name)return; const vv=loadViews(); vv[name]={filters:S().filters,sort:S().sort,search:$('crm-search').value,groupBy:S().groupBy,favOnly:S().favOnly}; saveViews(vv); renderSaved(); return; }
+      if(val==='__del'){ const name=prompt('Nom de la vue à supprimer :'); if(!name)return; const vv=loadViews(); delete vv[name]; saveViews(vv); renderSaved(); return; }
+      const conf=v[val]; if(!conf)return;
+      S().filters=conf.filters||[]; S().sort=conf.sort||null; S().groupBy=conf.groupBy||S().groupBy; S().favOnly=!!conf.favOnly;
+      $('crm-search').value=conf.search||'';
+      renderAll();
+    };
+  }
+
+  function exportCSV(){
+    const cols=FIELDS[obj].csv; const list=rows();
+    const escc=(v)=>{ v=(v==null?'':String(v)); return /[",\n;]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
+    const head=cols.map(c=>escc(c[1])).join(';');
+    const body=list.map(r=>cols.map(c=>escc(r[c[0]])).join(';')).join('\n');
+    const csv='﻿'+head+'\n'+body;
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download='crm-'+obj+'.csv'; document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  function renderBulk(){
+    const bar=$('crm-bulk');
+    if(!selection.size || view!=='table'){ bar.classList.add('hidden'); bar.innerHTML=''; return; }
+    const ed=FIELDS[obj].editable;
+    const fieldOpts=ed.map(f=>`<option value="${esc(f[0])}">${esc(f[1])}</option>`).join('');
+    bar.classList.remove('hidden');
+    bar.innerHTML=`<b>${selection.size}</b> sélectionné(s) · Changer <select id="crm-bulk-field">${fieldOpts}</select> vers <select id="crm-bulk-value"></select> <button class="b-apply" id="crm-bulk-apply">Appliquer</button> <button class="b-clear" id="crm-bulk-clear">Effacer</button> <span id="crm-bulk-msg" style="color:var(--muted)"></span>`;
+    const fs=$('crm-bulk-field'), vs=$('crm-bulk-value');
+    function fillVals(){ const f=fs.value; const vals=distinct(DATAC[obj], f); vs.innerHTML=vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join(''); }
+    fs.onchange=fillVals; fillVals();
+    $('crm-bulk-clear').onclick=()=>{ selection.clear(); renderAll(); };
+    $('crm-bulk-apply').onclick=async ()=>{
+      const f=fs.value, v=vs.value; if(!v)return;
+      $('crm-bulk-apply').disabled=true; $('crm-bulk-msg').textContent='Application…';
+      const ids=[...selection]; let ok=0;
+      for(const id of ids){
+        const rec=(DATAC[obj]||[]).find(r=>r.id===id); if(!rec)continue;
+        const patch = f==='stade'?{stade:v} : f==='statutPaiement'?{statutPaiement:v} : f==='statutMembre'?{statutMembre:v} : {};
+        const good=await save(rec,patch);
+        if(good){ rec[f]=v; ok++; }
+      }
+      $('crm-bulk-msg').textContent=ok+'/'+ids.length+' mis à jour';
+      selection.clear(); renderAll();
+    };
+  }
+  function toggleSel(id, on){ if(on) selection.add(id); else selection.delete(id); renderBulk(); }
+
+  function sortArrow(f){ const s=S().sort; return (s&&s.field===f)?(s.dir==='desc'?' <span class="ar">▼</span>':' <span class="ar">▲</span>'):''; }
+  function th(label,f){ return f?`<th class="crm-th-sort" data-sort="${esc(f)}">${esc(label)}${sortArrow(f)}</th>`:`<th>${esc(label)}</th>`; }
   function pill(txt, kind){ return '<span class="crm-pill'+(kind?' '+kind:'')+'">'+esc(txt||'—')+'</span>'; }
 
   function renderTable(){
-    const list = rows();
-    let html='';
+    const list=rows(); const fav=favSet();
+    let head, bodyRows;
     if(obj==='apprenants'){
-      html = '<div class="crm-tablewrap"><table class="crm-table"><thead><tr>'
-        + '<th>Nom</th><th>Promo</th><th>Stade</th><th>Email</th><th>Téléphone</th><th>Ville</th><th class="num">Montant</th><th>Paiement</th><th>Statut</th></tr></thead><tbody>'
-        + list.map(r=>`<tr data-id="${esc(r.id)}"><td class="crm-name">${esc((r.prenom+' '+r.nom).trim()||'—')}</td><td>${pill(r.promo)}</td><td>${esc(r.stade||'—')}</td><td class="crm-muted">${esc(r.email)}</td><td class="crm-muted">${esc(r.tel||'—')}</td><td>${esc(r.ville||'—')}</td><td class="num">${EURc(r.montant)}</td><td>${esc(r.mode||'—')}</td><td>${pill(r.statutPaiement, r.statutPaiement==='Remboursé'?'red':(r.statutPaiement==='Payé'?'green':''))}</td></tr>`).join('')
-        + '</tbody></table></div>';
+      head = '<th style="width:24px"></th><th style="width:24px"></th>'+th('Nom','nom')+th('Promo','promo')+th('Stade','stade')+th('Email','email')+th('Téléphone','tel')+th('Ville','ville')+'<th class="num crm-th-sort" data-sort="montant">Montant'+sortArrow('montant')+'</th>'+th('Paiement','mode')+th('Statut','statutPaiement');
+      bodyRows = list.map(r=>`<tr data-id="${esc(r.id)}"><td><input type="checkbox" class="crm-check" data-id="${esc(r.id)}"${selection.has(r.id)?' checked':''}></td><td><button class="crm-star${fav.has(r.id)?' on':''}" data-id="${esc(r.id)}">${fav.has(r.id)?'★':'☆'}</button></td><td class="crm-name">${esc((r.prenom+' '+r.nom).trim()||'—')}</td><td>${pill(r.promo)}</td><td>${esc(r.stade||'—')}</td><td class="crm-muted">${esc(r.email)}</td><td class="crm-muted">${esc(r.tel||'—')}</td><td>${esc(r.ville||'—')}</td><td class="num">${EURc(r.montant)}</td><td>${esc(r.mode||'—')}</td><td>${pill(r.statutPaiement, r.statutPaiement==='Remboursé'?'red':(r.statutPaiement==='Payé'?'green':''))}</td></tr>`).join('');
     } else {
-      html = '<div class="crm-tablewrap"><table class="crm-table"><thead><tr>'
-        + '<th>Nom</th><th>Entreprise</th><th>Email</th><th>Statut membre</th><th>Saison</th><th class="num">Montant</th><th>Mode</th><th>Date</th></tr></thead><tbody>'
-        + list.map(r=>`<tr data-id="${esc(r.id)}"><td class="crm-name">${esc(r.nom||'—')}</td><td>${esc(r.entreprise||'—')}</td><td class="crm-muted">${esc(r.email)}</td><td>${pill(r.statutMembre)}</td><td>${esc(r.saison||'—')}</td><td class="num">${EURc(r.montant)}</td><td>${esc(r.mode||'—')}</td><td>${esc((r.date||'').slice(0,10)||'—')}</td></tr>`).join('')
-        + '</tbody></table></div>';
+      head = '<th style="width:24px"></th><th style="width:24px"></th>'+th('Nom','nom')+th('Entreprise','entreprise')+th('Email','email')+th('Statut membre','statutMembre')+th('Saison','saison')+'<th class="num crm-th-sort" data-sort="montant">Montant'+sortArrow('montant')+'</th>'+th('Mode','mode')+th('Date','date');
+      bodyRows = list.map(r=>`<tr data-id="${esc(r.id)}"><td><input type="checkbox" class="crm-check" data-id="${esc(r.id)}"${selection.has(r.id)?' checked':''}></td><td><button class="crm-star${fav.has(r.id)?' on':''}" data-id="${esc(r.id)}">${fav.has(r.id)?'★':'☆'}</button></td><td class="crm-name">${esc(r.nom||'—')}</td><td>${esc(r.entreprise||'—')}</td><td class="crm-muted">${esc(r.email)}</td><td>${pill(r.statutMembre)}</td><td>${esc(r.saison||'—')}</td><td class="num">${EURc(r.montant)}</td><td>${esc(r.mode||'—')}</td><td>${esc((r.date||'').slice(0,10)||'—')}</td></tr>`).join('');
     }
-    $('crm-root').innerHTML = '<div class="crm-count">'+list.length+' fiche(s)</div>'+ (list.length?html:'<div class="empty">Aucune fiche.</div>');
-    [...document.querySelectorAll('#crm-root tr[data-id]')].forEach(tr=>tr.addEventListener('click',()=>openDetail(tr.dataset.id)));
+    $('crm-root').innerHTML='<div class="crm-count">'+list.length+' fiche(s)</div>'+(list.length?`<div class="crm-tablewrap"><table class="crm-table"><thead><tr>${head}</tr></thead><tbody>${bodyRows}</tbody></table></div>`:'<div class="empty">Aucune fiche.</div>');
+    [...document.querySelectorAll('#crm-root th[data-sort]')].forEach(h=>h.onclick=()=>{ const f=h.dataset.sort; const s=S(); s.sort=(s.sort&&s.sort.field===f&&s.sort.dir==='asc')?{field:f,dir:'desc'}:((s.sort&&s.sort.field===f&&s.sort.dir==='desc')?null:{field:f,dir:'asc'}); renderAll(); });
+    [...document.querySelectorAll('#crm-root .crm-check')].forEach(c=>c.onclick=(e)=>{ e.stopPropagation(); toggleSel(c.dataset.id, c.checked); });
+    [...document.querySelectorAll('#crm-root .crm-star')].forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); toggleFav(b.dataset.id); renderStats(); b.classList.toggle('on'); b.textContent=b.classList.contains('on')?'★':'☆'; });
+    [...document.querySelectorAll('#crm-root tr[data-id]')].forEach(tr=>tr.addEventListener('click',(e)=>{ if(e.target.closest('.crm-check')||e.target.closest('.crm-star'))return; openDetail(tr.dataset.id); }));
   }
 
   function renderKanban(){
-    const list = rows();
-    const key = obj==='apprenants' ? 'stade' : 'statutMembre';
-    const cols = distinct(DATAC[obj], key);
-    const NR='(Non renseigné)';
-    if(list.some(r=>!(r[key]||'').trim())) cols.push(NR);
+    const list=rows(); const key=S().groupBy;
+    const cols=distinct(DATAC[obj], key); const NR='(Non renseigné)';
+    if(list.some(r=>!(r[key]||'').toString().trim())) cols.push(NR);
     const byCol={}; cols.forEach(c=>byCol[c]=[]);
-    list.forEach(r=>{ const v=(r[key]||'').trim()||NR; (byCol[v]=byCol[v]||[]).push(r); });
+    list.forEach(r=>{ const v=(r[key]||'').toString().trim()||NR; (byCol[v]=byCol[v]||[]).push(r); });
+    const editable = (obj==='apprenants' && key==='stade') || (obj==='amplify' && key==='statutMembre');
     let html='<div class="crm-kanban">';
     cols.forEach(c=>{
-      html += `<div class="crm-col" data-col="${esc(c)}"><div class="crm-col-h"><span>${esc(c)}</span><span class="cnt">${(byCol[c]||[]).length}</span></div><div class="crm-col-body" data-col="${esc(c)}">`;
+      html+=`<div class="crm-col" data-col="${esc(c)}"><div class="crm-col-h"><span>${esc(c)}</span><span class="cnt">${(byCol[c]||[]).length}</span></div><div class="crm-col-body" data-col="${esc(c)}">`;
       (byCol[c]||[]).forEach(r=>{
-        const title = obj==='apprenants' ? ((r.prenom+' '+r.nom).trim()||r.email) : (r.nom||r.email);
-        const sub = obj==='apprenants' ? [r.promo,r.ville].filter(Boolean).join(' · ') : (r.entreprise||'');
-        html += `<div class="crm-card" draggable="true" data-id="${esc(r.id)}"><div class="crm-card-t">${esc(title)}</div><div class="crm-card-s">${esc(sub)}</div></div>`;
+        const title=obj==='apprenants'?((r.prenom+' '+r.nom).trim()||r.email):(r.nom||r.email);
+        const sub=obj==='apprenants'?[r.promo,r.ville].filter(Boolean).join(' · '):(r.entreprise||'');
+        html+=`<div class="crm-card"${editable?' draggable="true"':''} data-id="${esc(r.id)}"><div class="crm-card-t">${esc(title)}</div><div class="crm-card-s">${esc(sub)}</div></div>`;
       });
-      html += '</div></div>';
+      html+='</div></div>';
     });
     html+='</div>';
-    $('crm-root').innerHTML = '<div class="crm-count">'+list.length+' fiche(s) · glisse une carte pour changer '+(obj==='apprenants'?'le stade':'le statut membre')+'</div>'+html;
-    wireKanban();
+    const note = editable ? ' · glisse une carte pour changer '+(obj==='apprenants'?'le stade':'le statut membre') : ' · groupé par '+(FIELDS[obj].filter.find(f=>f[0]===key)||[key,key])[1];
+    $('crm-root').innerHTML='<div class="crm-count">'+list.length+' fiche(s)'+note+'</div>'+html;
+    wireKanban(editable, key);
   }
-
-  function wireKanban(){
+  function wireKanban(editable, key){
     [...document.querySelectorAll('#crm-root .crm-card')].forEach(card=>{
       card.addEventListener('click',()=>{ if(!card.classList.contains('dragging')) openDetail(card.dataset.id); });
-      card.addEventListener('dragstart',(e)=>{ card.classList.add('dragging'); e.dataTransfer.setData('text/plain',card.dataset.id); });
-      card.addEventListener('dragend',()=>card.classList.remove('dragging'));
+      if(editable){
+        card.addEventListener('dragstart',(e)=>{ card.classList.add('dragging'); e.dataTransfer.setData('text/plain',card.dataset.id); });
+        card.addEventListener('dragend',()=>card.classList.remove('dragging'));
+      }
     });
+    if(!editable) return;
     [...document.querySelectorAll('#crm-root .crm-col-body')].forEach(body=>{
       const col=body.parentElement;
       body.addEventListener('dragover',(e)=>{ e.preventDefault(); col.classList.add('over'); });
       body.addEventListener('dragleave',()=>col.classList.remove('over'));
-      body.addEventListener('drop',(e)=>{ e.preventDefault(); col.classList.remove('over'); moveCard(e.dataTransfer.getData('text/plain'), body.dataset.col); });
+      body.addEventListener('drop',(e)=>{ e.preventDefault(); col.classList.remove('over'); moveCard(e.dataTransfer.getData('text/plain'), body.dataset.col, key); });
     });
   }
-
-  async function moveCard(id, col){
+  async function moveCard(id, col, key){
     const NR='(Non renseigné)';
-    const rec = (DATAC[obj]||[]).find(r=>r.id===id);
-    if(!rec) return;
-    const key = obj==='apprenants' ? 'stade' : 'statutMembre';
-    if(col===NR) return;               // on ne "dé-renseigne" pas par glisser-déposer
+    const rec=(DATAC[obj]||[]).find(r=>r.id===id); if(!rec)return;
+    if(col===NR) return;
     if((rec[key]||'')===col) return;
-    const prev = rec[key];
-    rec[key]=col; renderKanban();       // optimiste
-    const ok = await save(rec, obj==='apprenants'?{stade:col}:{statutMembre:col});
+    const prev=rec[key]; rec[key]=col; renderKanban();
+    const patch = key==='stade'?{stade:col}:{statutMembre:col};
+    const ok=await save(rec,patch);
     if(!ok){ rec[key]=prev; renderKanban(); alert('Échec de la mise à jour dans Airtable.'); }
+    else { renderStats(); }
   }
 
-  /* ----- Fiche détail (slide-over) ----- */
   function openDetail(id){
     const rec = (DATAC[obj]||[]).find(r=>r.id===id);
     if(!rec) return;
@@ -1253,7 +1425,7 @@ if(AUTH && AUTH.token){
         $('crm-save').disabled=true; $('crm-saved').textContent='Enregistrement…';
         const ok = await save(rec, patch);
         $('crm-save').disabled=false;
-        if(ok){ rec.stade=patch.stade; rec.statutPaiement=patch.statutPaiement; rec.notes=patch.notes; $('crm-saved').textContent='✓ Enregistré'; render(); }
+        if(ok){ rec.stade=patch.stade; rec.statutPaiement=patch.statutPaiement; rec.notes=patch.notes; $('crm-saved').textContent='✓ Enregistré'; renderStats(); render(); }
         else { $('crm-saved').textContent='✗ Échec (voir Airtable)'; }
       };
     } else {
@@ -1271,7 +1443,7 @@ if(AUTH && AUTH.token){
         $('crm-save').disabled=true; $('crm-saved').textContent='Enregistrement…';
         const ok = await save(rec, patch);
         $('crm-save').disabled=false;
-        if(ok){ rec.statutMembre=patch.statutMembre; rec.notes=patch.notes; $('crm-saved').textContent='✓ Enregistré'; render(); }
+        if(ok){ rec.statutMembre=patch.statutMembre; rec.notes=patch.notes; $('crm-saved').textContent='✓ Enregistré'; renderStats(); render(); }
         else { $('crm-saved').textContent='✗ Échec (voir Airtable)'; }
       };
     }
@@ -1299,10 +1471,11 @@ if(AUTH && AUTH.token){
     }catch(e){ return false; }
   }
 
-  $('crm-objs').addEventListener('click',e=>{ const b=e.target.closest('.crm-obj'); if(!b)return; obj=b.dataset.obj; syncButtons(); render(); });
-  $('crm-views').addEventListener('click',e=>{ const b=e.target.closest('.crm-view'); if(!b)return; view=b.dataset.view; syncButtons(); render(); });
-  $('crm-search').addEventListener('input',render);
+  $('crm-objs').addEventListener('click',e=>{ const b=e.target.closest('.crm-obj'); if(!b)return; obj=b.dataset.obj; selection.clear(); renderAll(); });
+  $('crm-views').addEventListener('click',e=>{ const b=e.target.closest('.crm-view'); if(!b)return; view=b.dataset.view; renderAll(); });
+  $('crm-search').addEventListener('input',()=>{ renderStats(); render(); });
   $('crm-reload').addEventListener('click',load);
+  $('crm-export').addEventListener('click',exportCSV);
   $('crm-panel-bg').addEventListener('click',closePanel);
 
   window.CRM = { load: load };
