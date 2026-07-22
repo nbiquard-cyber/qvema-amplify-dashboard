@@ -181,7 +181,7 @@ module.exports = async (req, res) => {
       airtableAll(T.clients, ["Promo", "Montant", "Statut Paiement", "Produit", "Date Paiement", "Email", "Sexe", "Age", "Code postal", "Pays", "Mode de paiement"]),
       airtableAll(T.connect, ["Email", "Nom complet", "Montant", "Statut Paiement", "Date Paiement", "Mode Paiement", "Saison QVEMA", "Statut Membre"]),
       airtableAll(T.candidatures, ["Statut Candidature", "Statut Membre", "Mode de paiement", "Date Candidature", "Sous-cercle d'intérêt", "Saison"]),
-      airtableAll(T.accueil, ["Promo", "Secteur d'activité", "Stade d'avancement"]),
+      airtableAll(T.accueil, ["Promo", "Secteur d'activité", "Stade d'avancement", "Région", "Adresse mail", "Horodatage"]),
     ]);
 
     const norm = (s) => (s || "").toString().trim();
@@ -375,6 +375,21 @@ module.exports = async (req, res) => {
       }
     }
 
+    // Région PROMO 2 : source Accueil Bootcamp (champ "Région"), dédupliquée par
+    // e-mail — un même e-mail (plusieurs formulaires) n'est compté qu'UNE fois
+    // (on garde le formulaire le plus récent via l'Horodatage).
+    const p2RegionByEmail = new Map();
+    for (const a of accueil) {
+      if (norm(a.fields["Promo"]).toUpperCase() !== "PROMO 2") continue;
+      const em = lower(a.fields["Adresse mail"]);
+      if (!em) continue;
+      const ts = norm(a.fields["Horodatage"]);
+      const prev = p2RegionByEmail.get(em);
+      if (!prev || ts > prev.ts) p2RegionByEmail.set(em, { region: norm(a.fields["Région"]) || "Non renseigné", ts });
+    }
+    const regionsPromo2 = {};
+    for (const v of p2RegionByEmail.values()) regionsPromo2[v.region] = (regionsPromo2[v.region] || 0) + 1;
+
     const scopes = {};
     scopes["Toutes"] = buildScope(bcPaid, caEncGlobal, instGlobal, statutGlobal);
     scopes["Toutes"].secteurs = secteurGlobal;
@@ -385,6 +400,10 @@ module.exports = async (req, res) => {
       scopes[p] = buildScope(list, caEncByPromo[p] || 0, instByPromo[p] || 0, statutByPromo[p] || {});
       scopes[p].secteurs = secteurByPromo[p] || {};
       scopes[p].stades = stadeByPromo[p] || {};
+    }
+    // Pour la Promo 2, la région vient d'Accueil (dédupliquée par e-mail), pas du code postal Clients.
+    if (scopes["PROMO 2"] && scopes["PROMO 2"].demographics) {
+      scopes["PROMO 2"].demographics.regions = regionsPromo2;
     }
     // Remboursements par scope : nombre (Airtable), montant réel (Stripe amount_refunded), taux.
     const attachRefund = (scopeObj, count, montantReel, montantContrat) => {
