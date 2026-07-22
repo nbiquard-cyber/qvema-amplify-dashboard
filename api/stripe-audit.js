@@ -64,6 +64,33 @@ module.exports = async (req, res) => {
       .forEach((c) => { const em = lower(c.fields["Email"]); if (em) emailToPromo[em] = norm(c.fields["Promo"]); });
 
     const bootSet = new Set(BOOTCAMP), ampSet = new Set(AMPLIFY);
+
+    // ===== RÉCONCILIATION EN PARTANT D'AIRTABLE PROMO 2 =====
+    const chargesByEmail = {};
+    succeeded.forEach((c) => { const em = chargeEmail(c); (chargesByEmail[em] = chargesByEmail[em] || []).push(c); });
+    const p2clients = clients.filter((c) => norm(c.fields["Statut Paiement"]) === "Payé" && norm(c.fields["Promo"]) === "PROMO 2");
+    let p2collected = 0, p2contrat = 0;
+    const p2noPayment = [], p2detail = [];
+    for (const c of p2clients) {
+      const em = lower(c.fields["Email"]);
+      const montant = Number(c.fields["Montant"]) || 0;
+      const mode = norm(c.fields["Mode de paiement"]);
+      p2contrat += montant;
+      const chs = chargesByEmail[em] || [];
+      const bootChs = chs.filter((x) => bootSet.has(x.amount));
+      const net = bootChs.reduce((a, x) => a + (x.amount - (x.amount_refunded || 0)) / 100, 0);
+      p2collected += net;
+      const row = { email: em, montant, mode, collecte: Math.round(net * 100) / 100, nbChargesBoot: bootChs.length, nbChargesTotal: chs.length };
+      p2detail.push(row);
+      if (bootChs.length === 0) p2noPayment.push(row);
+    }
+    const P2 = {
+      nbClientsPromo2: p2clients.length,
+      caContratPromo2: p2contrat,
+      caEncaissePromo2_recalcule: Math.round(p2collected * 100) / 100,
+      clientsSansPaiementStripe: p2noPayment,
+    };
+
     const amountDist = {}, unclassified = {}, rawByPromo = {}, bucketByPromo = {}, p2amounts = {};
     let unattributedBoot = { count: 0, net: 0 };
     for (const c of succeeded) {
@@ -88,14 +115,10 @@ module.exports = async (req, res) => {
     const round = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, Math.round(v * 100) / 100]));
     res.statusCode = 200;
     return res.end(JSON.stringify({
-      nbSucceeded: succeeded.length,
-      amountDist: Object.entries(amountDist).sort((x, y) => y[1].net - x[1].net),
-      unclassifiedAmounts: Object.entries(unclassified).sort((x, y) => y[1].net - x[1].net),
-      rawByPromo: round(rawByPromo),
-      bucketByPromo: round(bucketByPromo),
+      PROMO2_depuis_Airtable: P2,
       promo2AmountCounts: p2amounts,
-      unattributedBootcampCharges: { count: unattributedBoot.count, net: Math.round(unattributedBoot.net * 100) / 100 },
-      detail1200,
+      bucketByPromo: round(bucketByPromo),
+      nbSucceeded: succeeded.length,
     }, null, 2));
   } catch (e) { res.statusCode = 500; return res.end(JSON.stringify({ error: e.message })); }
 };
