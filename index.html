@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>QVEMA Amplify — Dashboard</title>
+<title>QVEMA Amplify — Cockpit 360</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
   :root{
@@ -64,6 +64,74 @@
   #loading{text-align:center;padding:60px;color:var(--muted)}
   .spinner{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 14px}
   @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ===== Sous-onglets (niveau 2) ===== */
+  .subtabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 18px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:5px}
+  .subtab{padding:9px 16px;border-radius:9px;cursor:pointer;color:var(--muted);font-weight:600;font-size:13px}
+  .subtab:hover{color:var(--txt)}
+  .subtab.active{background:var(--accent);color:#11151d}
+
+  /* ===== Module Feedbacks intégré (thème sombre) ===== */
+  .fb .controls{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin:0 0 16px}
+  .fb .controls .grp{display:flex;flex-direction:column;gap:4px}
+  .fb .controls label{font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+  .fb select,.fb .reload{font-family:inherit;font-size:13px;padding:9px 13px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);color:var(--txt);cursor:pointer}
+  .fb .toggle{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--panel2);flex-wrap:wrap}
+  .fb .toggle button{border:none;border-radius:0;background:transparent;font-weight:600;color:var(--muted);font-family:inherit;font-size:13px;padding:9px 13px;cursor:pointer}
+  .fb .toggle button.on{background:var(--accent);color:#11151d}
+  .fb .reload{margin-left:auto;border-color:var(--accent);color:var(--accent);font-weight:600}
+  .fb .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px}
+  .fb .metric{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:15px 17px}
+  .fb .metric .lab{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+  .fb .metric .val{font-size:1.8rem;font-weight:800;color:var(--accent);margin-top:5px;line-height:1.1}
+  .fb .metric .val small{font-size:.9rem;color:var(--muted);font-weight:600}
+  .fb .metric .note{font-size:12px;color:var(--muted);margin-top:3px}
+  .fb .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:17px;margin-bottom:16px}
+  .fb .panel h2{font-size:14px;color:var(--txt);margin-bottom:14px}
+  .fb .panel h3{font-size:13px;color:var(--txt);margin:14px 0 8px}
+  .fb .panel .sub{font-size:12px;color:var(--muted);font-weight:400;margin-left:6px}
+  .fb .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:760px){.fb .grid2{grid-template-columns:1fr}}
+  .fb .chartbox{position:relative;height:270px}
+  .fb table{width:100%;border-collapse:collapse;font-size:13px}
+  .fb th,.fb td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  .fb th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);position:sticky;top:0;background:var(--panel)}
+  .fb .tablewrap{max-height:560px;overflow:auto;border:1px solid var(--line);border-radius:12px}
+  .fb .pill{display:inline-block;padding:2px 8px;border-radius:99px;font-size:12px;font-weight:600;background:var(--panel2);color:var(--accent)}
+  .fb .verb{border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin-bottom:10px;background:var(--panel2)}
+  .fb .verb .who{font-weight:700;color:var(--txt);font-size:13px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:5px}
+  .fb .verb .who .tag{font-weight:500;color:var(--muted);font-size:12px}
+  .fb .verb .a{font-size:14px;margin-top:1px}
+  .fb .loading,.fb .empty{text-align:center;color:var(--muted);padding:50px 20px}
+  .fb .spin{width:30px;height:30px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;margin:0 auto 14px;animation:spin 1s linear infinite}
+  .fb .err{background:rgba(239,91,107,.12);border:1px solid var(--red);color:#f3b0b8;padding:14px;border-radius:11px;font-size:14px}
+  .fb .tally{display:flex;flex-direction:column;gap:8px}
+  .fb .tally .row{display:flex;align-items:center;gap:10px}
+  .fb .tally .name{font-size:13px;width:48%;flex-shrink:0}
+  .fb .tally .bar{flex:1;height:16px;background:var(--panel2);border-radius:6px;overflow:hidden}
+  .fb .tally .bar span{display:block;height:100%;background:linear-gradient(90deg,var(--accent),#ff9f1c)}
+  .fb .tally .cnt{font-size:13px;font-weight:700;color:var(--accent);width:26px;text-align:right}
+  .fb .search{width:100%;max-width:360px;padding:10px 13px;border:1px solid var(--line);border-radius:10px;font-size:14px;margin-bottom:14px;background:var(--panel2);color:var(--txt)}
+  .fb .lcard{border:1px solid var(--line);border-radius:12px;margin-bottom:10px;background:var(--panel);overflow:hidden}
+  .fb .lhead{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:12px 15px;cursor:pointer}
+  .fb .lhead:hover{background:var(--panel2)}
+  .fb .lhead .nm{font-weight:700;color:var(--txt)}
+  .fb .lhead .em{color:var(--muted);font-size:13px}
+  .fb .lhead .badges{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .fb .ldetail{padding:2px 15px 14px;border-top:1px solid var(--line)}
+  .fb .subm{margin-top:12px}
+  .fb .subm .sh{font-weight:700;color:var(--accent);font-size:13px;margin-bottom:4px}
+  .fb .kv{font-size:13px;padding:4px 0;border-bottom:1px dashed var(--line);display:flex;gap:10px}
+  .fb .kv .k{color:var(--muted);min-width:210px;max-width:210px;flex-shrink:0}
+  .fb .rephead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+  .fb .rephead .t{font-size:1.2rem;font-weight:800;color:var(--txt)}
+  .fb .rephead .s{font-size:12px;color:var(--muted)}
+  .fb .btn-print{background:var(--accent);color:#11151d;border:none;font-weight:700;padding:9px 13px;border-radius:9px;cursor:pointer}
+  .fb .keyprompt{max-width:390px;margin:30px auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:26px;text-align:center}
+  .fb .keyprompt input{width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);font-size:14px;margin:12px 0}
+  .fb .keyprompt button{width:100%;padding:11px;border-radius:9px;border:none;background:var(--accent);color:#11151d;font-weight:700;cursor:pointer}
+  .fb .keyprompt .e{color:var(--red);font-size:12px;min-height:16px;margin-top:8px}
+  @media print{.top,.tabs,.subtabs,.promo-filter,.fb .controls,.fb .reload,.meta button,.noprint{display:none!important}}
 </style>
 </head>
 <body>
@@ -85,7 +153,7 @@
       <div class="logo">QV</div>
       <div>
         <h1>Qui Veut Être Mon Associé — Amplify</h1>
-        <p>Dashboard temps réel · Airtable + Stripe</p>
+        <p>Cockpit de pilotage 360° · Bootcamp · Feedbacks · Amplify</p>
       </div>
     </div>
     <div class="meta">
@@ -104,80 +172,115 @@
 
   <div id="loading"><div class="spinner"></div>Chargement des données…</div>
 
-  <!-- BOOTCAMP -->
+  <!-- ================= PÔLE BOOTCAMP ================= -->
   <section id="view-bootcamp" class="hidden">
+    <div class="subtabs" id="bc-subtabs">
+      <div class="subtab active" data-sub="business">💰 Business</div>
+      <div class="subtab" data-sub="profils">👥 Profils apprenants</div>
+      <div class="subtab" data-sub="feedbacks">💬 Feedbacks</div>
+    </div>
+
     <div class="promo-filter" id="bc-filter"></div>
-    <div class="grid kpis">
-      <div class="card kpi"><div class="label">Inscrits payés</div><div class="value yellow" id="bc-inscrits">—</div><div class="sub" id="bc-inscrits-sub"></div></div>
-      <div class="card kpi"><div class="label">CA généré</div><div class="value blue" id="bc-cagenere">—</div><div class="sub">valeur totale des ventes</div></div>
-      <div class="card kpi"><div class="label">CA encaissé</div><div class="value green" id="bc-caencaisse">—</div><div class="sub" id="bc-caencaisse-sub"></div></div>
-      <div class="card kpi"><div class="label">Reste à encaisser</div><div class="value purple" id="bc-careste">—</div><div class="sub">échéancier 4x à venir</div></div>
-    </div>
 
-    <div class="card" style="margin-top:16px;display:flex;align-items:center;gap:12px;border-left:3px solid var(--red)">
-      <span style="font-size:20px">↩️</span>
-      <div id="bc-refund" style="font-size:14px">—</div>
-    </div>
-
-    <!-- DÉMOGRAPHIE (source : feuille Clients Airtable) -->
-    <div class="row2">
-      <div class="card">
-        <h3><span class="dot"></span>Répartition Homme / Femme <span id="bc-demo-scope" style="color:var(--muted);font-weight:400"></span></h3>
-        <div class="chart-box"><canvas id="bc-genre-chart"></canvas></div>
-        <div class="note" id="bc-genre-note"></div>
+    <!-- --- Sous-onglet BUSINESS --- -->
+    <div id="bc-sub-business">
+      <div class="grid kpis">
+        <div class="card kpi"><div class="label">Inscrits payés</div><div class="value yellow" id="bc-inscrits">—</div><div class="sub" id="bc-inscrits-sub"></div></div>
+        <div class="card kpi"><div class="label">CA généré</div><div class="value blue" id="bc-cagenere">—</div><div class="sub">valeur totale des ventes</div></div>
+        <div class="card kpi"><div class="label">CA encaissé</div><div class="value green" id="bc-caencaisse">—</div><div class="sub" id="bc-caencaisse-sub"></div></div>
+        <div class="card kpi"><div class="label">Reste à encaisser</div><div class="value purple" id="bc-careste">—</div><div class="sub">échéancier 4x à venir</div></div>
       </div>
-      <div class="card">
-        <h3><span class="dot"></span>Âge des participants</h3>
-        <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
-          <div class="kpi" style="min-width:110px">
-            <div class="label">Âge moyen</div>
-            <div class="value purple" id="bc-age-moy">—</div>
-            <div class="sub" id="bc-age-sub"></div>
-          </div>
-          <div class="chart-box" style="flex:1;min-width:220px;height:200px"><canvas id="bc-age-chart"></canvas></div>
+
+      <div class="card" style="margin-top:16px;display:flex;align-items:center;gap:12px;border-left:3px solid var(--red)">
+        <span style="font-size:20px">↩️</span>
+        <div id="bc-refund" style="font-size:14px">—</div>
+      </div>
+
+      <div class="row2">
+        <div class="card">
+          <h3><span class="dot"></span>Inscrits par promo <span style="color:var(--muted);font-weight:400">· clique pour filtrer</span></h3>
+          <div class="chart-box"><canvas id="bc-promo-chart"></canvas></div>
+        </div>
+        <div class="card">
+          <h3><span class="dot"></span>Mode de paiement</h3>
+          <div class="chart-box"><canvas id="bc-pay-chart"></canvas></div>
+          <div class="note" id="bc-pay-note"></div>
+        </div>
+      </div>
+
+      <div class="row2">
+        <div class="card">
+          <h3><span class="dot"></span>Inscriptions par jour</h3>
+          <div class="chart-box"><canvas id="bc-day-chart"></canvas></div>
+        </div>
+        <div class="card">
+          <h3><span class="dot"></span>Détail par promo</h3>
+          <table id="bc-promo-table"><thead><tr><th>Promo</th><th class="num">Inscrits</th><th class="num">CA généré</th></tr></thead><tbody></tbody></table>
+          <div class="note" id="bc-statut-note"></div>
         </div>
       </div>
     </div>
 
-    <div class="card" style="margin-top:16px">
-      <h3><span class="dot"></span>Répartition par région <span style="color:var(--muted);font-weight:400">· déduite du code postal</span></h3>
-      <div class="chart-box" style="height:320px"><canvas id="bc-region-chart"></canvas></div>
-      <div class="note" id="bc-region-note"></div>
-    </div>
-
-    <div class="card" style="margin-top:16px">
-      <h3><span class="dot"></span>Secteur d'activité <span style="color:var(--muted);font-weight:400">· source Accueil Bootcamp</span></h3>
-      <div class="chart-box" style="height:380px"><canvas id="bc-secteur-chart"></canvas></div>
-      <div class="note" id="bc-secteur-note"></div>
-    </div>
-
-    <div class="card" style="margin-top:16px">
-      <h3><span class="dot"></span>Stade d'avancement <span style="color:var(--muted);font-weight:400">· source Accueil Bootcamp</span></h3>
-      <div class="chart-box"><canvas id="bc-stade-chart"></canvas></div>
-      <div class="note" id="bc-stade-note"></div>
-    </div>
-
-    <div class="row2">
-      <div class="card">
-        <h3><span class="dot"></span>Inscrits par promo <span style="color:var(--muted);font-weight:400">· clique pour filtrer</span></h3>
-        <div class="chart-box"><canvas id="bc-promo-chart"></canvas></div>
+    <!-- --- Sous-onglet PROFILS APPRENANTS --- -->
+    <div id="bc-sub-profils" class="hidden">
+      <!-- DÉMOGRAPHIE (source : feuille Clients Airtable) -->
+      <div class="row2">
+        <div class="card">
+          <h3><span class="dot"></span>Répartition Homme / Femme <span id="bc-demo-scope" style="color:var(--muted);font-weight:400"></span></h3>
+          <div class="chart-box"><canvas id="bc-genre-chart"></canvas></div>
+          <div class="note" id="bc-genre-note"></div>
+        </div>
+        <div class="card">
+          <h3><span class="dot"></span>Âge des participants</h3>
+          <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+            <div class="kpi" style="min-width:110px">
+              <div class="label">Âge moyen</div>
+              <div class="value purple" id="bc-age-moy">—</div>
+              <div class="sub" id="bc-age-sub"></div>
+            </div>
+            <div class="chart-box" style="flex:1;min-width:220px;height:200px"><canvas id="bc-age-chart"></canvas></div>
+          </div>
+        </div>
       </div>
-      <div class="card">
-        <h3><span class="dot"></span>Mode de paiement</h3>
-        <div class="chart-box"><canvas id="bc-pay-chart"></canvas></div>
-        <div class="note" id="bc-pay-note"></div>
+
+      <div class="card" style="margin-top:16px">
+        <h3><span class="dot"></span>Répartition par région <span style="color:var(--muted);font-weight:400">· déduite du code postal</span></h3>
+        <div class="chart-box" style="height:320px"><canvas id="bc-region-chart"></canvas></div>
+        <div class="note" id="bc-region-note"></div>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <h3><span class="dot"></span>Secteur d'activité <span style="color:var(--muted);font-weight:400">· source Accueil Bootcamp</span></h3>
+        <div class="chart-box" style="height:380px"><canvas id="bc-secteur-chart"></canvas></div>
+        <div class="note" id="bc-secteur-note"></div>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <h3><span class="dot"></span>Stade d'avancement <span style="color:var(--muted);font-weight:400">· source Accueil Bootcamp</span></h3>
+        <div class="chart-box"><canvas id="bc-stade-chart"></canvas></div>
+        <div class="note" id="bc-stade-note"></div>
       </div>
     </div>
 
-    <div class="row2">
-      <div class="card">
-        <h3><span class="dot"></span>Inscriptions par jour</h3>
-        <div class="chart-box"><canvas id="bc-day-chart"></canvas></div>
-      </div>
-      <div class="card">
-        <h3><span class="dot"></span>Détail par promo</h3>
-        <table id="bc-promo-table"><thead><tr><th>Promo</th><th class="num">Inscrits</th><th class="num">CA généré</th></tr></thead><tbody></tbody></table>
-        <div class="note" id="bc-statut-note"></div>
+    <!-- --- Sous-onglet FEEDBACKS (module intégré) --- -->
+    <div id="bc-sub-feedbacks" class="hidden">
+      <div class="fb" id="fb-app">
+        <div class="controls">
+          <div class="grp"><label>Vue</label>
+            <div class="toggle" id="fb-viewToggle">
+              <button data-view="overview" class="on">Vue d'ensemble</button>
+              <button data-view="profile">Profil promo</button>
+              <button data-view="learner">Par apprenant</button>
+              <button data-view="report">Compte rendu</button>
+              <button data-view="detail">Détail</button>
+            </div>
+          </div>
+          <div class="grp"><label>Promo</label><select id="fb-fPromo"><option value="">Toutes les promos</option></select></div>
+          <div class="grp"><label>Module</label><select id="fb-fModule"><option value="">Tous les modules</option></select></div>
+          <button class="reload" id="fb-reload">↻ Recharger</button>
+        </div>
+        <div id="fb-meta" style="font-size:12px;color:var(--muted);margin-bottom:14px">—</div>
+        <div id="fb-root"><div class="loading"><div class="spin"></div>Lecture des données…</div></div>
       </div>
     </div>
   </section>
@@ -484,11 +587,310 @@ document.getElementById('pwInput').addEventListener('keydown',e=>{if(e.key==='En
 document.getElementById('refreshBtn').onclick = load;
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>showTab(t.dataset.tab));
 
+/* ===== Sous-onglets du pôle Bootcamp (Business / Profils / Feedbacks) ===== */
+function showSub(sub){
+  document.querySelectorAll('#bc-subtabs .subtab').forEach(x=>x.classList.toggle('active',x.dataset.sub===sub));
+  ['business','profils','feedbacks'].forEach(k=>document.getElementById('bc-sub-'+k).classList.toggle('hidden',k!==sub));
+  // Le filtre promo (Airtable/Stripe) ne concerne pas le module Feedbacks (filtres propres).
+  document.getElementById('bc-filter').classList.toggle('hidden',sub==='feedbacks');
+  if(sub==='feedbacks'){ if(window.FB) window.FB.open(); }
+  else { setTimeout(()=>{Object.values(charts).forEach(c=>{try{c.resize();}catch(e){}});},30); }
+}
+document.querySelectorAll('#bc-subtabs .subtab').forEach(t=>t.onclick=()=>showSub(t.dataset.sub));
+
 if(getPw()){
   document.getElementById('gate').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   load();
 }
+</script>
+
+<script>
+/* ================= MODULE FEEDBACKS — intégré au pôle Bootcamp =================
+   Porté depuis pilotage-feedback-qvema. Isolé dans une IIFE (aucune variable
+   globale partagée avec le dashboard). Données : Google Apps Script (JSONP).
+   Auth : tente d'abord le mot de passe du cockpit ; si le script Google le
+   refuse, invite dédiée une seule fois (mémorisée en localStorage). ============ */
+(function(){
+  const ENDPOINT = "https://script.google.com/macros/s/AKfycbzVcNiXd0lAOFtyBWOE4vOaZOj0LHJDqO8zJ_yn6B_nRVtA4mTjfHcR9itlnjL-cAyJnA/exec";
+  let FB_PWD="", manualKey=false, loaded=false;
+  let RECORDS=[], AIRTABLE=[], charts=[], view="overview", bugCount=0;
+  const META_FIELDS=["Horodatage","Module","Promo","Email","Nom","Prénom","Prenom","Date de naissance"];
+  const $=(id)=>document.getElementById(id);
+
+  function num(v){const n=parseFloat(String(v).replace(',','.'));return isNaN(n)?null:n;}
+  function esc(s){const d=document.createElement('div');d.textContent=(s==null?'':s);return d.innerHTML;}
+  function moduleOf(tab){const m=String(tab).match(/module\s*(.+)/i);return m?m[1].trim():"0-1";}
+  function modLabel(m){return m==="0-1"?"Module 0 & 1":"Module "+m;}
+  function findKey(obj,re){for(const k in obj){if(re.test(k))return k;}return null;}
+  function moduleOrder(m){if(m==="0-1")return 0;const n=parseFloat(m);return isNaN(n)?99:n;}
+  function avg(a){const v=a.filter(x=>x!=null);return v.length?v.reduce((s,x)=>s+x,0)/v.length:null;}
+  function median(a){if(!a.length)return null;const s=a.slice().sort((x,y)=>x-y);const n=s.length;return n%2?s[(n-1)/2]:Math.round((s[n/2-1]+s[n/2])/2);}
+  function canonPromo(s){s=String(s||'').trim();const m=s.match(/(\d+)/);return m?('Promo '+m[1]):(s||'Promo 1');}
+
+  /* ---- Code postal -> région ---- */
+  const DEPT_REGION={'01':'Auvergne-Rhône-Alpes','03':'Auvergne-Rhône-Alpes','07':'Auvergne-Rhône-Alpes','15':'Auvergne-Rhône-Alpes','26':'Auvergne-Rhône-Alpes','38':'Auvergne-Rhône-Alpes','42':'Auvergne-Rhône-Alpes','43':'Auvergne-Rhône-Alpes','63':'Auvergne-Rhône-Alpes','69':'Auvergne-Rhône-Alpes','73':'Auvergne-Rhône-Alpes','74':'Auvergne-Rhône-Alpes','21':'Bourgogne-Franche-Comté','25':'Bourgogne-Franche-Comté','39':'Bourgogne-Franche-Comté','58':'Bourgogne-Franche-Comté','70':'Bourgogne-Franche-Comté','71':'Bourgogne-Franche-Comté','89':'Bourgogne-Franche-Comté','90':'Bourgogne-Franche-Comté','22':'Bretagne','29':'Bretagne','35':'Bretagne','56':'Bretagne','18':'Centre-Val de Loire','28':'Centre-Val de Loire','36':'Centre-Val de Loire','37':'Centre-Val de Loire','41':'Centre-Val de Loire','45':'Centre-Val de Loire','2A':'Corse','2B':'Corse','20':'Corse','08':'Grand Est','10':'Grand Est','51':'Grand Est','52':'Grand Est','54':'Grand Est','55':'Grand Est','57':'Grand Est','67':'Grand Est','68':'Grand Est','88':'Grand Est','02':'Hauts-de-France','59':'Hauts-de-France','60':'Hauts-de-France','62':'Hauts-de-France','80':'Hauts-de-France','75':'Île-de-France','77':'Île-de-France','78':'Île-de-France','91':'Île-de-France','92':'Île-de-France','93':'Île-de-France','94':'Île-de-France','95':'Île-de-France','14':'Normandie','27':'Normandie','50':'Normandie','61':'Normandie','76':'Normandie','16':'Nouvelle-Aquitaine','17':'Nouvelle-Aquitaine','19':'Nouvelle-Aquitaine','23':'Nouvelle-Aquitaine','24':'Nouvelle-Aquitaine','33':'Nouvelle-Aquitaine','40':'Nouvelle-Aquitaine','47':'Nouvelle-Aquitaine','64':'Nouvelle-Aquitaine','79':'Nouvelle-Aquitaine','86':'Nouvelle-Aquitaine','87':'Nouvelle-Aquitaine','09':'Occitanie','11':'Occitanie','12':'Occitanie','30':'Occitanie','31':'Occitanie','32':'Occitanie','34':'Occitanie','46':'Occitanie','48':'Occitanie','65':'Occitanie','66':'Occitanie','81':'Occitanie','82':'Occitanie','44':'Pays de la Loire','49':'Pays de la Loire','53':'Pays de la Loire','72':'Pays de la Loire','85':'Pays de la Loire','04':'PACA','05':'PACA','06':'PACA','13':'PACA','83':'PACA','84':'PACA'};
+  function cpToRegion(cp){
+    cp=String(cp||'').replace(/\s/g,'');
+    if(!/^\d/.test(cp)) return null;
+    if(cp.slice(0,2)==='97'||cp.slice(0,2)==='98') return 'DOM-TOM';
+    var dep=cp.slice(0,2);
+    return DEPT_REGION[dep]||null;
+  }
+
+  /* ---- Auth : mot de passe unique du cockpit + secours dédié feedbacks ---- */
+  function storedKey(){ try{return localStorage.getItem('qvema_fb_pwd')||'';}catch(e){return '';} }
+  function cockpitPw(){ try{return sessionStorage.getItem('qvema_pw')||'';}catch(e){return '';} }
+  function open(){
+    if(loaded) return;
+    if(!FB_PWD){ const sk=storedKey(); FB_PWD=sk||cockpitPw(); manualKey=!!sk; }
+    if(!FB_PWD){ showKey("Accès aux feedbacks",""); return; }
+    load();
+  }
+  window.FB={ open:open };
+
+  function showKey(title,err){
+    $('fb-root').innerHTML='<div class="keyprompt"><div style="color:var(--accent);font-weight:700;letter-spacing:.12em;font-size:11px;text-transform:uppercase">QVEMA Amplify · Feedbacks</div><h3 style="margin:8px 0;color:var(--txt)">'+esc(title)+'</h3><p style="color:var(--muted);font-size:13px">Ce module a son propre accès (Google Sheets). Entre-le une fois, il sera mémorisé sur cet appareil.</p><input type="password" id="fb-key" placeholder="Mot de passe des feedbacks" /><button id="fb-keyBtn">Accéder</button><div class="e" id="fb-keyErr">'+(err||'')+'</div></div>';
+    $('fb-keyBtn').addEventListener('click',submitKey);
+    $('fb-key').addEventListener('keydown',function(e){if(e.key==='Enter')submitKey();});
+    setTimeout(function(){try{$('fb-key').focus();}catch(e){}},40);
+  }
+  function submitKey(){ const v=$('fb-key').value; if(!v)return; FB_PWD=v; manualKey=true; $('fb-root').innerHTML='<div class="loading"><div class="spin"></div>Vérification…</div>'; load(); }
+
+  /* ---- Chargement JSONP ---- */
+  function load(){
+    if(!FB_PWD){ showKey("Accès aux feedbacks",""); return; }
+    $('fb-root').innerHTML='<div class="loading"><div class="spin"></div>Lecture des données…</div>';
+    const cb='__qv_'+Date.now();
+    window[cb]=function(resp){try{delete window[cb];}catch(e){} handle(resp);};
+    const s=document.createElement('script');
+    s.src=ENDPOINT+'?action=data&key='+encodeURIComponent(FB_PWD)+'&callback='+cb+'&t='+Date.now();
+    s.onerror=function(){ $('fb-root').innerHTML='<div class="err">Impossible de joindre la source de données feedbacks. Vérifie la connexion et réessaie.</div>'; };
+    document.body.appendChild(s);
+  }
+  function handle(resp){
+    if(!resp||!resp.ok){
+      const badKey=resp&&/cl[ée]/i.test(resp.error||'');
+      // Clé cockpit qui ne marche pas -> on demande la clé feedback dédiée.
+      showKey("Mot de passe des feedbacks", badKey?"Mot de passe incorrect, réessaie.":"Erreur de lecture des données.");
+      if(!manualKey){ try{localStorage.removeItem('qvema_fb_pwd');}catch(e){} }
+      return;
+    }
+    if(manualKey){ try{localStorage.setItem('qvema_fb_pwd',FB_PWD);}catch(e){} }
+    loaded=true;
+    RECORDS=[];bugCount=0;
+    AIRTABLE=(resp.airtable||[]).map(a=>({sexe:a.sexe||'',age:(typeof a.age==='number'?a.age:num(a.age)),cp:a.cp||'',dob:a.dob||'',promo:canonPromo(a.promo),region:cpToRegion(a.cp)}));
+    const tabs=resp.tabs||{};
+    Object.keys(tabs).forEach(tab=>{
+      const mod=moduleOf(tab);
+      (tabs[tab]||[]).forEach(r=>{
+        const kSat=findKey(r,/satisfaction/i), kNps=findKey(r,/recommand/i), kPed=findKey(r,/p[ée]dagogie|niveau|rythme/i);
+        const notes={};
+        Object.keys(r).forEach(k=>{ if(/^note /i.test(k)){ const val=num(r[k]); if(val!=null) notes[k.replace(/^note /i,'')]=val; }});
+        const rec={module:mod,promo:canonPromo(r["Promo"]),
+          sat:kSat?num(r[kSat]):null,nps:kNps?num(r[kNps]):null,ped:kPed?(r[kPed]||"").toString():"",
+          notes:notes,nom:(r["Nom"]||"").toString(),prenom:(r["Prénom"]||r["Prenom"]||"").toString(),
+          email:(r["Email"]||"").toString(),date:(r["Horodatage"]||"").toString().slice(0,10),raw:r,bug:false};
+        const _nums=[rec.sat].concat(Object.keys(rec.notes).map(k=>rec.notes[k])).filter(x=>x!=null);
+        if(rec.module==="0-1" && _nums.length>=6 && _nums.every(x=>x===1)){rec.bug=true;rec.sat=null;rec.nps=null;rec.ped="";rec.notes={};bugCount++;}
+        RECORDS.push(rec);
+      });
+    });
+    const promos=[...new Set(RECORDS.map(r=>r.promo).concat(AIRTABLE.map(a=>a.promo)))].sort();
+    const mods=[...new Set(RECORDS.map(r=>r.module))].sort((a,b)=>moduleOrder(a)-moduleOrder(b));
+    fill('fb-fPromo',promos,'Toutes les promos');
+    fill('fb-fModule',mods.map(m=>[m,modLabel(m)]),'Tous les modules');
+    const d=resp.generatedAt?new Date(resp.generatedAt):new Date();
+    $('fb-meta').textContent=RECORDS.length+" réponses · "+AIRTABLE.length+" payés (Airtable) · "+mods.length+" module(s) · "+promos.length+" promo(s)"+(bugCount?" · "+bugCount+" notes buguées exclues":"")+" · lu le "+d.toLocaleString('fr-FR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    render();
+  }
+  function fill(id,items,allLabel){
+    const sel=$(id);const cur=sel.value;
+    sel.innerHTML='<option value="">'+allLabel+'</option>';
+    items.forEach(it=>{const v=Array.isArray(it)?it[0]:it;const t=Array.isArray(it)?it[1]:it;const o=document.createElement('option');o.value=v;o.textContent=t;sel.appendChild(o);});
+    sel.value=cur;
+  }
+  function filtered(){
+    const p=$('fb-fPromo').value,m=$('fb-fModule').value;
+    return RECORDS.filter(r=>(!p||r.promo===p)&&(!m||r.module===m));
+  }
+
+  /* ---- Rendu ---- */
+  function render(){
+    charts.forEach(c=>c.destroy());charts=[];
+    if(!RECORDS.length && !AIRTABLE.length){$('fb-root').innerHTML='<div class="panel"><div class="empty">Aucune donnée pour l’instant.</div></div>';return;}
+    if(view==="overview")renderOverview();
+    else if(view==="profile")renderProfile();
+    else if(view==="learner")renderLearner();
+    else if(view==="report")renderReport();
+    else renderDetail();
+  }
+
+  function formatRanking(f){const agg={};f.forEach(r=>{for(const k in r.notes){(agg[k]=agg[k]||[]).push(r.notes[k]);}});return Object.keys(agg).map(k=>[k,avg(agg[k])]).sort((a,b)=>b[1]-a[1]);}
+  function moduleLabelTxt(){const m=$('fb-fModule').value;return m?('('+modLabel(m)+')'):'(tous modules)';}
+
+  function renderOverview(){
+    const f=filtered();
+    const sat=avg(f.map(r=>r.sat)),nps=avg(f.map(r=>r.nps));
+    const npsVals=f.map(r=>r.nps).filter(x=>x!=null);let npsScore=null;
+    if(npsVals.length){const pro=npsVals.filter(x=>x>=9).length,det=npsVals.filter(x=>x<=6).length;npsScore=Math.round((pro-det)/npsVals.length*100);}
+    const fmtAvg=formatRanking(f);
+    $('fb-root').innerHTML=`
+      <div class="cards">
+        <div class="metric"><div class="lab">Réponses</div><div class="val">${f.length}</div><div class="note">sur le filtre courant</div></div>
+        <div class="metric"><div class="lab">Satisfaction moy.</div><div class="val">${sat!=null?sat.toFixed(1):'—'}<small> / 5</small></div></div>
+        <div class="metric"><div class="lab">NPS moyen</div><div class="val">${nps!=null?nps.toFixed(1):'—'}<small> / 10</small></div><div class="note">${npsScore!=null?'Score NPS : '+npsScore:''}</div></div>
+        <div class="metric"><div class="lab">Format le mieux noté</div><div class="val" style="font-size:1.1rem">${fmtAvg.length?esc(fmtAvg[0][0]):'—'}</div><div class="note">${fmtAvg.length?fmtAvg[0][1].toFixed(1)+' / 5':''}</div></div>
+      </div>
+      <div class="panel"><h2>Évolution de la satisfaction et du NPS par module</h2><div class="chartbox"><canvas id="cTrend"></canvas></div></div>
+      <div class="grid2">
+        <div class="panel"><h2>Comparaison entre promos (satisfaction)</h2><div class="chartbox"><canvas id="cPromo"></canvas></div></div>
+        <div class="panel"><h2>Notation par format <span class="sub">${moduleLabelTxt()}</span></h2><div class="chartbox"><canvas id="cFmt"></canvas></div></div>
+      </div>`;
+    const opts={responsive:true,maintainAspectRatio:false};
+    const p=$('fb-fPromo').value;
+    const base=RECORDS.filter(r=>!p||r.promo===p);
+    const mods=[...new Set(base.map(r=>r.module))].sort((a,b)=>moduleOrder(a)-moduleOrder(b));
+    charts.push(new Chart($('cTrend'),{type:'line',
+      data:{labels:mods.map(m=>m==="0-1"?"Mod. 0-1":"Mod. "+m),datasets:[
+        {label:'Satisfaction /5',data:mods.map(m=>{const v=avg(base.filter(r=>r.module===m).map(r=>r.sat));return v!=null?+v.toFixed(2):null;}),borderColor:'#5b8def',backgroundColor:'#5b8def',tension:.3,spanGaps:true,yAxisID:'y'},
+        {label:'NPS /10',data:mods.map(m=>{const v=avg(base.filter(r=>r.module===m).map(r=>r.nps));return v!=null?+v.toFixed(2):null;}),borderColor:'#ffce3a',backgroundColor:'#ffce3a',tension:.3,spanGaps:true,yAxisID:'y2'}
+      ]},options:{...opts,plugins:{legend:{position:'bottom'}},scales:{y:{min:0,max:5,position:'left'},y2:{min:0,max:10,position:'right',grid:{drawOnChartArea:false}}}}}));
+    const allPromos=[...new Set(RECORDS.map(r=>r.promo))].sort();
+    const m2=$('fb-fModule').value;const promoBase=RECORDS.filter(r=>!m2||r.module===m2);
+    charts.push(new Chart($('cPromo'),{type:'bar',
+      data:{labels:allPromos,datasets:[{data:allPromos.map(pr=>{const v=avg(promoBase.filter(r=>r.promo===pr).map(r=>r.sat));return v!=null?+v.toFixed(2):0;}),backgroundColor:'#5b8def',borderRadius:6,maxBarThickness:60}]},
+      options:{...opts,plugins:{legend:{display:false}},scales:{y:{min:0,max:5}}}}));
+    charts.push(new Chart($('cFmt'),{type:'bar',
+      data:{labels:fmtAvg.map(x=>x[0]),datasets:[{data:fmtAvg.map(x=>+x[1].toFixed(2)),backgroundColor:'#ffce3a',borderRadius:5,maxBarThickness:46}]},
+      options:{...opts,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{min:0,max:5}}}}));
+  }
+
+  /* ---- Profil promo (démographie = payés Airtable) ---- */
+  function renderProfile(){
+    const p=$('fb-fPromo').value;
+    const base=AIRTABLE.filter(a=>!p||a.promo===p);
+    if(!AIRTABLE.length){$('fb-root').innerHTML='<div class="panel"><div class="empty">Aucune donnée Airtable reçue.<br><span class="sub">Vérifie que le token Airtable est bien configuré dans le script Google, puis Recharge.</span></div></div>';return;}
+    if(!base.length){$('fb-root').innerHTML='<div class="panel"><div class="empty">Aucun payé pour cette promo.</div></div>';return;}
+    const ages=base.map(a=>a.age).filter(x=>x!=null&&!isNaN(x));
+    const ageMean=ages.length?(ages.reduce((s,x)=>s+x,0)/ages.length):null;
+    const sx={};base.forEach(a=>{if(a.sexe)sx[a.sexe]=(sx[a.sexe]||0)+1;});
+    const sxTot=Object.values(sx).reduce((s,x)=>s+x,0);
+    const femmes=sx["Femme"]||0, hommes=sx["Homme"]||0;
+    const buckets={'< 25':0,'25-34':0,'35-44':0,'45-54':0,'55+':0};
+    ages.forEach(a=>{if(a<25)buckets['< 25']++;else if(a<35)buckets['25-34']++;else if(a<45)buckets['35-44']++;else if(a<55)buckets['45-54']++;else buckets['55+']++;});
+    const reg={};let regUnknown=0;base.forEach(a=>{if(a.region)reg[a.region]=(reg[a.region]||0)+1;else regUnknown++;});
+    const regE=Object.entries(reg).sort((a,b)=>b[1]-a[1]);
+    const promoTxt=p||'Toutes les promos';
+    $('fb-root').innerHTML=`
+      <div class="cards">
+        <div class="metric"><div class="lab">Payés (${esc(promoTxt)})</div><div class="val">${base.length}</div><div class="note">source Airtable · statut « Payé »</div></div>
+        <div class="metric"><div class="lab">Âge moyen</div><div class="val">${ageMean!=null?Math.round(ageMean):'—'}<small> ans</small></div><div class="note">${ages.length?'médiane '+median(ages)+' · sur '+ages.length+' âges connus':'âge non renseigné'}</div></div>
+        <div class="metric"><div class="lab">Femmes</div><div class="val">${sxTot?Math.round(100*femmes/sxTot)+'%':'—'}</div><div class="note">${sxTot?femmes+' / '+sxTot:''}</div></div>
+        <div class="metric"><div class="lab">Hommes</div><div class="val">${sxTot?Math.round(100*hommes/sxTot)+'%':'—'}</div><div class="note">${sxTot?hommes+' / '+sxTot:''}</div></div>
+      </div>
+      <div class="grid2">
+        <div class="panel"><h2>Répartition par sexe</h2><div class="chartbox"><canvas id="cSexe"></canvas></div></div>
+        <div class="panel"><h2>Répartition par âge</h2><div class="chartbox"><canvas id="cAge"></canvas></div></div>
+      </div>
+      <div class="panel"><h2>Répartition par région <span class="sub">déduite du code postal${regUnknown?' · '+regUnknown+' sans code postal':''}</span></h2><div class="chartbox"><canvas id="cReg"></canvas></div></div>
+    `;
+    const opts={responsive:true,maintainAspectRatio:false};
+    charts.push(new Chart($('cSexe'),{type:'doughnut',
+      data:{labels:Object.keys(sx),datasets:[{data:Object.values(sx),backgroundColor:['#5b8def','#ffce3a','#a779ff','#3ecf8e']}]},
+      options:{...opts,plugins:{legend:{position:'bottom'}},cutout:'58%'}}));
+    charts.push(new Chart($('cAge'),{type:'bar',
+      data:{labels:Object.keys(buckets),datasets:[{data:Object.values(buckets),backgroundColor:'#a779ff',borderRadius:6,maxBarThickness:60}]},
+      options:{...opts,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}}));
+    charts.push(new Chart($('cReg'),{type:'bar',
+      data:{labels:regE.map(x=>x[0]),datasets:[{data:regE.map(x=>x[1]),backgroundColor:'#3ecf8e',borderRadius:5,maxBarThickness:34}]},
+      options:{...opts,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{stepSize:1}}}}}));
+  }
+
+  /* ---- Par apprenant ---- */
+  function renderLearner(){
+    const p=$('fb-fPromo').value;
+    const base=RECORDS.filter(r=>!p||r.promo===p);
+    const map={};
+    base.forEach(r=>{const key=((r.email||'').toLowerCase())||((r.prenom+' '+r.nom).trim().toLowerCase())||'?';
+      if(!map[key])map[key]={name:(r.prenom+' '+r.nom).trim()||r.email||'—',email:r.email,recs:[]};map[key].recs.push(r);});
+    const people=Object.values(map).sort((a,b)=>a.name.localeCompare(b.name,'fr'));
+    $('fb-root').innerHTML=`<input class="search" id="lsearch" placeholder="🔎 Rechercher un apprenant (nom ou email)…" /><div id="llist"></div>`;
+    function draw(q){
+      q=(q||'').toLowerCase();
+      const list=people.filter(pp=>!q||pp.name.toLowerCase().includes(q)||(pp.email||'').toLowerCase().includes(q));
+      $('llist').innerHTML=list.length?list.map(pp=>{
+        const mods=pp.recs.map(r=>r.module).sort((a,b)=>moduleOrder(a)-moduleOrder(b)).map(m=>'<span class="pill">'+(m==="0-1"?"0 & 1":m)+'</span>').join(' ');
+        const detail=pp.recs.slice().sort((a,b)=>moduleOrder(a.module)-moduleOrder(b.module)).map(r=>{
+          const kvs=Object.keys(r.raw).filter(k=>META_FIELDS.indexOf(k)<0 && String(r.raw[k]).trim()!=='').map(k=>`<div class="kv"><div class="k">${esc(k)}</div><div>${esc(r.raw[k])}</div></div>`).join('');
+          return `<div class="subm"><div class="sh">${esc(modLabel(r.module))} · ${esc(r.promo)} · ${esc(r.date)}</div>${kvs||'<div class="kv"><div>—</div></div>'}</div>`;
+        }).join('');
+        return `<div class="lcard"><div class="lhead"><span class="nm">${esc(pp.name)}</span><span class="em">${esc(pp.email)}</span><span class="badges">${mods} <span class="pill" style="background:var(--accent);color:#11151d">${pp.recs.length} rép.</span></span></div><div class="ldetail hidden">${detail}</div></div>`;
+      }).join(''):'<div class="empty">Aucun apprenant trouvé.</div>';
+      [...document.querySelectorAll('#llist .lhead')].forEach(h=>h.addEventListener('click',()=>{h.nextElementSibling.classList.toggle('hidden');}));
+    }
+    draw('');
+    $('lsearch').addEventListener('input',e=>draw(e.target.value));
+  }
+
+  /* ---- Compte rendu (imprimable) ---- */
+  const VERB_TEXT=["Le plus apprécié","Le plus apprécié / utile","Frustrations / freins","Attentes prochains modules","Besoin d'accompagnement","Ce qui aiderait à rester engagé","Autre chose à partager"];
+  const MULTI_FIELDS=["Avancement validation terrain","Ce qui a le plus aidé","Sujets à approfondir","Formats à faire évoluer"];
+
+  function renderReport(){
+    const f=filtered();
+    const sat=avg(f.map(r=>r.sat)),nps=avg(f.map(r=>r.nps));
+    const npsVals=f.map(r=>r.nps).filter(x=>x!=null);let npsScore=null;
+    if(npsVals.length){const pro=npsVals.filter(x=>x>=9).length,det=npsVals.filter(x=>x<=6).length;npsScore=Math.round((pro-det)/npsVals.length*100);}
+    const fmtAvg=formatRanking(f);
+    const ped={};f.forEach(r=>{if(r.ped)ped[r.ped]=(ped[r.ped]||0)+1;});
+    const pedHtml=Object.entries(ped).sort((a,b)=>b[1]-a[1]).map(([n,c])=>`<div class="kv"><div class="k">${esc(n)}</div><div>${c} (${Math.round(100*c/f.length)}%)</div></div>`).join('')||'<div class="kv"><div>—</div></div>';
+    let multiHtml='';
+    MULTI_FIELDS.forEach(field=>{
+      const t={};let any=false;
+      f.forEach(r=>{const v=r.raw[field];if(v&&String(v).trim()){any=true;String(v).split(' ; ').forEach(x=>{x=x.trim();if(x)t[x]=(t[x]||0)+1;});}});
+      if(any){const e=Object.entries(t).sort((a,b)=>b[1]-a[1]);const max=e[0][1];
+        multiHtml+=`<h3>${esc(field)}</h3><div class="tally">`+e.map(([n,c])=>`<div class="row"><div class="name">${esc(n)}</div><div class="bar"><span style="width:${Math.round(c/max*100)}%"></span></div><div class="cnt">${c}</div></div>`).join('')+`</div>`;}
+    });
+    let verbHtml='';
+    VERB_TEXT.forEach(field=>{
+      const ans=f.map(r=>({a:r.raw[field],who:(r.prenom+' '+r.nom).trim()})).filter(o=>o.a&&String(o.a).trim());
+      if(ans.length){verbHtml+=`<h3>${esc(field)} <span class="sub">(${ans.length})</span></h3>`+ans.map(o=>`<div class="verb"><div class="a">${esc(o.a)}</div><div class="who" style="margin:6px 0 0"><span class="tag">— ${esc(o.who||'Participant')}</span></div></div>`).join('');}
+    });
+    $('fb-root').innerHTML=`
+      <div class="panel">
+        <div class="rephead">
+          <div><div class="t">Compte rendu — ${esc(reportScope())}</div><div class="s">${f.length} réponse(s) · généré le ${new Date().toLocaleDateString('fr-FR')}</div></div>
+          <button class="btn-print noprint" onclick="window.print()">🖨 Imprimer / PDF</button>
+        </div>
+        <div class="cards">
+          <div class="metric"><div class="lab">Réponses</div><div class="val">${f.length}</div></div>
+          <div class="metric"><div class="lab">Satisfaction moy.</div><div class="val">${sat!=null?sat.toFixed(1):'—'}<small> / 5</small></div></div>
+          <div class="metric"><div class="lab">NPS moyen</div><div class="val">${nps!=null?nps.toFixed(1):'—'}<small> / 10</small></div><div class="note">${npsScore!=null?'Score NPS : '+npsScore:''}</div></div>
+          <div class="metric"><div class="lab">Format le mieux noté</div><div class="val" style="font-size:1.05rem">${fmtAvg.length?esc(fmtAvg[0][0]):'—'}</div><div class="note">${fmtAvg.length?fmtAvg[0][1].toFixed(1)+' / 5':''}</div></div>
+        </div>
+        <h3>Notation par format</h3>
+        ${fmtAvg.length?'<table><thead><tr><th>Format</th><th>Note moyenne / 5</th></tr></thead><tbody>'+fmtAvg.map(x=>`<tr><td>${esc(x[0])}</td><td>${x[1].toFixed(2)}</td></tr>`).join('')+'</tbody></table>':'<p class="s">Pas de notation sur ce filtre.</p>'}
+        <h3>Niveau / pédagogie</h3>${pedHtml}
+        ${multiHtml}
+      </div>
+      <div class="panel"><h2>Verbatims</h2>${verbHtml||'<div class="empty">Aucun verbatim sur ce filtre.</div>'}</div>`;
+  }
+  function reportScope(){const m=$('fb-fModule').value,p=$('fb-fPromo').value;return (m?modLabel(m):'Tous modules')+' · '+(p||'Toutes promos');}
+
+  /* ---- Détail ---- */
+  function renderDetail(){
+    const f=filtered();
+    const rows=f.slice().reverse().map(r=>`<tr><td>${esc(r.date)}</td><td><span class="pill">${r.module==="0-1"?"0 & 1":r.module}</span></td><td>${esc(r.promo)}</td><td>${esc((r.prenom+' '+r.nom).trim())}</td><td>${esc(r.email)}</td><td style="text-align:center">${r.sat!=null?r.sat:'—'}</td><td style="text-align:center">${r.nps!=null?r.nps:'—'}</td></tr>`).join('');
+    $('fb-root').innerHTML=`<div class="panel"><h2>Réponses (${f.length})</h2><div class="tablewrap"><table><thead><tr><th>Date</th><th>Module</th><th>Promo</th><th>Nom</th><th>Email</th><th>Satisf.</th><th>NPS</th></tr></thead><tbody>${rows||'<tr><td colspan="7" class="empty">Aucune réponse.</td></tr>'}</tbody></table></div></div>`;
+  }
+
+  /* ---- Évènements ---- */
+  $('fb-viewToggle').addEventListener('click',e=>{const b=e.target.closest('button[data-view]');if(!b)return;view=b.dataset.view;[...document.querySelectorAll('#fb-viewToggle button')].forEach(x=>x.classList.toggle('on',x===b));render();});
+  $('fb-fPromo').addEventListener('change',render);
+  $('fb-fModule').addEventListener('change',render);
+  $('fb-reload').addEventListener('click',function(){ loaded=false; open(); });
+})();
 </script>
 </body>
 </html>
