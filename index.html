@@ -127,6 +127,38 @@
   .fbwrap .rephead .s{font-size:12px;color:var(--muted)}
   .fbwrap .btn-print{background:var(--accent);color:#11151d;border:none;font-weight:700;padding:8px 12px;border-radius:9px;cursor:pointer}
 
+  /* ===== Sidebar (navigation latérale) ===== */
+  #app{display:flex;min-height:100vh}
+  .sidebar{width:250px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;gap:14px;padding:18px 12px;position:sticky;top:0;height:100vh;overflow-y:auto}
+  .content{flex:1;min-width:0;padding:24px 28px;max-width:1300px}
+  .sb-brand{padding:4px 8px 2px}
+  .sb-logo{height:38px;width:auto;max-width:100%;display:block}
+  .sb-card{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:11px 13px}
+  .sb-card-l{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--accent)}
+  .sb-maj{font-size:12px;color:var(--muted);margin-top:3px}
+  .sb-nav{display:flex;flex-direction:column;gap:16px;flex:1}
+  .sb-group{display:flex;flex-direction:column;gap:2px}
+  .sb-h{font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);padding:0 10px 4px}
+  .sb-item{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:9px;color:var(--txt);font-size:14px;font-weight:500;cursor:pointer;text-decoration:none;border-left:2px solid transparent}
+  .sb-item:hover{background:var(--panel2)}
+  .sb-item.active{background:var(--panel2);border-left-color:var(--accent);color:#fff;font-weight:600}
+  .sb-ic{font-size:15px;width:20px;text-align:center;flex-shrink:0}
+  .sb-foot{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:12px}
+  .sb-refresh{background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:8px;border-radius:9px;cursor:pointer;font-size:12px;font-weight:600}
+  .sb-refresh:hover{border-color:var(--accent)}
+  .sb-user{display:flex;align-items:center;gap:10px}
+  .sb-ava{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#ff9f1c);color:#11151d;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0}
+  .sb-uinfo{flex:1;min-width:0}
+  .sb-uname{font-size:13px;font-weight:700;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sb-urole{font-size:11px;color:var(--muted)}
+  .sb-logout{background:transparent;border:1px solid var(--line);color:var(--muted);width:30px;height:30px;border-radius:8px;cursor:pointer;flex-shrink:0}
+  .sb-logout:hover{border-color:var(--red);color:var(--red)}
+  @media(max-width:820px){
+    #app{flex-direction:column}
+    .sidebar{width:auto;height:auto;position:static;border-right:none;border-bottom:1px solid var(--line)}
+    .content{padding:16px;max-width:none}
+  }
+
   /* ===== CRM (façon Twenty) ===== */
   .crm-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
   .crm-objs,.crm-views{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
@@ -208,39 +240,51 @@
   </div>
 </div>
 
-<div class="wrap hidden" id="app">
-  <header class="top">
-    <div class="brand">
-      <img src="/logo.png" alt="Qui Veut Être Mon Associé — Amplify" class="brandlogo" />
-      <p>Cockpit de pilotage 360 · Bootcamp · Feedbacks · Amplify Connect</p>
+<div class="hidden" id="app">
+  <aside class="sidebar">
+    <div class="sb-brand"><img src="/logo.png" alt="QVEMA Amplify" class="sb-logo" /></div>
+
+    <div class="sb-card">
+      <div class="sb-card-l">Cockpit 360</div>
+      <div class="sb-maj" id="updatedAt">—</div>
     </div>
-    <div class="meta">
-      <div id="whoami" style="margin-bottom:2px;color:var(--txt);font-weight:600"></div>
-      <div id="updatedAt">—</div>
-      <div style="display:flex;gap:8px;margin-top:6px;justify-content:flex-end;flex-wrap:wrap">
-        <a id="boardBtn" href="/board.html" style="background:var(--accent);border:1px solid var(--accent);color:#11151d;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none">📊 Board mensuel →</a>
-        <button id="refreshBtn">↻ Rafraîchir</button>
-        <button id="logoutBtn">Déconnexion</button>
+
+    <nav class="sb-nav">
+      <div class="sb-group" id="sbg-bootcamp">
+        <div class="sb-h">Bootcamp</div>
+        <a class="sb-item" data-nav="pilotage"><span class="sb-ic">📊</span> Pilotage</a>
+        <a class="sb-item" data-nav="demo"><span class="sb-ic">👥</span> Démographie</a>
+        <a class="sb-item" data-nav="feedback"><span class="sb-ic">💬</span> Feedbacks</a>
+      </div>
+      <div class="sb-group" id="sbg-amplify">
+        <div class="sb-h">Communauté</div>
+        <a class="sb-item" data-nav="amplify"><span class="sb-ic">🔗</span> Amplify Connect</a>
+      </div>
+      <div class="sb-group" id="sbg-crm">
+        <div class="sb-h">CRM</div>
+        <a class="sb-item" data-nav="crm"><span class="sb-ic">🗂️</span> Contacts</a>
+      </div>
+      <div class="sb-group" id="sbg-outils">
+        <div class="sb-h">Outils</div>
+        <a class="sb-item" id="sb-board" href="/board.html"><span class="sb-ic">📈</span> Board mensuel</a>
+      </div>
+    </nav>
+
+    <div class="sb-foot">
+      <button class="sb-refresh" id="refreshBtn">↻ Rafraîchir</button>
+      <div class="sb-user">
+        <div class="sb-ava" id="sb-ava">–</div>
+        <div class="sb-uinfo"><div class="sb-uname" id="whoami">—</div><div class="sb-urole" id="sb-role"></div></div>
+        <button class="sb-logout" id="logoutBtn" title="Déconnexion">⎋</button>
       </div>
     </div>
-  </header>
+  </aside>
 
-  <div class="tabs">
-    <div class="tab active" data-tab="bootcamp">🎓 Bootcamp</div>
-    <div class="tab" data-tab="amplify">🔗 Amplify Connect</div>
-    <div class="tab" data-tab="crm">🗂️ CRM</div>
-  </div>
-
+  <main class="content">
   <div id="loading"><div class="spinner"></div>Chargement des données…</div>
 
   <!-- BOOTCAMP -->
   <section id="view-bootcamp" class="hidden">
-    <div class="subtabs" id="bc-subtabs">
-      <div class="subtab active" data-sub="pilotage">📊 Pilotage</div>
-      <div class="subtab" data-sub="demo">👥 Démographie</div>
-      <div class="subtab" data-sub="feedback">💬 Feedbacks</div>
-    </div>
-
     <div class="promo-filter" id="bc-filter"></div>
 
     <!-- SOUS-ONGLET : PILOTAGE -->
@@ -397,6 +441,7 @@
     <div class="crm-panel-bg" id="crm-panel-bg"></div>
     <div class="crm-panel-card" id="crm-panel-card"></div>
   </div>
+  </main>
 </div>
 
 <script>
@@ -679,7 +724,6 @@ function showTab(t){
 
 function showBcSub(sub){
   currentBcSub = sub;
-  document.querySelectorAll('#bc-subtabs .subtab').forEach(x=>x.classList.toggle('active',x.dataset.sub===sub));
   document.getElementById('bc-sub-pilotage').classList.toggle('hidden',sub!=='pilotage');
   document.getElementById('bc-sub-demo').classList.toggle('hidden',sub!=='demo');
   document.getElementById('bc-sub-feedback').classList.toggle('hidden',sub!=='feedback');
@@ -723,20 +767,44 @@ function labelPerms(){
   const m={bootcamp:'Bootcamp',feedback:'Feedbacks',amplify:'Amplify'};
   return (AUTH && AUTH.perms || []).map(p=>m[p]||p).join(' · ');
 }
-// Affiche/masque onglets, sous-onglets et bouton board selon les droits ; ouvre une vue autorisée.
+// Navigation sidebar -> vues internes.
+const NAV = {
+  pilotage: ()=>{ showTab('bootcamp'); showBcSub('pilotage'); },
+  demo:     ()=>{ showTab('bootcamp'); showBcSub('demo'); },
+  feedback: ()=>{ showTab('bootcamp'); showBcSub('feedback'); },
+  amplify:  ()=>{ showTab('amplify'); },
+  crm:      ()=>{ showTab('crm'); },
+};
+function navigate(key){
+  if(!NAV[key]) return;
+  NAV[key]();
+  [...document.querySelectorAll('.sb-item[data-nav]')].forEach(x=>x.classList.toggle('active', x.dataset.nav===key));
+}
+function initials(s){
+  s=(s||'').trim(); if(!s) return '–';
+  const p=s.split(/\s+/);
+  return (p.length>=2 ? (p[0][0]+p[1][0]) : s.slice(0,2)).toUpperCase();
+}
+// Affiche/masque items & groupes de la sidebar selon les droits ; ouvre une vue autorisée.
 function applyPerms(){
   const canBoot=hasPerm('bootcamp'), canFeed=hasPerm('feedback'), canAmp=hasPerm('amplify');
-  document.querySelector('.tab[data-tab="bootcamp"]').classList.toggle('hidden', !(canBoot||canFeed));
-  document.querySelector('.tab[data-tab="amplify"]').classList.toggle('hidden', !canAmp);
-  document.querySelector('.tab[data-tab="crm"]').classList.toggle('hidden', !(canBoot||canAmp));
-  document.querySelector('#bc-subtabs .subtab[data-sub="pilotage"]').classList.toggle('hidden', !canBoot);
-  document.querySelector('#bc-subtabs .subtab[data-sub="demo"]').classList.toggle('hidden', !canBoot);
-  document.querySelector('#bc-subtabs .subtab[data-sub="feedback"]').classList.toggle('hidden', !canFeed);
-  document.getElementById('boardBtn').classList.toggle('hidden', !hasPerm('admin'));
-  document.getElementById('whoami').textContent = AUTH ? ((AUTH.name||AUTH.email||'')+' — '+labelPerms()) : '';
-  const tab = (canBoot||canFeed) ? 'bootcamp' : (canAmp ? 'amplify' : null);
-  currentBcSub = canBoot ? 'pilotage' : (canFeed ? 'feedback' : 'pilotage');
-  if(tab){ showTab(tab); if(tab==='bootcamp') showBcSub(currentBcSub); }
+  const show=(sel,on)=>{ const e=document.querySelector(sel); if(e) e.classList.toggle('hidden',!on); };
+  show('.sb-item[data-nav="pilotage"]', canBoot);
+  show('.sb-item[data-nav="demo"]', canBoot);
+  show('.sb-item[data-nav="feedback"]', canFeed);
+  show('.sb-item[data-nav="amplify"]', canAmp);
+  show('.sb-item[data-nav="crm"]', canBoot||canAmp);
+  show('#sb-board', hasPerm('admin'));
+  show('#sbg-bootcamp', canBoot||canFeed);
+  show('#sbg-amplify', canAmp);
+  show('#sbg-crm', canBoot||canAmp);
+  show('#sbg-outils', hasPerm('admin'));
+  const nm = AUTH ? (AUTH.name||AUTH.email||'') : '';
+  document.getElementById('whoami').textContent = nm || '—';
+  document.getElementById('sb-role').textContent = AUTH ? labelPerms() : '';
+  document.getElementById('sb-ava').textContent = initials(nm);
+  const first = canBoot ? 'pilotage' : (canFeed ? 'feedback' : (canAmp ? 'amplify' : null));
+  if(first) navigate(first);
 }
 
 document.getElementById('pwBtn').onclick = enter;
@@ -744,8 +812,7 @@ document.getElementById('emailInput').addEventListener('keydown',e=>{if(e.key===
 document.getElementById('pwInput').addEventListener('keydown',e=>{if(e.key==='Enter')enter();});
 document.getElementById('refreshBtn').onclick = ()=>{ fbLoaded=false; crmLoaded=false; load(); };
 document.getElementById('logoutBtn').onclick = ()=>logout('');
-document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>showTab(t.dataset.tab));
-document.querySelectorAll('#bc-subtabs .subtab').forEach(t=>t.onclick=()=>showBcSub(t.dataset.sub));
+document.querySelectorAll('.sb-item[data-nav]').forEach(t=>t.onclick=()=>navigate(t.dataset.nav));
 
 loadAuth();
 if(AUTH && AUTH.token){
