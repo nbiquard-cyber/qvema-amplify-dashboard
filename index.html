@@ -1383,21 +1383,23 @@ if(AUTH && AUTH.token){
       return `<span class="crm-chip"><b>${esc(lab)}</b> ${esc(fl.value)} <span class="x" data-i="${i}">✕</span></span>`;
     }).join('');
     const fieldOpts = '<option value="">+ Filtre…</option>'+flds.map(f=>`<option value="${esc(f[0])}">${esc(f[1])}</option>`).join('');
-    const addCtl = `<span class="crm-addf"><select id="crm-fl-field">${fieldOpts}</select><select id="crm-fl-value" class="hidden"></select><button class="plus hidden" id="crm-fl-add">+</button></span>`;
+    const addCtl = `<span class="crm-addf"><select id="crm-fl-field">${fieldOpts}</select><select id="crm-fl-value" class="hidden"></select></span>`;
     const favBtn = `<button class="crm-fav-toggle${s.favOnly?' on':''}" id="crm-favtog">★ Favoris</button>`;
     const resetBtn = (s.filters.length||s.favOnly||s.sort)?`<button class="crm-btn" id="crm-reset">Réinitialiser</button>`:'';
     $('crm-filterbar').innerHTML = chips + addCtl + favBtn + resetBtn;
     [...document.querySelectorAll('#crm-filterbar .crm-chip .x')].forEach(x=>x.onclick=()=>{ s.filters.splice(+x.dataset.i,1); renderAll(); });
-    const fldSel=$('crm-fl-field'), valSel=$('crm-fl-value'), addBtn=$('crm-fl-add');
+    const fldSel=$('crm-fl-field'), valSel=$('crm-fl-value');
     fldSel.onchange=()=>{
       const f=fldSel.value;
-      if(!f){ valSel.classList.add('hidden'); addBtn.classList.add('hidden'); return; }
+      if(!f){ valSel.classList.add('hidden'); return; }
       const vals = distinct(DATAC[obj], f);
       const hasEmpty = (DATAC[obj]||[]).some(r=>!(r[f]||'').toString().trim());
-      valSel.innerHTML = vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('') + (hasEmpty?`<option value="${EMPTY}">${EMPTY}</option>`:'');
-      valSel.classList.remove('hidden'); addBtn.classList.remove('hidden');
+      valSel.innerHTML = '<option value="">Valeur…</option>' + vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('') + (hasEmpty?`<option value="${EMPTY}">${EMPTY}</option>`:'');
+      valSel.classList.remove('hidden');
+      try{ valSel.focus(); }catch(e){}
     };
-    addBtn.onclick=()=>{ const f=fldSel.value, v=valSel.value; if(!f||!v)return; if(!s.filters.some(x=>x.field===f&&x.value===v)) s.filters.push({field:f,value:v}); renderAll(); };
+    // Application immédiate dès qu'on choisit la valeur (plus besoin de bouton « + »).
+    valSel.onchange=()=>{ const f=fldSel.value, v=valSel.value; if(!f||v==='') return; if(!s.filters.some(x=>x.field===f&&x.value===v)) s.filters.push({field:f,value:v}); renderAll(); };
     $('crm-favtog').onclick=()=>{ s.favOnly=!s.favOnly; renderAll(); };
     if($('crm-reset')) $('crm-reset').onclick=()=>{ s.filters=[]; s.favOnly=false; s.sort=null; renderAll(); };
   }
