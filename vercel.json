@@ -14,6 +14,9 @@
     },
     "api/crm-activity.js": {
       "maxDuration": 30
+    },
+    "api/comments.js": {
+      "maxDuration": 30
     }
   }
 }

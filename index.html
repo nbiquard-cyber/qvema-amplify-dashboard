@@ -177,6 +177,29 @@
   .cmdk-item .ic{width:20px;text-align:center;flex-shrink:0}
   .cmdk-item .sub{color:var(--muted);font-size:12px;margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:45%}
   .cmdk-item.active{background:var(--panel2)}
+  /* Commentaires par page */
+  .cmt-fab{position:fixed;right:22px;bottom:22px;z-index:55;background:var(--accent);color:#11151d;border:none;border-radius:999px;padding:12px 18px;font-weight:700;font-size:14px;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.35);display:flex;align-items:center;gap:8px;font-family:inherit}
+  .cmt-fab:hover{filter:brightness(1.06)}
+  .cmt-panel{position:fixed;inset:0;z-index:70}
+  .cmt-bg{position:absolute;inset:0;background:rgba(0,0,0,.5)}
+  .cmt-card{position:absolute;top:0;right:0;height:100%;width:420px;max-width:94vw;background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column}
+  .cmt-head{padding:18px 20px 14px;border-bottom:1px solid var(--line);position:relative}
+  .cmt-head .t{font-size:16px;font-weight:800;color:var(--txt)}
+  .cmt-head .s{font-size:12px;color:var(--muted);margin-top:2px}
+  .cmt-close{position:absolute;top:16px;right:16px;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:8px;width:30px;height:30px;cursor:pointer}
+  .cmt-compose{padding:14px 20px;border-bottom:1px solid var(--line)}
+  .cmt-compose textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);color:var(--txt);font-size:14px;font-family:inherit;resize:vertical;min-height:70px}
+  .cmt-compose .row{display:flex;align-items:center;justify-content:space-between;margin-top:8px;gap:10px}
+  .cmt-compose .hint{font-size:11px;color:var(--muted)}
+  .cmt-send{background:var(--accent);color:#11151d;border:none;border-radius:9px;padding:9px 16px;font-weight:700;cursor:pointer;font-family:inherit}
+  .cmt-send:disabled{opacity:.6}
+  .cmt-list{flex:1;overflow-y:auto;padding:14px 20px 24px;display:flex;flex-direction:column;gap:10px}
+  .cmt-item{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:11px 13px}
+  .cmt-item .who{font-size:12px;font-weight:700;color:var(--accent);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+  .cmt-item .who .dt{color:var(--muted);font-weight:500}
+  .cmt-item .txt{font-size:13.5px;color:var(--txt);margin-top:5px;white-space:pre-wrap;word-break:break-word}
+  .cmt-empty{color:var(--muted);font-size:13px;text-align:center;padding:30px 10px}
+  @media(max-width:560px){.cmt-card{width:100%}.cmt-fab{right:14px;bottom:14px;padding:11px 15px}}
   @media(max-width:820px){
     #app{flex-direction:column}
     .sidebar{width:auto;height:auto;position:static;border-right:none;border-bottom:1px solid var(--line)}
@@ -535,6 +558,23 @@
     <div class="crm-panel-bg" id="crm-panel-bg"></div>
     <div class="crm-panel-card" id="crm-panel-card"></div>
   </div>
+
+  <button id="cmtBtn" class="cmt-fab" title="Commentaires de cette page">💬 Commentaires</button>
+  <div id="cmt-panel" class="cmt-panel hidden">
+    <div class="cmt-bg" id="cmt-bg"></div>
+    <div class="cmt-card">
+      <div class="cmt-head">
+        <div class="t">💬 Commentaires</div>
+        <div class="s" id="cmt-sub">—</div>
+        <button class="cmt-close" id="cmt-close">✕</button>
+      </div>
+      <div class="cmt-compose">
+        <textarea id="cmt-text" placeholder="Ton commentaire sur cette page…"></textarea>
+        <div class="row"><span class="hint" id="cmt-visnote"></span><button class="cmt-send" id="cmt-send">Envoyer</button></div>
+      </div>
+      <div class="cmt-list" id="cmt-list"></div>
+    </div>
+  </div>
   </main>
 </div>
 
@@ -560,6 +600,8 @@ let currentBcSub = 'pilotage';
 let fbLoaded = false;
 let crmLoaded = false;
 let AUTH = null;
+let currentPage = 'pilotage';
+const PAGE_LABELS = { pilotage:'Pilotage', demo:'Démographie', feedback:'Feedbacks', amplify:'Amplify Connect', crm:'CRM', board:'Board mensuel' };
 
 function loadAuth(){ try{ AUTH = JSON.parse(sessionStorage.getItem('qvema_auth')||'null'); }catch(e){ AUTH=null; } return AUTH; }
 function getToken(){ return (AUTH && AUTH.token) || ''; }
@@ -886,6 +928,7 @@ const NAV = {
 };
 function navigate(key){
   if(!NAV[key]) return;
+  currentPage = key;
   NAV[key]();
   [...document.querySelectorAll('.sb-item[data-nav]')].forEach(x=>x.classList.toggle('active', x.dataset.nav===key));
 }
@@ -1000,6 +1043,49 @@ if(AUTH && AUTH.token){
   el('cmdk-input').addEventListener('input',(e)=>build(e.target.value));
   el('cmdk-bg').addEventListener('click',closeK);
   const sbs=el('sb-search'); if(sbs) sbs.onclick=openK;
+})();
+
+/* ===== Commentaires par page ===== */
+(function(){
+  const el=(id)=>document.getElementById(id);
+  const esc=(s)=>{const d=document.createElement('div');d.textContent=(s==null?'':s);return d.innerHTML;};
+  const fdt=(iso)=>{ if(!iso)return''; try{ return new Date(iso).toLocaleString('fr-FR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}); }catch(e){ return String(iso).slice(0,10); } };
+  function openCmt(){
+    if(!AUTH||!AUTH.token) return;
+    el('cmt-panel').classList.remove('hidden');
+    el('cmt-sub').textContent = 'Page : ' + (PAGE_LABELS[currentPage]||currentPage);
+    el('cmt-text').value='';
+    loadCmt();
+  }
+  function closeCmt(){ el('cmt-panel').classList.add('hidden'); }
+  async function loadCmt(){
+    el('cmt-list').innerHTML='<div class="cmt-empty">Chargement…</div>';
+    let j;
+    try{ const r=await fetch('/api/comments?page='+encodeURIComponent(currentPage),{headers:authHeaders()}); j=await r.json(); }
+    catch(e){ el('cmt-list').innerHTML='<div class="cmt-empty">Erreur de chargement.</div>'; return; }
+    if(!j||!j.ok){ el('cmt-list').innerHTML='<div class="cmt-empty">Erreur.</div>'; return; }
+    el('cmt-visnote').textContent = j.canSeeAll ? '👁️ Tu vois tous les commentaires de cette page.' : '🔒 Visible par toi seul (et Nathan/JB).';
+    const items=j.items||[];
+    el('cmt-list').innerHTML = items.length ? items.map(c=>{
+      const who = j.canSeeAll ? (c.nom||c.auteur) : 'Moi';
+      return '<div class="cmt-item"><div class="who"><span>'+esc(who)+'</span><span class="dt">'+esc(fdt(c.createdTime))+'</span></div><div class="txt">'+esc(c.commentaire)+'</div></div>';
+    }).join('') : '<div class="cmt-empty">Aucun commentaire'+(j.canSeeAll?' sur cette page.':' de ta part sur cette page.')+'</div>';
+  }
+  async function sendCmt(){
+    const t=(el('cmt-text').value||'').trim(); if(!t) return;
+    const btn=el('cmt-send'); btn.disabled=true; btn.textContent='…';
+    let ok=false;
+    try{
+      const r=await fetch('/api/comments',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},authHeaders()),body:JSON.stringify({page:currentPage,pageLabel:PAGE_LABELS[currentPage]||currentPage,texte:t})});
+      const j=await r.json(); ok=r.ok&&j.ok;
+    }catch(e){}
+    btn.disabled=false; btn.textContent='Envoyer';
+    if(ok){ el('cmt-text').value=''; loadCmt(); } else alert("Échec de l'envoi du commentaire.");
+  }
+  el('cmtBtn').onclick=openCmt;
+  el('cmt-close').onclick=closeCmt;
+  el('cmt-bg').onclick=closeCmt;
+  el('cmt-send').onclick=sendCmt;
 })();
 
 /* ==================================================================
