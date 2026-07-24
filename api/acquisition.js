@@ -85,7 +85,7 @@ const P2_META = {
   ],
 };
 
-async function airtableAll(table, fields, filterByFormula) {
+async function airtableAll(table, fields, filterByFormula, view) {
   const out = [];
   let offset = null;
   do {
@@ -93,6 +93,7 @@ async function airtableAll(table, fields, filterByFormula) {
     url.searchParams.set("pageSize", "100");
     if (fields) fields.forEach((f) => url.searchParams.append("fields[]", f));
     if (filterByFormula) url.searchParams.set("filterByFormula", filterByFormula);
+    if (view) url.searchParams.set("view", view);
     if (offset) url.searchParams.set("offset", offset);
     const r = await fetch(url, { headers: { Authorization: `Bearer ${CONFIG.airtableToken}` } });
     if (!r.ok) throw new Error(`Airtable ${table} ${r.status}: ${await r.text()}`);
@@ -122,9 +123,13 @@ function decode(c) {
 }
 
 async function buildPromo2() {
+  // Inscrits P2 : SOURCE DE VÉRITÉ = vue Airtable "Inscrits Webi 2" (liste canonique,
+  // évite les doublons d'une somme par canal). Repli sur un filtre date si la vue est renommée.
+  const OPTIN_FIELDS = ["Email", "Created", "UTM Source", "UTM Campaign"];
+  const optinsP = airtableAll(T.optin, OPTIN_FIELDS, null, "Inscrits Webi 2")
+    .catch(() => airtableAll(T.optin, OPTIN_FIELDS, `IS_AFTER({Created}, '2026-06-15')`));
   const [optins, clients] = await Promise.all([
-    airtableAll(T.optin, ["Email", "Created", "UTM Source", "UTM Campaign"],
-      `IS_AFTER({Created}, '2026-06-15')`),
+    optinsP,
     airtableAll(T.clients, ["Email", "UTM Source", "Montant", "Mode de paiement", "Statut Paiement", "Promo", "Date Paiement"],
       `{Promo} = 'PROMO 2'`),
   ]);
