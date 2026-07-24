@@ -353,6 +353,7 @@
       <div class="sb-group" id="sbg-bootcamp">
         <div class="sb-h">Bootcamp</div>
         <a class="sb-item" data-nav="pilotage"><span class="sb-ic">📊</span> Pilotage</a>
+        <a class="sb-item" data-nav="acquisition"><span class="sb-ic">🎯</span> Acquisition</a>
         <a class="sb-item" data-nav="demo"><span class="sb-ic">👥</span> Démographie</a>
         <a class="sb-item" data-nav="feedback"><span class="sb-ic">💬</span> Feedbacks</a>
       </div>
@@ -519,6 +520,32 @@
         <div class="note" id="ac-note"></div>
       </div>
     </div>
+  </section>
+
+  <!-- ACQUISITION (bilan ads & funnel par promo) -->
+  <section id="view-acquisition" class="hidden">
+    <div class="promo-filter" id="acq-filter"></div>
+    <div class="grid kpis">
+      <div class="card kpi"><div class="label">Dépense ads</div><div class="value yellow" id="acq-spend">—</div><div class="sub" id="acq-spend-sub"></div></div>
+      <div class="card kpi"><div class="label">Inscrits conf</div><div class="value" id="acq-ins">—</div><div class="sub" id="acq-ins-sub"></div></div>
+      <div class="card kpi"><div class="label">CPL (inscription conf)</div><div class="value" id="acq-cpl">—</div><div class="sub">dépense acquisition / inscrits Meta</div></div>
+      <div class="card kpi"><div class="label">ROAS ads (Meta)</div><div class="value green" id="acq-roas-ads">—</div><div class="sub" id="acq-roas-ads-sub">CA Meta-attribué / dépense ads</div></div>
+      <div class="card kpi"><div class="label">ROAS blended</div><div class="value" id="acq-roas">—</div><div class="sub" id="acq-roas-sub"></div></div>
+      <div class="card kpi"><div class="label">CAC (ads)</div><div class="value" id="acq-cac">—</div><div class="sub">dépense totale / clients Meta</div></div>
+      <div class="card kpi"><div class="label">Conversion</div><div class="value" id="acq-conv">—</div><div class="sub" id="acq-conv-sub"></div></div>
+    </div>
+    <div class="grid row2">
+      <div class="card"><h3>Inscriptions / jour par canal</h3><div class="chart-box"><canvas id="acq-daily-chart"></canvas></div></div>
+      <div class="card"><h3>Origine des inscrits</h3><div class="chart-box"><canvas id="acq-chan-chart"></canvas></div></div>
+    </div>
+    <div class="grid row2" style="margin-top:16px">
+      <div class="card"><h3>Campagnes Meta — CPL réel (dépense ÷ inscrits UTM)</h3>
+        <table id="acq-camp-table"><thead><tr><th>Campagne</th><th class="num">Inscrits</th><th class="num">Dépense</th><th class="num">CPL réel</th></tr></thead><tbody></tbody></table>
+        <div class="note" id="acq-camp-note"></div></div>
+      <div class="card"><h3>Ventes & CA par canal (attribution UTM)</h3>
+        <table id="acq-chan-table"><thead><tr><th>Canal</th><th class="num">Inscrits</th><th class="num">Ventes</th><th class="num">Conv.</th><th class="num">CA généré</th><th class="num">Encaissé conv.</th></tr></thead><tbody></tbody></table></div>
+    </div>
+    <div class="card" style="margin-top:16px"><h3>Notes méthodologiques</h3><div class="note" id="acq-notes"></div></div>
   </section>
 
   <!-- CRM (façon Twenty) -->
@@ -868,6 +895,7 @@ function showTab(t){
   document.getElementById('view-amplify').classList.toggle('hidden',t!=='amplify');
   document.getElementById('view-crm').classList.toggle('hidden',t!=='crm');
   document.getElementById('view-board').classList.toggle('hidden',t!=='board');
+  var _va=document.getElementById('view-acquisition'); if(_va) _va.classList.toggle('hidden',t!=='acquisition');
   if(t==='crm' && !crmLoaded){ crmLoaded=true; window.CRM.load(); }
   if(t==='board'){ const f=document.getElementById('board-frame'); if(f && !f.getAttribute('src')) f.setAttribute('src','/board.html?embed=1&theme='+(document.documentElement.getAttribute('data-theme')||'dark')); }
 }
@@ -922,6 +950,7 @@ const NAV = {
   pilotage: ()=>{ showTab('bootcamp'); showBcSub('pilotage'); },
   demo:     ()=>{ showTab('bootcamp'); showBcSub('demo'); },
   feedback: ()=>{ showTab('bootcamp'); showBcSub('feedback'); },
+  acquisition: ()=>{ showTab('acquisition'); if(window.ACQ) window.ACQ.load(); },
   amplify:  ()=>{ showTab('amplify'); },
   crm:      ()=>{ showTab('crm'); },
   board:    ()=>{ showTab('board'); },
@@ -943,6 +972,7 @@ function applyPerms(){
   const show=(sel,on)=>{ const e=document.querySelector(sel); if(e) e.classList.toggle('hidden',!on); };
   show('.sb-item[data-nav="pilotage"]', canBoot);
   show('.sb-item[data-nav="demo"]', canBoot);
+  show('.sb-item[data-nav="acquisition"]', canBoot);
   show('.sb-item[data-nav="feedback"]', canFeed);
   show('.sb-item[data-nav="amplify"]', canAmp);
   show('.sb-item[data-nav="crm"]', canBoot||canAmp);
@@ -1843,6 +1873,95 @@ if(AUTH && AUTH.token){
     ),
     open: (o,id)=>{ obj=o; selection.clear(); syncButtons(); renderAll(); openDetail(id); },
   };
+})();
+</script>
+<script>
+// ===== Vue Acquisition (bilan ads par promo) — données /api/acquisition =====
+(function(){
+  let DATAQ=null, acqPromo='PROMO 2', loading=false;
+  async function load(){
+    if(DATAQ){ render(); return; }
+    if(loading) return; loading=true;
+    try{
+      const r=await fetch('/api/acquisition',{headers:authHeaders()});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      DATAQ=await r.json();
+      render();
+    }catch(e){
+      document.getElementById('acq-notes').textContent='Erreur de chargement : '+e.message;
+    }finally{ loading=false; }
+  }
+  function filterBar(){
+    const bar=document.getElementById('acq-filter'); bar.innerHTML='';
+    (DATAQ.promoOrder||[]).forEach(p=>{
+      const s=DATAQ.scopes[p]; if(!s) return;
+      const b=document.createElement('button');
+      b.className='promo-btn'+(p===acqPromo?' active':'');
+      b.innerHTML=p+' <span class="cnt">'+NUM(s.inscrits)+'</span>'+(s.fige?' 🔒':'');
+      b.onclick=()=>{ acqPromo=p; render(); };
+      bar.appendChild(b);
+    });
+  }
+  function render(){
+    if(!DATAQ || !DATAQ.scopes[acqPromo]) return;
+    const s=DATAQ.scopes[acqPromo], C=DATAQ.colors, K=s.kpis;
+    filterBar();
+    document.getElementById('acq-spend').textContent=EUR(s.spend.total);
+    document.getElementById('acq-spend-sub').textContent='dont RTG '+EUR(s.spend.rtg)+' · '+s.fenetre;
+    document.getElementById('acq-ins').textContent=NUM(s.inscrits);
+    const meta=s.channels.find(c=>c.name==='Paid Meta (ads)')||{ins:0};
+    document.getElementById('acq-ins-sub').textContent=Math.round(meta.ins/s.inscrits*100)+' % via ads · live '+s.liveDate;
+    document.getElementById('acq-cpl').textContent=K.cpl!=null? K.cpl.toLocaleString('fr-FR',{maximumFractionDigits:2})+' €':'—';
+    document.getElementById('acq-roas-ads').textContent=K.roasMeta.toLocaleString('fr-FR',{maximumFractionDigits:2})+'×';
+    document.getElementById('acq-roas-ads-sub').textContent='CA Meta '+EUR(meta.fac||0)+' / dépense '+EUR(s.spend.total);
+    document.getElementById('acq-roas').textContent=K.roasBlended.toLocaleString('fr-FR',{maximumFractionDigits:2})+'×';
+    document.getElementById('acq-roas-sub').textContent='CA total '+EUR(K.caFac)+' (toutes sources) / dépense ads';
+    document.getElementById('acq-cac').textContent=K.cac!=null? EUR(Math.round(K.cac)):'—';
+    document.getElementById('acq-conv').textContent=K.conv!=null? K.conv.toLocaleString('fr-FR',{maximumFractionDigits:2})+' %':'—';
+    document.getElementById('acq-conv-sub').textContent=NUM(K.ventes)+' ventes · '+NUM(K.refunds)+' remb.';
+
+    // Bar empilé : inscriptions / jour
+    const chans=s.channels.map(c=>c.name);
+    destroy('acqDaily');
+    charts.acqDaily=new Chart(document.getElementById('acq-daily-chart'),{
+      type:'bar',
+      data:{labels:s.byDay.map(x=>x.d),
+        datasets:chans.map(n=>({label:n,data:s.byDay.map(x=>x.ch[n]||0),backgroundColor:C[n]||'#666',stacked:true}))},
+      options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}}},
+        responsive:true,maintainAspectRatio:false,
+        scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true,ticks:{precision:0}}}}
+    });
+    // Doughnut : origine des inscrits
+    destroy('acqChan');
+    charts.acqChan=new Chart(document.getElementById('acq-chan-chart'),{
+      type:'doughnut',
+      data:{labels:s.channels.map(c=>c.name),
+        datasets:[{data:s.channels.map(c=>c.ins),backgroundColor:s.channels.map(c=>C[c.name]||'#666'),borderWidth:0}]},
+      options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}}},responsive:true,maintainAspectRatio:false,cutout:'62%'}
+    });
+    // Table campagnes
+    const tb=document.querySelector('#acq-camp-table tbody'); tb.innerHTML='';
+    s.campaigns.slice().sort((a,b)=>b.spend-a.spend).forEach(c=>{
+      const cpl=c.ins? c.spend/c.ins:null;
+      const tr=document.createElement('tr');
+      tr.innerHTML='<td>'+c.name+'</td><td class="num">'+NUM(c.ins)+'</td><td class="num">'+EUR(Math.round(c.spend))+'</td>'+
+        '<td class="num" style="font-weight:700;color:'+(cpl!=null&&cpl<=8?'var(--green)':'var(--txt)')+'">'+(cpl!=null? cpl.toLocaleString('fr-FR',{maximumFractionDigits:2})+' €':'—')+'</td>';
+      tb.appendChild(tr);
+    });
+    document.getElementById('acq-camp-note').textContent=(s.utmCasses? s.utmCasses+' inscrits Meta à UTM cassé non rattachés à une campagne. ':'')+(s.spend.note||'');
+    // Table canaux
+    const tb2=document.querySelector('#acq-chan-table tbody'); tb2.innerHTML='';
+    s.channels.forEach(c=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML='<td><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:'+(C[c.name]||'#666')+';margin-right:7px"></span>'+c.name+'</td>'+
+        '<td class="num">'+NUM(c.ins)+'</td><td class="num">'+NUM(c.ventes)+'</td>'+
+        '<td class="num">'+(c.ins? (c.ventes/c.ins*100).toLocaleString('fr-FR',{maximumFractionDigits:2})+' %':'—')+'</td>'+
+        '<td class="num">'+EUR(c.fac)+'</td><td class="num">'+EUR(Math.round(c.enc))+'</td>';
+      tb2.appendChild(tr);
+    });
+    document.getElementById('acq-notes').innerHTML=(s.notes||[]).map(n=>'• '+n).join('<br>');
+  }
+  window.ACQ={load};
 })();
 </script>
 </body>
