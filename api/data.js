@@ -308,10 +308,12 @@ module.exports = async (req, res) => {
         if (promo) instByPromo[promo] = (instByPromo[promo] || 0) + 1;
         // Suivi par personne pour le calcul des impayés (recouvrement).
         if (em) {
-          const ie = (instByEmail[em] = instByEmail[em] || { count: 0, amount: c.amount, last: 0 });
+          const ie = (instByEmail[em] = instByEmail[em] || { count: 0, amount: c.amount, first: Infinity, last: 0, refunded: false });
           ie.count++; ie.amount = c.amount;
+          if ((c.amount_refunded || 0) > 0) ie.refunded = true; // mensualité remboursée => pas un impayé
           const cr = (c.created || 0) * 1000;
           if (cr > ie.last) ie.last = cr;
+          if (cr && cr < ie.first) ie.first = cr;
         }
       }
       // Refund réel (une ou plusieurs mensualités selon le cas)
@@ -329,18 +331,21 @@ module.exports = async (req, res) => {
     const nameByEmail = {};
     for (const c of clients) { const e = lower(c.fields["Email"]); if (e) nameByEmail[e] = (norm(c.fields["Prénom"]) + " " + norm(c.fields["Nom"])).trim(); }
     const refundedSet = new Set(refunds.map((c) => lower(c.fields["Email"])).filter(Boolean));
-    const NOW = Date.now(), DAY = 86400000;
+    const NOW = Date.now(), DAY = 86400000, MONTH = 30.44 * DAY, GRACE = 7 * DAY;
     const impayesByPromo = {}, impayesAll = [];
     for (const e in instByEmail) {
-      if (refundedSet.has(e)) continue;
       const info = instByEmail[e];
-      if (info.count >= 4) continue; // plan 4x terminé
-      const daysSinceLast = info.last ? (NOW - info.last) / DAY : 9999;
-      if (daysSinceLast <= 40) continue; // paie encore dans les temps
-      const retard = 4 - info.count;
+      if (refundedSet.has(e) || info.refunded) continue; // remboursé => pas un impayé
+      if (info.count >= 4) continue; // plan 4x soldé
+      const first = isFinite(info.first) ? info.first : info.last;
+      // Mensualités DÉJÀ ÉCHUES à ce jour (1 à la souscription puis 1/mois), tolérance 7j.
+      let echues = 0;
+      for (let k = 0; k < 4; k++) { if (first + k * MONTH + GRACE <= NOW) echues++; }
+      const retard = Math.max(0, echues - info.count); // échéances passées non payées
+      if (retard < 1) continue; // à jour sur l'échéancier
       const perso = {
         email: e, nom: nameByEmail[e] || "", promo: emailToPromoAll[e] || "Sans promo",
-        paye: info.count, restant: retard, mensualite: Math.round((info.amount / 100) * 100) / 100,
+        paye: info.count, echues, retard, mensualite: Math.round((info.amount / 100) * 100) / 100,
         montant: Math.round(retard * (info.amount / 100) * 100) / 100,
         dernierPaiement: info.last ? new Date(info.last).toISOString().slice(0, 10) : null,
       };
