@@ -178,7 +178,7 @@ module.exports = async (req, res) => {
 
     // ---------- AIRTABLE ----------
     const [clientsRaw, connect, candidatures, accueilRaw] = await Promise.all([
-      airtableAll(T.clients, ["Promo", "Montant", "Statut Paiement", "Produit", "Date Paiement", "Email", "Sexe", "Age", "Code postal", "Pays", "Mode de paiement"]),
+      airtableAll(T.clients, ["Promo", "Montant", "Statut Paiement", "Produit", "Date Paiement", "Email", "Sexe", "Age", "Code postal", "Pays", "Mode de paiement", "Prénom", "Nom"]),
       airtableAll(T.connect, ["Email", "Nom complet", "Montant", "Statut Paiement", "Date Paiement", "Mode Paiement", "Saison QVEMA", "Statut Membre"]),
       airtableAll(T.candidatures, ["Statut Candidature", "Statut Membre", "Mode de paiement", "Date Candidature", "Sous-cercle d'intérêt", "Saison"]),
       airtableAll(T.accueil, ["Promo", "Secteur d'activité", "Stade d'avancement", "Région", "Adresse mail", "Horodatage"]),
@@ -289,6 +289,7 @@ module.exports = async (req, res) => {
     let instGlobal = 0; // nb de mensualités 4x encaissées
     const caEncByPromo = {};
     const instByPromo = {};
+    const instByEmail = {}; // email -> { count, amount(cts), last(ms) } pour les impayés
     const emails4x = new Set();
     // Montant RÉELLEMENT remboursé (Stripe amount_refunded), pas la valeur du contrat.
     let refundEncGlobal = 0;
@@ -305,6 +306,13 @@ module.exports = async (req, res) => {
         instGlobal++;
         if (em) emails4x.add(em);
         if (promo) instByPromo[promo] = (instByPromo[promo] || 0) + 1;
+        // Suivi par personne pour le calcul des impayés (recouvrement).
+        if (em) {
+          const ie = (instByEmail[em] = instByEmail[em] || { count: 0, amount: c.amount, last: 0 });
+          ie.count++; ie.amount = c.amount;
+          const cr = (c.created || 0) * 1000;
+          if (cr > ie.last) ie.last = cr;
+        }
       }
       // Refund réel (une ou plusieurs mensualités selon le cas)
       const refd = (c.amount_refunded || 0) / 100;
@@ -314,6 +322,35 @@ module.exports = async (req, res) => {
         if (rp) refundEncByPromo[rp] = (refundEncByPromo[rp] || 0) + refd;
       }
     }
+
+    // ----- Impayés (recouvrement) : payeurs 4x qui ont arrêté de payer avant les 4 mensualités.
+    // Critère : < 4 mensualités encaissées ET plus aucun paiement depuis > 40 jours (les
+    // remboursés sont exclus). Montant impayé = mensualités restantes x montant mensuel.
+    const nameByEmail = {};
+    for (const c of clients) { const e = lower(c.fields["Email"]); if (e) nameByEmail[e] = (norm(c.fields["Prénom"]) + " " + norm(c.fields["Nom"])).trim(); }
+    const refundedSet = new Set(refunds.map((c) => lower(c.fields["Email"])).filter(Boolean));
+    const NOW = Date.now(), DAY = 86400000;
+    const impayesByPromo = {}, impayesAll = [];
+    for (const e in instByEmail) {
+      if (refundedSet.has(e)) continue;
+      const info = instByEmail[e];
+      if (info.count >= 4) continue; // plan 4x terminé
+      const daysSinceLast = info.last ? (NOW - info.last) / DAY : 9999;
+      if (daysSinceLast <= 40) continue; // paie encore dans les temps
+      const retard = 4 - info.count;
+      const perso = {
+        email: e, nom: nameByEmail[e] || "", promo: emailToPromoAll[e] || "Sans promo",
+        paye: info.count, restant: retard, mensualite: Math.round((info.amount / 100) * 100) / 100,
+        montant: Math.round(retard * (info.amount / 100) * 100) / 100,
+        dernierPaiement: info.last ? new Date(info.last).toISOString().slice(0, 10) : null,
+      };
+      (impayesByPromo[perso.promo] = impayesByPromo[perso.promo] || []).push(perso);
+      impayesAll.push(perso);
+    }
+    const impayeScope = (list) => {
+      const arr = (list || []).slice().sort((a, b) => b.montant - a.montant);
+      return { count: arr.length, montant: Math.round(arr.reduce((s, x) => s + x.montant, 0) * 100) / 100, personnes: arr };
+    };
 
     // Santé des abonnements bootcamp (global)
     const subProduct = (s) => { try { return s.items.data[0].price.product; } catch (_) { return null; } };
@@ -394,12 +431,14 @@ module.exports = async (req, res) => {
     scopes["Toutes"] = buildScope(bcPaid, caEncGlobal, instGlobal, statutGlobal);
     scopes["Toutes"].secteurs = secteurGlobal;
     scopes["Toutes"].stades = stadeGlobal;
+    scopes["Toutes"].impayes = impayeScope(impayesAll);
     const promoList = [...new Set(bcPaid.map(promoOf))];
     for (const p of promoList) {
       const list = bcPaid.filter((c) => promoOf(c) === p);
       scopes[p] = buildScope(list, caEncByPromo[p] || 0, instByPromo[p] || 0, statutByPromo[p] || {});
       scopes[p].secteurs = secteurByPromo[p] || {};
       scopes[p].stades = stadeByPromo[p] || {};
+      scopes[p].impayes = impayeScope(impayesByPromo[p]);
     }
     // Pour la Promo 2, la région vient d'Accueil (dédupliquée par e-mail), pas du code postal Clients.
     if (scopes["PROMO 2"] && scopes["PROMO 2"].demographics) {
