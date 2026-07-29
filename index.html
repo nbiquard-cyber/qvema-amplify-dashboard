@@ -404,15 +404,17 @@
         <div class="card kpi"><div class="label">Reste à encaisser</div><div class="value purple" id="bc-careste">—</div><div class="sub">échéancier 4x à venir</div></div>
       </div>
 
-      <div class="card" style="margin-top:16px;display:flex;align-items:center;gap:12px;border-left:3px solid var(--red)">
-        <span style="font-size:20px">↩️</span>
-        <div id="bc-refund" style="font-size:14px">—</div>
-      </div>
+      <div style="margin-top:16px;display:flex;gap:16px;flex-wrap:wrap">
+        <div class="card" style="flex:1;min-width:280px;display:flex;align-items:center;gap:12px;border-left:3px solid var(--red)">
+          <span style="font-size:20px">↩️</span>
+          <div id="bc-refund" style="font-size:14px">—</div>
+        </div>
 
-      <div class="card" id="bc-impaye-card" style="margin-top:16px;display:flex;align-items:center;gap:12px;border-left:3px solid #ff9f1c">
-        <span style="font-size:20px">⏰</span>
-        <div id="bc-impaye" style="font-size:14px;flex:1">—</div>
-        <span class="imp-see" style="color:var(--muted);font-size:12px;white-space:nowrap">Voir la liste →</span>
+        <div class="card" id="bc-impaye-card" style="flex:1;min-width:280px;display:flex;align-items:center;gap:12px;border-left:3px solid #ff9f1c">
+          <span style="font-size:20px">💶</span>
+          <div id="bc-impaye" style="font-size:14px;flex:1">—</div>
+          <span class="imp-see" style="color:var(--muted);font-size:12px;white-space:nowrap">Voir la liste →</span>
+        </div>
       </div>
 
       <div class="row2">
@@ -692,7 +694,7 @@ function openImpayes(imp, scopeLabel){
     return `<div class="imp-item"><div class="imp-top"><span class="imp-nom">${escHtml(nom)}</span><span class="imp-mt">${EUR(p.montant)}</span></div><div class="imp-sub">${escHtml(p.email)} · ${escHtml(p.promo)}</div><div class="imp-meta">Payé ${p.paye}/4 · <b style="color:var(--red)">${p.retard} mensualité(s) en retard</b> · dernier paiement ${escHtml(p.dernierPaiement||'—')}</div></div>`;
   }).join('');
   card.innerHTML =
-    `<div class="crm-dh"><div class="crm-dh-t">⏰ Impayés — ${escHtml(scopeLabel)}</div><div class="crm-dh-s">${imp.count} personne(s) · ${EUR(imp.montant)} à recouvrer</div><button class="crm-close" id="imp-close">✕</button></div>`
+    `<div class="crm-dh"><div class="crm-dh-t">💶 Impayés — ${escHtml(scopeLabel)}</div><div class="crm-dh-s">${imp.count} personne(s) · ${EUR(imp.montant)} à recouvrir</div><button class="crm-close" id="imp-close">✕</button></div>`
     + `<div style="display:flex;gap:8px;margin:0 0 14px"><button class="crm-btn" id="imp-copy">📋 Copier les emails</button><button class="crm-btn" id="imp-csv">⬇ CSV</button></div>`
     + (rows || '<div style="color:var(--muted);padding:20px 0">Aucun impayé.</div>');
   const panel=document.getElementById('imp-panel');
@@ -775,7 +777,7 @@ function renderBcPilotage(s, scopeLabel){
   // Impayés (recouvrement) — chiffre cliquable -> liste nominative du scope courant.
   const imp = s.impayes || {count:0, montant:0, personnes:[]};
   document.getElementById('bc-impaye').innerHTML = imp.count
-    ? `<b>${NUM(imp.count)}</b> impayé(s) · <b style="color:#ff9f1c">${EUR(imp.montant)}</b> à recouvrer <span style="color:var(--muted)">· ${scopeLabel}</span>`
+    ? `<b>${NUM(imp.count)}</b> impayé(s) · <b style="color:#ff9f1c">${EUR(imp.montant)}</b> à recouvrir <span style="color:var(--muted)">· ${scopeLabel}</span>`
     : `Aucun impayé <span style="color:var(--muted)">· ${scopeLabel}</span>`;
   const impCard = document.getElementById('bc-impaye-card');
   if(impCard){
