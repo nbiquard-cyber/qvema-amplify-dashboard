@@ -262,6 +262,12 @@
   .crm-save:disabled{opacity:.6}
   .crm-saved{font-size:13px;color:var(--green)}
   @media(max-width:560px){.crm-panel-card{width:100%}}
+  .imp-item{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin-bottom:9px}
+  .imp-top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+  .imp-nom{font-weight:700;color:var(--txt)}
+  .imp-mt{font-weight:800;color:var(--red);white-space:nowrap}
+  .imp-sub{font-size:12px;color:var(--muted);margin-top:2px;word-break:break-word}
+  .imp-meta{font-size:12px;color:var(--muted);margin-top:5px}
   /* CRM — filtres, stats, bulk, favoris */
   .crm-actions2{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
   .crm-filterbar{display:flex;gap:7px;align-items:center;flex-wrap:wrap;flex:1;min-width:200px}
@@ -401,6 +407,12 @@
       <div class="card" style="margin-top:16px;display:flex;align-items:center;gap:12px;border-left:3px solid var(--red)">
         <span style="font-size:20px">↩️</span>
         <div id="bc-refund" style="font-size:14px">—</div>
+      </div>
+
+      <div class="card" id="bc-impaye-card" style="margin-top:16px;display:flex;align-items:center;gap:12px;border-left:3px solid #ff9f1c">
+        <span style="font-size:20px">⏰</span>
+        <div id="bc-impaye" style="font-size:14px;flex:1">—</div>
+        <span class="imp-see" style="color:var(--muted);font-size:12px;white-space:nowrap">Voir la liste →</span>
       </div>
 
       <div class="row2">
@@ -586,6 +598,11 @@
     <div class="crm-panel-card" id="crm-panel-card"></div>
   </div>
 
+  <div id="imp-panel" class="crm-panel hidden">
+    <div class="crm-panel-bg" id="imp-panel-bg"></div>
+    <div class="crm-panel-card" id="imp-panel-card"></div>
+  </div>
+
   <button id="cmtBtn" class="cmt-fab" title="Commentaires de cette page">💬 Commentaires</button>
   <div id="cmt-panel" class="cmt-panel hidden">
     <div class="cmt-bg" id="cmt-bg"></div>
@@ -667,6 +684,31 @@ async function load(){
 function destroy(id){ if(charts[id]){charts[id].destroy(); delete charts[id];} }
 function render(){ if(DATA && DATA.bootcamp) renderBootcamp(); if(DATA && DATA.amplify) renderAmplify(); }
 
+function escHtml(s){ const d=document.createElement('div'); d.textContent=(s==null?'':s); return d.innerHTML; }
+function openImpayes(imp, scopeLabel){
+  const card=document.getElementById('imp-panel-card');
+  const rows=(imp.personnes||[]).map(p=>{
+    const nom=p.nom||p.email;
+    return `<div class="imp-item"><div class="imp-top"><span class="imp-nom">${escHtml(nom)}</span><span class="imp-mt">${EUR(p.montant)}</span></div><div class="imp-sub">${escHtml(p.email)} · ${escHtml(p.promo)}</div><div class="imp-meta">Payé ${p.paye}/4 · ${p.restant} mensualité(s) restante(s) · dernier paiement ${escHtml(p.dernierPaiement||'—')}</div></div>`;
+  }).join('');
+  card.innerHTML =
+    `<div class="crm-dh"><div class="crm-dh-t">⏰ Impayés — ${escHtml(scopeLabel)}</div><div class="crm-dh-s">${imp.count} personne(s) · ${EUR(imp.montant)} à recouvrer</div><button class="crm-close" id="imp-close">✕</button></div>`
+    + `<div style="display:flex;gap:8px;margin:0 0 14px"><button class="crm-btn" id="imp-copy">📋 Copier les emails</button><button class="crm-btn" id="imp-csv">⬇ CSV</button></div>`
+    + (rows || '<div style="color:var(--muted);padding:20px 0">Aucun impayé.</div>');
+  const panel=document.getElementById('imp-panel');
+  panel.classList.remove('hidden');
+  document.getElementById('imp-close').onclick=()=>panel.classList.add('hidden');
+  document.getElementById('imp-panel-bg').onclick=()=>panel.classList.add('hidden');
+  const emails=(imp.personnes||[]).map(p=>p.email).join('; ');
+  document.getElementById('imp-copy').onclick=()=>{ try{navigator.clipboard.writeText(emails);}catch(e){} const b=document.getElementById('imp-copy'); b.textContent='✓ Copié'; setTimeout(()=>{b.textContent='📋 Copier les emails';},1500); };
+  document.getElementById('imp-csv').onclick=()=>{
+    const cols=[['nom','Nom'],['email','Email'],['promo','Promo'],['paye','Payé sur 4'],['restant','Mensualités restantes'],['montant','Montant dû (€)'],['dernierPaiement','Dernier paiement']];
+    const escc=v=>{v=(v==null?'':String(v));return /[",\n;]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
+    const csv='﻿'+cols.map(c=>escc(c[1])).join(';')+'\n'+(imp.personnes||[]).map(p=>cols.map(c=>escc(p[c[0]])).join(';')).join('\n');
+    const bl=new Blob([csv],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(bl); a.download='impayes-'+String(scopeLabel).replace(/\s+/g,'_')+'.csv'; document.body.appendChild(a); a.click(); a.remove();
+  };
+}
+
 /* ====== BOOTCAMP ====== */
 function renderBootcamp(){
   const bc = DATA.bootcamp;
@@ -729,6 +771,18 @@ function renderBcPilotage(s, scopeLabel){
   document.getElementById('bc-refund').innerHTML =
     `<div>${ligne1}</div>` +
     `<div style="margin-top:4px;color:var(--muted)">Taux de remboursement : <b style="color:var(--red)">${tauxTxt}</b></div>`;
+
+  // Impayés (recouvrement) — chiffre cliquable -> liste nominative du scope courant.
+  const imp = s.impayes || {count:0, montant:0, personnes:[]};
+  document.getElementById('bc-impaye').innerHTML = imp.count
+    ? `<b>${NUM(imp.count)}</b> impayé(s) · <b style="color:#ff9f1c">${EUR(imp.montant)}</b> à recouvrer <span style="color:var(--muted)">· ${scopeLabel}</span>`
+    : `Aucun impayé <span style="color:var(--muted)">· ${scopeLabel}</span>`;
+  const impCard = document.getElementById('bc-impaye-card');
+  if(impCard){
+    const see = impCard.querySelector('.imp-see');
+    if(imp.count){ impCard.style.cursor='pointer'; impCard.style.opacity='1'; if(see) see.style.display=''; impCard.onclick=()=>openImpayes(imp, scopeLabel); }
+    else { impCard.style.cursor='default'; impCard.style.opacity='.7'; if(see) see.style.display='none'; impCard.onclick=null; }
+  }
 
   const p = s.paiement;
   destroy('pay');
