@@ -2032,7 +2032,7 @@ if(AUTH && AUTH.token){
       const s=DATAQ.scopes[p];
       const b=document.createElement('button');
       b.className='promo-btn'+(p===acqPromo?' active':'');
-      b.innerHTML=p+' <span class="cnt">'+NUM(s.inscrits)+'</span>'+(s.fige?' 🔒':'');
+      b.innerHTML=p+' <span class="cnt">'+NUM(s.inscrits)+'</span>';
       b.onclick=()=>{ acqPromo=p; render(); };
       bar.appendChild(b);
     });
@@ -2127,7 +2127,7 @@ if(AUTH && AUTH.token){
     html+='<div class="card" style="margin-top:16px"><h3><span class="dot"></span>Comparatif par promo</h3>'
       +'<table><thead><tr><th>Promo</th><th class="num">Inscrits</th><th class="num">Dépense</th><th class="num">CPL</th><th class="num">ROAS ads</th><th class="num">ROAS blended</th><th class="num">CAC</th><th class="num">Conv.</th><th class="num">CA généré</th></tr></thead><tbody>';
     list.forEach(p=>{ const s=DATAQ.scopes[p], K=s.kpis;
-      html+='<tr><td><b>'+p+'</b>'+(s.fige?' 🔒':'')+'</td>'
+      html+='<tr><td><b>'+p+'</b></td>'
         +'<td class="num">'+NUM(s.inscrits)+'</td>'
         +'<td class="num">'+EUR(Math.round(s.spend.total))+'</td>'
         +'<td class="num">'+(K.cpl!=null?num2(K.cpl)+' €':'—')+'</td>'
