@@ -2105,15 +2105,15 @@ if(AUTH && AUTH.token){
     const list=proms(), C=DATAQ.colors, host=document.getElementById('acq-global');
     const num2=v=>(v==null||isNaN(v))?'—':Number(v).toLocaleString('fr-FR',{maximumFractionDigits:2});
     // Agrégats globaux
-    let spend=0,ins=0,metaIns=0,metaFac=0,caFac=0,ventes=0,refunds=0;
+    let spend=0,ins=0,metaIns=0,metaFac=0,metaVentes=0,caFac=0,ventes=0,refunds=0;
     const chanNames=[], chanIns={};
     list.forEach(p=>{ const s=DATAQ.scopes[p], K=s.kpis;
       spend+=s.spend.total||0; ins+=s.inscrits||0; caFac+=K.caFac||0; ventes+=K.ventes||0; refunds+=K.refunds||0;
-      const m=s.channels.find(c=>c.name==='Paid Meta (ads)')||{ins:0,fac:0}; metaIns+=m.ins||0; metaFac+=m.fac||0;
+      const m=s.channels.find(c=>c.name==='Paid Meta (ads)')||{ins:0,fac:0,ventes:0}; metaIns+=m.ins||0; metaFac+=m.fac||0; metaVentes+=m.ventes||0;
       s.channels.forEach(c=>{ if(!chanNames.includes(c.name)) chanNames.push(c.name); (chanIns[c.name]=chanIns[c.name]||{})[p]=c.ins||0; });
     });
     const gCpl=metaIns?spend/metaIns:null, gRoasAds=spend?metaFac/spend:null, gRoasBl=spend?caFac/spend:null,
-          gCac=ventes?spend/ventes:null, gConv=ins?ventes/ins*100:null;
+          gCac=metaVentes?spend/metaVentes:null, gConv=ins?ventes/ins*100:null;
 
     let html='<div class="grid kpis">'
       +kpiCard('Dépense ads totale',EUR(Math.round(spend)),list.length+' promo(s)','yellow')
