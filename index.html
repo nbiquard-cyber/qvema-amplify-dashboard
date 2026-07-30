@@ -368,6 +368,10 @@
         <div class="sb-h">Communauté</div>
         <a class="sb-item" data-nav="amplify"><span class="sb-ic">🔗</span> Amplify Connect</a>
       </div>
+      <div class="sb-group" id="sbg-seo">
+        <div class="sb-h">Site &amp; SEO</div>
+        <a class="sb-item" data-nav="seo"><span class="sb-ic">🔍</span> Data</a>
+      </div>
       <div class="sb-group" id="sbg-crm">
         <div class="sb-h">CRM</div>
         <a class="sb-item" data-nav="crm"><span class="sb-ic">🗂️</span> Contacts</a>
@@ -573,6 +577,15 @@
     <div id="acq-global" class="hidden"></div>
   </section>
 
+  <!-- SITE & SEO -->
+  <section id="view-seo" class="hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+      <div style="color:var(--muted);font-size:13px" id="seo-sub">Vision mensuelle du trafic &amp; du référencement.</div>
+      <button class="crm-btn" id="seo-add" style="font-weight:700">＋ Ajouter le mois</button>
+    </div>
+    <div id="seo-body"><div class="fb-loading"><div class="spin"></div>Lecture des données SEO…</div></div>
+  </section>
+
   <!-- CRM (façon Twenty) -->
   <section id="view-crm" class="hidden crmwrap">
     <div class="crm-toolbar">
@@ -614,6 +627,11 @@
   <div id="imp-panel" class="crm-panel hidden">
     <div class="crm-panel-bg" id="imp-panel-bg"></div>
     <div class="crm-panel-card" id="imp-panel-card"></div>
+  </div>
+
+  <div id="seo-panel" class="crm-panel hidden">
+    <div class="crm-panel-bg" id="seo-panel-bg"></div>
+    <div class="crm-panel-card" id="seo-panel-card"></div>
   </div>
 
   <button id="cmtBtn" class="cmt-fab" title="Commentaires de cette page">💬 Commentaires</button>
@@ -658,7 +676,7 @@ let fbLoaded = false;
 let crmLoaded = false;
 let AUTH = null;
 let currentPage = 'pilotage';
-const PAGE_LABELS = { pilotage:'Pilotage', demo:'Démographie', feedback:'Feedbacks', amplify:'Amplify Connect', crm:'CRM', board:'Board mensuel' };
+const PAGE_LABELS = { pilotage:'Pilotage', demo:'Démographie', feedback:'Feedbacks', amplify:'Amplify Connect', seo:'Site & SEO', crm:'CRM', board:'Board mensuel' };
 
 function loadAuth(){ try{ AUTH = JSON.parse(sessionStorage.getItem('qvema_auth')||'null'); }catch(e){ AUTH=null; } return AUTH; }
 function getToken(){ return (AUTH && AUTH.token) || ''; }
@@ -1020,6 +1038,8 @@ function showTab(t){
   document.getElementById('view-crm').classList.toggle('hidden',t!=='crm');
   document.getElementById('view-board').classList.toggle('hidden',t!=='board');
   var _va=document.getElementById('view-acquisition'); if(_va) _va.classList.toggle('hidden',t!=='acquisition');
+  var _vs=document.getElementById('view-seo'); if(_vs) _vs.classList.toggle('hidden',t!=='seo');
+  if(t==='seo' && window.SEO){ window.SEO.load(); }
   if(t==='crm' && !crmLoaded){ crmLoaded=true; window.CRM.load(); }
   if(t==='board'){ const f=document.getElementById('board-frame'); if(f && !f.getAttribute('src')) f.setAttribute('src','/board.html?embed=1&theme='+(document.documentElement.getAttribute('data-theme')||'dark')); }
 }
@@ -1076,6 +1096,7 @@ const NAV = {
   feedback: ()=>{ showTab('bootcamp'); showBcSub('feedback'); },
   acquisition: ()=>{ showTab('acquisition'); if(window.ACQ) window.ACQ.load(); },
   amplify:  ()=>{ showTab('amplify'); },
+  seo:      ()=>{ showTab('seo'); },
   crm:      ()=>{ showTab('crm'); },
   board:    ()=>{ showTab('board'); },
 };
@@ -1099,10 +1120,13 @@ function applyPerms(){
   show('.sb-item[data-nav="acquisition"]', canBoot);
   show('.sb-item[data-nav="feedback"]', canFeed);
   show('.sb-item[data-nav="amplify"]', canAmp);
+  const canSeo=hasPerm('seo');
+  show('.sb-item[data-nav="seo"]', canSeo);
   show('.sb-item[data-nav="crm"]', canBoot||canAmp);
   show('#sb-board', hasPerm('board'));
   show('#sbg-bootcamp', canBoot||canFeed);
   show('#sbg-amplify', canAmp);
+  show('#sbg-seo', canSeo);
   show('#sbg-crm', canBoot||canAmp);
   show('#sbg-outils', hasPerm('board'));
   const nm = AUTH ? (AUTH.name||AUTH.email||'') : '';
@@ -1154,6 +1178,7 @@ if(AUTH && AUTH.token){
     {key:'demo',label:'Démographie',ic:'👥',perm:'bootcamp'},
     {key:'feedback',label:'Feedbacks',ic:'💬',perm:'feedback'},
     {key:'amplify',label:'Amplify Connect',ic:'🔗',perm:'amplify'},
+    {key:'seo',label:'Site & SEO',ic:'🔍',perm:'seo'},
     {key:'crm',label:'CRM',ic:'🗂️',perm:'crm'},
   ];
   function navAllowed(n){ return n.perm==='crm' ? (hasPerm('bootcamp')||hasPerm('amplify')) : hasPerm(n.perm); }
@@ -2170,6 +2195,165 @@ if(AUTH && AUTH.token){
     });
   }
   window.ACQ={load};
+})();
+
+/* ===== Module Site & SEO ===== */
+(function(){
+  let DATASEO=null, loading=false;
+  const seoCharts={};
+  const el=(id)=>document.getElementById(id);
+  const escH=(s)=>{const d=document.createElement('div');d.textContent=(s==null?'':s);return d.innerHTML;};
+  const MAB=['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'];
+  const MFULL=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  function mLabel(key,full){ const p=String(key||'').split('-'); const i=(+p[1])-1; if(i<0||i>11) return key||''; return (full?MFULL[i]:MAB[i])+' '+p[0]; }
+  const fmtN=(v)=> v==null?'—':Number(v).toLocaleString('fr-FR');
+  const fmtP=(v)=> v==null?'—':String(v).replace('.',',')+' %';
+  const fmtPos=(v)=> v==null?'—':String(Number(v)).replace('.',',');
+  function destroySeo(k){ if(seoCharts[k]){ seoCharts[k].destroy(); delete seoCharts[k]; } }
+
+  function delta(cur,prev,opt){
+    opt=opt||{};
+    if(cur==null||prev==null||prev===0) return '';
+    const d=cur-prev; if(d===0) return '<span style="color:var(--muted);font-size:12px">= stable vs '+opt.prevLabel+'</span>';
+    const up=d>0, good = opt.invert ? !up : up;
+    const col = good ? 'var(--green)' : 'var(--red)', arrow = up ? '▲' : '▼';
+    const pctv = Math.round(Math.abs(d)/Math.abs(prev)*100);
+    const val = opt.pos ? fmtPos(Math.abs(d)) : fmtN(Math.abs(d));
+    return '<span style="color:'+col+';font-size:12px;font-weight:600">'+arrow+' '+val+' ('+pctv+'%) vs '+opt.prevLabel+'</span>';
+  }
+
+  async function load(){
+    if(loading) return; loading=true;
+    if(!DATASEO) el('seo-body').innerHTML='<div class="fb-loading"><div class="spin"></div>Lecture des données SEO…</div>';
+    try{
+      const r=await fetch('/api/seo',{headers:authHeaders()});
+      if(r.status===403){ el('seo-body').innerHTML='<div class="fb-err">Tu n\'as pas accès à Site &amp; SEO.</div>'; return; }
+      const j=await r.json();
+      if(!j.ok) throw new Error(j.error||'Erreur');
+      DATASEO=j.mois||[]; render();
+    }catch(e){ el('seo-body').innerHTML='<div class="fb-err">Erreur de lecture : '+escH(e.message)+'</div>'; }
+    finally{ loading=false; }
+  }
+
+  function kpi(label,val,sub,deltaHtml,cls){ return '<div class="card kpi"><div class="label">'+label+'</div><div class="value '+(cls||'')+'">'+val+'</div><div class="sub">'+(sub||'')+(deltaHtml?('<div style="margin-top:3px">'+deltaHtml+'</div>'):'')+'</div></div>'; }
+  function wireAdd(){ const b=el('seo-add'); if(b) b.onclick=()=>openForm(null); }
+
+  function render(){
+    const M=DATASEO||[];
+    if(!M.length){ el('seo-body').innerHTML='<div class="card"><div class="note">Aucune donnée pour le moment. Clique sur « ＋ Ajouter le mois » pour saisir un premier mois.</div></div>'; wireAdd(); return; }
+    const last=M[M.length-1], prev=M.length>1?M[M.length-2]:null, pl=prev?mLabel(prev.moisKey):'';
+    let html='<div class="grid kpis">'
+      +kpi('Trafic global', fmtN(last.global), mLabel(last.moisKey,true), prev?delta(last.global,prev.global,{prevLabel:pl}):'')
+      +kpi('Trafic organique (SEO)', fmtN(last.organique), (last.part!=null?('part '+fmtP(last.part)):''), prev?delta(last.organique,prev.organique,{prevLabel:pl}):'', 'green')
+      +kpi('Position moyenne SEO', fmtPos(last.position), 'plus bas = mieux', prev?delta(last.position,prev.position,{invert:true,pos:true,prevLabel:pl}):'')
+      +kpi('Mots-clés top 10', fmtN(last.top10), (last.top1150!=null?(fmtN(last.top1150)+' en top 11-50'):''), prev?delta(last.top10,prev.top10,{prevLabel:pl}):'', 'yellow')
+      +'</div>';
+    html+='<div class="grid row2" style="margin-top:16px">'
+      +'<div class="card"><h3><span class="dot"></span>Trafic par source</h3><div class="chart-box"><canvas id="seo-c-traffic"></canvas></div></div>'
+      +'<div class="card"><h3><span class="dot"></span>Part du trafic organique</h3><div class="chart-box"><canvas id="seo-c-part"></canvas></div></div>'
+      +'</div>';
+    html+='<div class="grid row2" style="margin-top:16px">'
+      +'<div class="card"><h3><span class="dot"></span>Position moyenne SEO <span style="color:var(--muted);font-weight:400">· plus bas = mieux</span></h3><div class="chart-box"><canvas id="seo-c-pos"></canvas></div></div>'
+      +'<div class="card"><h3><span class="dot"></span>Mots-clés positionnés</h3><div class="chart-box"><canvas id="seo-c-kw"></canvas></div></div>'
+      +'</div>';
+    html+='<div class="card" style="margin-top:16px"><h3><span class="dot"></span>Détail mensuel <span style="color:var(--muted);font-weight:400">· clique une ligne pour éditer</span></h3>'
+      +'<div style="overflow-x:auto"><table id="seo-table"><thead><tr>'
+      +'<th>Mois</th><th class="num">Organique</th><th class="num">Payant</th><th class="num">Direct/autres</th><th class="num">Global</th><th class="num">Part org.</th><th class="num">Pos. moy.</th><th class="num">Top 10</th><th class="num">Top 11-50</th></tr></thead><tbody>';
+    M.slice().reverse().forEach(m=>{
+      html+='<tr data-mk="'+m.moisKey+'" style="cursor:pointer">'
+        +'<td><b>'+mLabel(m.moisKey,true)+'</b></td>'
+        +'<td class="num">'+fmtN(m.organique)+'</td><td class="num">'+fmtN(m.payant)+'</td><td class="num">'+fmtN(m.direct)+'</td>'
+        +'<td class="num"><b>'+fmtN(m.global)+'</b></td><td class="num">'+fmtP(m.part)+'</td>'
+        +'<td class="num">'+fmtPos(m.position)+'</td><td class="num">'+fmtN(m.top10)+'</td><td class="num">'+fmtN(m.top1150)+'</td></tr>';
+    });
+    html+='</tbody></table></div></div>';
+    const withC=M.slice().reverse().filter(m=>m.commentaire);
+    if(withC.length){
+      html+='<div class="card" style="margin-top:16px"><h3><span class="dot"></span>Commentaires mensuels</h3>';
+      withC.forEach(m=>{ html+='<div style="padding:10px 0;border-top:1px solid var(--line)"><div style="font-weight:700;margin-bottom:3px">'+mLabel(m.moisKey,true)+'</div><div style="color:var(--muted);white-space:pre-wrap">'+escH(m.commentaire)+'</div></div>'; });
+      html+='</div>';
+    }
+    el('seo-body').innerHTML=html;
+
+    const labels=M.map(m=>mLabel(m.moisKey));
+    destroySeo('traffic');
+    seoCharts.traffic=new Chart(el('seo-c-traffic'),{type:'bar',
+      data:{labels,datasets:[
+        {label:'Organique',data:M.map(m=>m.organique),backgroundColor:'#3ecf8e'},
+        {label:'Payant',data:M.map(m=>m.payant),backgroundColor:'#ffce3a'},
+        {label:'Direct / autres',data:M.map(m=>m.direct),backgroundColor:'#5b8def'}]},
+      options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}}},responsive:true,maintainAspectRatio:false,scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true,ticks:{precision:0}}}}});
+    destroySeo('part');
+    seoCharts.part=new Chart(el('seo-c-part'),{type:'line',
+      data:{labels,datasets:[{label:'Part organique',data:M.map(m=>m.part),borderColor:'#3ecf8e',backgroundColor:'rgba(62,207,142,.12)',fill:true,tension:.3,pointRadius:3}]},
+      options:{plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{y:{beginAtZero:true,ticks:{callback:v=>v+' %'}}}}});
+    destroySeo('pos');
+    seoCharts.pos=new Chart(el('seo-c-pos'),{type:'line',
+      data:{labels,datasets:[{label:'Position moyenne',data:M.map(m=>m.position),borderColor:'#a779ff',backgroundColor:'rgba(167,121,255,.12)',fill:true,tension:.3,pointRadius:3}]},
+      options:{plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{y:{reverse:true,ticks:{precision:0}}}}});
+    destroySeo('kw');
+    seoCharts.kw=new Chart(el('seo-c-kw'),{type:'bar',
+      data:{labels,datasets:[
+        {label:'Top 10',data:M.map(m=>m.top10),backgroundColor:'#3ecf8e'},
+        {label:'Top 11-50',data:M.map(m=>m.top1150),backgroundColor:'#445067'}]},
+      options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}}},responsive:true,maintainAspectRatio:false,scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});
+
+    [...document.querySelectorAll('#seo-table tbody tr')].forEach(tr=>tr.onclick=()=>openForm(tr.dataset.mk));
+    wireAdd();
+  }
+
+  function fld(label,id,type,val,attr,hint){
+    const t = type==='number'?'text':(type==='month'?'month':'text');
+    const extra = type==='number'?'inputmode="decimal"':'';
+    const ph = type==='month'?'placeholder="AAAA-MM"':'';
+    return '<label class="q" style="font-weight:600;font-size:13px;display:block">'+label+(hint?' <span style="color:var(--muted);font-weight:400">· '+hint+'</span>':'')
+      +'<input id="'+id+'" type="'+t+'" '+extra+' '+ph+' '+(attr||'')+' value="'+escH(String(val==null?'':val))+'" style="width:100%;margin-top:6px;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:var(--panel2);color:var(--txt);font-family:inherit'+(attr==='readonly'?';opacity:.7':'')+'"/></label>';
+  }
+  function row2f(a,b){ return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'+a+b+'</div>'; }
+  function closeForm(){ el('seo-panel').classList.add('hidden'); }
+
+  function openForm(mk){
+    const M=DATASEO||[];
+    const rec = mk ? M.find(m=>m.moisKey===mk) : null;
+    const defMk = mk || (function(){
+      if(M.length){ const p=M[M.length-1].moisKey.split('-').map(Number); const d=new Date(p[0],p[1],1); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+      const t=new Date(); return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0');
+    })();
+    const v=(x)=> x==null?'':x;
+    const card=el('seo-panel-card');
+    card.innerHTML=''
+      +'<div class="crm-dh"><div class="crm-dh-t">'+(rec?('Éditer — '+mLabel(rec.moisKey,true)):'Ajouter un mois')+'</div><div class="crm-dh-s">Saisis les chiffres du mois</div><button class="crm-close" id="seo-close">✕</button></div>'
+      +'<div style="display:flex;flex-direction:column;gap:12px">'
+      +fld('Mois','seo-f-mois','month',mk?rec.moisKey:defMk, mk?'readonly':'')
+      +row2f(fld('Trafic organique','seo-f-org','number',rec?v(rec.organique):''), fld('Trafic payant','seo-f-pay','number',rec?v(rec.payant):''))
+      +row2f(fld('Trafic direct / autres','seo-f-dir','number',rec?v(rec.direct):''), fld('Trafic global','seo-f-glob','number',rec?v(rec.global):'','','vide = somme auto'))
+      +row2f(fld('Position moyenne SEO','seo-f-pos','number',rec?v(rec.position):'','','ex. 4,2'), fld('Mots-clés top 10','seo-f-t10','number',rec?v(rec.top10):''))
+      +fld('Mots-clés top 11-50','seo-f-t1150','number',rec?v(rec.top1150):'')
+      +'<label class="q" style="font-weight:600;font-size:13px;display:block">Commentaire du mois<textarea id="seo-f-com" rows="4" style="width:100%;margin-top:6px;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:var(--panel2);color:var(--txt);font-family:inherit;resize:vertical">'+escH(rec?rec.commentaire:'')+'</textarea></label>'
+      +'<div id="seo-f-msg" style="min-height:18px;font-size:13px"></div>'
+      +'<button class="crm-btn" id="seo-save" style="font-weight:700">💾 Enregistrer</button>'
+      +'</div>';
+    el('seo-panel').classList.remove('hidden');
+    el('seo-close').onclick=closeForm; el('seo-panel-bg').onclick=closeForm;
+    el('seo-save').onclick=save;
+  }
+
+  async function save(){
+    const g=(id)=>{ const e=el(id); return e?String(e.value).trim():''; };
+    const gn=(id)=> g(id).replace(',','.');
+    const mois=g('seo-f-mois');
+    if(!/^\d{4}-\d{2}$/.test(mois)){ el('seo-f-msg').innerHTML='<span style="color:var(--red)">Mois invalide (format AAAA-MM, ex. 2026-07).</span>'; return; }
+    const payload={ mois, organique:gn('seo-f-org'), payant:gn('seo-f-pay'), direct:gn('seo-f-dir'), global:gn('seo-f-glob'), position:gn('seo-f-pos'), top10:gn('seo-f-t10'), top1150:gn('seo-f-t1150'), commentaire:el('seo-f-com').value };
+    const btn=el('seo-save'); btn.disabled=true; const old=btn.textContent; btn.textContent='Enregistrement…'; el('seo-f-msg').textContent='';
+    try{
+      const r=await fetch('/api/seo',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},authHeaders()),body:JSON.stringify(payload)});
+      const j=await r.json();
+      if(!r.ok||!j.ok) throw new Error(j.error||('HTTP '+r.status));
+      closeForm(); DATASEO=null; await load();
+    }catch(e){ el('seo-f-msg').innerHTML='<span style="color:var(--red)">Erreur : '+escH(e.message)+'</span>'; btn.disabled=false; btn.textContent=old; }
+  }
+
+  window.SEO={load};
 })();
 </script>
 </body>
