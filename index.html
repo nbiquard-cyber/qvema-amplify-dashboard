@@ -2022,17 +2022,16 @@ if(AUTH && AUTH.token){
   function filterBar(){
     const bar=document.getElementById('acq-filter'); bar.innerHTML='';
     const list=proms();
-    const totalIns=list.reduce((n,p)=>n+(DATAQ.scopes[p].inscrits||0),0);
     const gb=document.createElement('button');
     gb.className='promo-btn'+('Global'===acqPromo?' active':'');
-    gb.innerHTML='🌍 Global <span class="cnt">'+NUM(totalIns)+'</span>';
+    gb.textContent='Global';
     gb.onclick=()=>{ acqPromo='Global'; render(); };
     bar.appendChild(gb);
     list.forEach(p=>{
       const s=DATAQ.scopes[p];
       const b=document.createElement('button');
       b.className='promo-btn'+(p===acqPromo?' active':'');
-      b.innerHTML=p+' <span class="cnt">'+NUM(s.inscrits)+'</span>';
+      b.textContent=p;
       b.onclick=()=>{ acqPromo=p; render(); };
       bar.appendChild(b);
     });
