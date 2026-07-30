@@ -534,6 +534,18 @@
         <div class="note" id="ac-note"></div>
       </div>
     </div>
+
+    <div class="card">
+      <h3><span class="dot"></span>Répartition par région <span style="color:var(--muted);font-weight:400">· déduite du code postal</span></h3>
+      <div class="chart-box" style="height:340px"><canvas id="ac-region-chart"></canvas></div>
+      <div class="note" id="ac-region-note"></div>
+    </div>
+
+    <div class="card">
+      <h3><span class="dot"></span>Carte de France <span style="color:var(--muted);font-weight:400">· 1 point par département, taille = nombre de membres</span></h3>
+      <div id="ac-map" style="position:relative;width:100%;min-height:360px;display:flex;align-items:center;justify-content:center"><div class="note">Chargement de la carte…</div></div>
+      <div class="note" id="ac-map-note"></div>
+    </div>
   </section>
 
   <!-- ACQUISITION (bilan ads & funnel par promo) -->
@@ -942,6 +954,64 @@ function renderAmplify(){
     mt.insertAdjacentHTML('beforeend',`<tr><td>${k}</td><td class="num">${NUM(v)}</td></tr>`);
   });
   document.getElementById('ac-note').textContent = 'CA Airtable (référence) : '+EUR(a.caAirtable);
+
+  // --- Répartition par région (comme le bootcamp) ---
+  const are = Object.entries(a.regions||{}).sort((x,y)=>{
+    const low=v=>(v==='Non renseigné'||v==='Étranger'||v==='Outre-Mer');
+    if(low(x[0])&&!low(y[0])) return 1;
+    if(low(y[0])&&!low(x[0])) return -1;
+    return y[1]-x[1];
+  });
+  destroy('acRegion');
+  charts.acRegion = new Chart(document.getElementById('ac-region-chart'),{
+    type:'bar',
+    data:{labels:are.map(x=>x[0]),datasets:[{data:are.map(x=>x[1]),
+      backgroundColor:are.map(x=>x[0]==='Non renseigné'?'#445067':(x[0]==='Étranger'?'#c98b3a':'#3ecf8e')),borderRadius:5}]},
+    options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{precision:0}}}}
+  });
+  const nrr=(a.regions||{})['Non renseigné']||0;
+  document.getElementById('ac-region-note').textContent = nrr? `${NUM(nrr)} membre(s) sans code postal (exclus de la localisation).` : '';
+
+  // --- Carte de France ---
+  if(a.map) renderAcMap(a.map);
+}
+
+let _frGeoLoading=false, _frGeoCbs=[];
+function ensureFrGeo(cb){
+  if(window.FR_GEO){ cb(); return; }
+  _frGeoCbs.push(cb);
+  if(_frGeoLoading) return;
+  _frGeoLoading=true;
+  const s=document.createElement('script'); s.src='/fr-geo.js';
+  s.onload=()=>{ _frGeoLoading=false; const cbs=_frGeoCbs.splice(0); cbs.forEach(f=>f()); };
+  s.onerror=()=>{ _frGeoLoading=false; const h=document.getElementById('ac-map'); if(h) h.innerHTML='<div class="note">Carte indisponible (chargement du fond échoué).</div>'; };
+  document.head.appendChild(s);
+}
+function renderAcMap(map){ const host=document.getElementById('ac-map'); if(!host) return; ensureFrGeo(()=>drawAcMap(map)); }
+function drawAcMap(map){
+  const host=document.getElementById('ac-map'); const G=window.FR_GEO;
+  if(!host||!G){ if(host) host.innerHTML='<div class="note">Carte indisponible.</div>'; return; }
+  const b=G.bbox, cosLat=Math.cos((b.minLat+b.maxLat)/2*Math.PI/180), k=62, pad=16;
+  const px=lng=>pad+(lng-b.minLng)*cosLat*k, py=lat=>pad+(b.maxLat-lat)*k;
+  const VW=(b.maxLng-b.minLng)*cosLat*k+pad*2, VH=(b.maxLat-b.minLat)*k+pad*2;
+  let paths='';
+  G.regions.forEach(rg=>rg.r.forEach(ring=>{
+    if(ring.length<3) return; let d='';
+    ring.forEach((p,i)=>{ d+=(i?'L':'M')+px(p[0]).toFixed(1)+' '+py(p[1]).toFixed(1)+' '; });
+    paths+='<path d="'+d+'Z" fill="rgba(62,207,142,.05)" stroke="rgba(148,163,184,.35)" stroke-width="1" stroke-linejoin="round"/>';
+  }));
+  const pts=(map.points||[]).slice().sort((a,b)=>b.count-a.count);
+  const maxC=Math.max(1,...pts.map(p=>p.count));
+  let dots='';
+  pts.forEach(p=>{
+    const r=6+Math.sqrt(p.count/maxC)*15, cx=px(p.lng).toFixed(1), cy=py(p.lat).toFixed(1);
+    const t='Dépt '+p.dept+' · '+p.region+' — '+p.count+' membre'+(p.count>1?'s':'')+(p.villes&&p.villes.length?(' ('+p.villes.join(', ')+')'):'');
+    dots+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r.toFixed(1)+'" fill="rgba(62,207,142,.55)" stroke="#3ecf8e" stroke-width="1.5"><title>'+escHtml(t)+'</title></circle>';
+    dots+='<text x="'+cx+'" y="'+(parseFloat(cy)+3.6).toFixed(1)+'" text-anchor="middle" font-size="'+(r>11?11:9)+'" font-weight="700" fill="#06281c" style="pointer-events:none">'+p.count+'</text>';
+  });
+  host.innerHTML='<svg viewBox="0 0 '+VW.toFixed(0)+' '+VH.toFixed(0)+'" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;max-height:600px;display:block">'+paths+dots+'</svg>';
+  const note=document.getElementById('ac-map-note');
+  if(note) note.textContent=(map.total-map.horsCarte)+' membre(s) localisé(s) sur '+map.total+(map.horsCarte?(' · '+map.horsCarte+' hors carte (étranger / DOM-TOM / sans code postal)'):'')+'. Survolez un point pour le détail.';
 }
 
 /* ====== Navigation ====== */

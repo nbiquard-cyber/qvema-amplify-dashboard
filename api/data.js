@@ -103,6 +103,38 @@ function regionFromFields(f) {
   return REGION_BY_DEPT[d2] || "Non renseigné";
 }
 
+// Centroïdes (lng, lat) des départements métropolitains + Corse — pour la carte Amplify.
+const DEPT_CENTROIDS = {"10":[4.161,48.305],"11":[2.414,43.103],"12":[2.679,44.281],"13":[5.086,43.543],"14":[-0.362,49.1],"15":[2.669,45.051],"16":[0.203,45.719],"17":[-0.654,45.766],"18":[2.491,47.066],"19":[1.878,45.357],"21":[4.773,47.426],"22":[-2.865,48.44],"23":[2.018,46.091],"24":[0.741,45.105],"25":[6.363,47.166],"26":[5.164,44.679],"27":[0.996,49.114],"28":[1.37,48.388],"29":[-4.057,48.261],"30":[4.18,43.994],"31":[1.175,43.359],"32":[0.453,43.693],"33":[-0.583,44.839],"34":[3.369,43.579],"35":[-1.634,48.151],"36":[1.576,46.778],"37":[0.691,47.258],"38":[5.574,45.264],"39":[5.697,46.729],"40":[-0.784,43.966],"41":[1.428,47.617],"42":[4.165,45.728],"43":[3.806,45.128],"44":[-1.679,47.363],"45":[2.344,47.912],"46":[1.606,44.625],"47":[0.461,44.368],"48":[3.5,44.517],"49":[-0.559,47.39],"50":[-1.329,49.081],"51":[4.239,48.95],"52":[5.226,48.11],"53":[-0.657,48.147],"54":[6.162,48.788],"55":[5.381,48.991],"56":[-2.804,47.855],"57":[6.661,49.038],"58":[3.504,47.116],"59":[3.216,50.449],"60":[2.425,49.41],"61":[0.128,48.623],"62":[2.289,50.493],"63":[3.14,45.726],"64":[-0.758,43.257],"65":[0.166,43.051],"66":[2.521,42.599],"67":[7.552,48.671],"68":[7.274,47.859],"69":[4.641,45.871],"70":[6.087,47.641],"71":[4.543,46.645],"72":[0.223,47.995],"73":[6.443,45.478],"74":[6.428,46.035],"75":[2.343,48.857],"76":[1.027,49.655],"77":[2.934,48.627],"78":[1.841,48.815],"79":[-0.318,46.557],"80":[2.276,49.958],"81":[2.166,43.786],"82":[1.282,44.086],"83":[6.244,43.444],"84":[5.185,43.994],"85":[-1.288,46.673],"86":[0.459,46.565],"87":[1.235,45.892],"88":[6.38,48.196],"89":[3.563,47.841],"90":[6.929,47.632],"91":[2.243,48.523],"92":[2.246,48.848],"93":[2.478,48.918],"94":[2.469,48.777],"95":[2.131,49.083],"01":[5.349,46.1],"02":[3.559,49.561],"03":[3.188,46.394],"04":[6.245,44.106],"05":[6.265,44.664],"06":[7.116,43.938],"2A":[8.987,41.864],"2B":[9.206,42.395],"07":[4.426,44.753],"08":[4.641,49.616],"09":[1.504,42.921]};
+
+// Répartition par région + points carte (par département) pour une liste Amplify.
+function computeAmplifyGeo(list) {
+  const regions = {};
+  const byDept = {};
+  let horsCarte = 0;
+  const titlecase = (s) =>
+    s.toLowerCase().replace(/(^|[\s\-'])([a-zà-ÿ])/g, (m, a, b) => a + b.toUpperCase());
+  for (const c of list) {
+    const rg = regionFromFields(c.fields);
+    regions[rg] = (regions[rg] || 0) + 1;
+    const pays = (c.fields["Pays"] || "").toString().trim();
+    const cp = (c.fields["Code postal"] || "").toString().trim().replace(/\s+/g, "");
+    const ville = (c.fields["Ville"] || "").toString().trim().replace(/\s+/g, " ");
+    if ((pays && !/^(fr|france)$/i.test(pays)) || !cp) { horsCarte++; continue; }
+    let dept = cp.slice(0, 2);
+    if (dept === "20") dept = parseInt(cp, 10) < 20200 ? "2A" : "2B";
+    const cen = DEPT_CENTROIDS[dept];
+    if (!cen) { horsCarte++; continue; } // Outre-mer / inconnu : pas sur la carte métropole
+    const e = byDept[dept] || (byDept[dept] = { dept, lng: cen[0], lat: cen[1], count: 0, region: REGION_BY_DEPT[dept] || rg, villes: {} });
+    e.count++;
+    if (ville) { const v = titlecase(ville); e.villes[v] = (e.villes[v] || 0) + 1; }
+  }
+  const points = Object.values(byDept).map((p) => ({
+    dept: p.dept, lat: p.lat, lng: p.lng, count: p.count, region: p.region,
+    villes: Object.keys(p.villes).sort((a, b) => p.villes[b] - p.villes[a]).slice(0, 6),
+  }));
+  return { regions, map: { points, horsCarte, total: list.length } };
+}
+
 // Répartition H/F, âge moyen (+ tranches) et régions pour une liste de clients.
 function computeDemographics(list) {
   let Homme = 0, Femme = 0, nonRenseigne = 0;
@@ -179,7 +211,7 @@ module.exports = async (req, res) => {
     // ---------- AIRTABLE ----------
     const [clientsRaw, connect, candidatures, accueilRaw] = await Promise.all([
       airtableAll(T.clients, ["Promo", "Montant", "Statut Paiement", "Produit", "Date Paiement", "Email", "Sexe", "Age", "Code postal", "Pays", "Mode de paiement", "Prénom", "Nom"]),
-      airtableAll(T.connect, ["Email", "Nom complet", "Montant", "Statut Paiement", "Date Paiement", "Mode Paiement", "Saison QVEMA", "Statut Membre"]),
+      airtableAll(T.connect, ["Email", "Nom complet", "Montant", "Statut Paiement", "Date Paiement", "Mode Paiement", "Saison QVEMA", "Statut Membre", "Code postal", "Ville", "Pays"]),
       airtableAll(T.candidatures, ["Statut Candidature", "Statut Membre", "Mode de paiement", "Date Candidature", "Sous-cercle d'intérêt", "Saison"]),
       airtableAll(T.accueil, ["Promo", "Secteur d'activité", "Stade d'avancement", "Région", "Adresse mail", "Horodatage"]),
     ]);
@@ -254,6 +286,7 @@ module.exports = async (req, res) => {
       acBySaison[s] = (acBySaison[s] || 0) + 1;
       acByMode[mode] = (acByMode[mode] || 0) + 1;
     }
+    const acGeo = computeAmplifyGeo(acMembers); // { regions, map:{points,horsCarte,total} }
     const candByStatut = {};
     const candByMode = {};
     const candBySousCercle = {};
@@ -488,6 +521,8 @@ module.exports = async (req, res) => {
         prixAbonnement: acMembers.length ? Math.round(acCaAirtable / acMembers.length) : 0,
         bySaison: acBySaison,
         byMode: acByMode,
+        regions: acGeo.regions,
+        map: acGeo.map,
         candidatures: {
           total: candidatures.length,
           byStatut: candByStatut,
