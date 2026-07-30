@@ -52,6 +52,7 @@
   .kpi .sub{font-size:12px;color:var(--muted);margin-top:6px}
   .kpi .value.green{color:var(--green)} .kpi .value.blue{color:var(--accent2)} .kpi .value.yellow{color:var(--accent)} .kpi .value.purple{color:var(--purple)} .kpi .value.red{color:var(--red)}
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+  .row2.solo{grid-template-columns:1fr}
   @media(max-width:900px){.row2{grid-template-columns:1fr}}
   .card h3{font-size:13px;font-weight:700;color:var(--txt);margin-bottom:14px;display:flex;align-items:center;gap:8px}
   .card h3 .dot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
@@ -417,8 +418,8 @@
         </div>
       </div>
 
-      <div class="row2">
-        <div class="card">
+      <div class="row2" id="bc-row-promo">
+        <div class="card" id="bc-card-promo">
           <h3><span class="dot"></span>Inscrits par promo <span style="color:var(--muted);font-weight:400">· clique pour filtrer</span></h3>
           <div class="chart-box"><canvas id="bc-promo-chart"></canvas></div>
         </div>
@@ -429,17 +430,12 @@
         </div>
       </div>
 
-      <div class="row2">
-        <div class="card">
-          <h3><span class="dot"></span>Inscriptions par jour</h3>
-          <div class="chart-box"><canvas id="bc-day-chart"></canvas></div>
-        </div>
-        <div class="card">
-          <h3><span class="dot"></span>Détail par promo</h3>
-          <table id="bc-promo-table"><thead><tr><th>Promo</th><th class="num">Inscrits</th><th class="num">CA généré</th></tr></thead><tbody></tbody></table>
-          <div class="note" id="bc-statut-note"></div>
-        </div>
+      <div class="card" id="bc-card-detail">
+        <h3><span class="dot"></span>Détail par promo</h3>
+        <table id="bc-promo-table"><thead><tr><th>Promo</th><th class="num">Inscrits</th><th class="num">CA généré</th></tr></thead><tbody></tbody></table>
       </div>
+
+      <div class="note" id="bc-statut-note" style="margin-top:14px"></div>
     </div>
 
     <!-- SOUS-ONGLET : DÉMOGRAPHIE -->
@@ -551,6 +547,7 @@
   <!-- ACQUISITION (bilan ads & funnel par promo) -->
   <section id="view-acquisition" class="hidden">
     <div class="promo-filter" id="acq-filter"></div>
+    <div id="acq-single">
     <div class="grid kpis">
       <div class="card kpi"><div class="label">Dépense ads</div><div class="value yellow" id="acq-spend">—</div><div class="sub" id="acq-spend-sub"></div></div>
       <div class="card kpi"><div class="label">Inscrits conf</div><div class="value" id="acq-ins">—</div><div class="sub" id="acq-ins-sub"></div></div>
@@ -572,6 +569,8 @@
         <table id="acq-chan-table"><thead><tr><th>Canal</th><th class="num">Inscrits</th><th class="num">Ventes</th><th class="num">Conv.</th><th class="num">CA généré</th><th class="num">Encaissé conv.</th></tr></thead><tbody></tbody></table></div>
     </div>
     <div class="card" style="margin-top:16px"><h3>Notes méthodologiques</h3><div class="note" id="acq-notes"></div></div>
+    </div><!-- /acq-single -->
+    <div id="acq-global" class="hidden"></div>
   </section>
 
   <!-- CRM (façon Twenty) -->
@@ -759,18 +758,25 @@ function renderBcPilotage(s, scopeLabel){
   document.getElementById('bc-caencaisse-sub').textContent = pct!=null ? pct+'% du CA généré' : 'Stripe indispo';
   document.getElementById('bc-careste').textContent = EUR(s.caRestantAEncaisser);
 
-  const pe = Object.entries(bc.byPromo).sort((a,b)=>a[0].localeCompare(b[0]));
-  destroy('promo');
-  charts.promo = new Chart(document.getElementById('bc-promo-chart'),{
-    type:'bar',
-    data:{labels:pe.map(x=>x[0]),datasets:[{data:pe.map(x=>x[1].count),
-      backgroundColor:pe.map(x=> (x[0]===currentPromo || currentPromo==='Toutes') ? '#ffce3a' : '#445067'),
-      borderRadius:6}]},
-    options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}},
-      onClick:(e,els)=>{ if(els.length){ currentPromo=pe[els[0].index][0]; renderBootcamp(); } }}
-  });
-  const tb = document.querySelector('#bc-promo-table tbody'); tb.innerHTML='';
-  pe.forEach(([k,v])=>{ tb.insertAdjacentHTML('beforeend',`<tr><td>${k}</td><td class="num">${NUM(v.count)}</td><td class="num">${EUR(v.montant)}</td></tr>`); });
+  // « Inscrits par promo » et « Détail par promo » : uniquement en vue Toutes promos.
+  const showPromoBreakdown = currentPromo==='Toutes';
+  document.getElementById('bc-card-promo').classList.toggle('hidden', !showPromoBreakdown);
+  document.getElementById('bc-card-detail').classList.toggle('hidden', !showPromoBreakdown);
+  document.getElementById('bc-row-promo').classList.toggle('solo', !showPromoBreakdown);
+  if(showPromoBreakdown){
+    const pe = Object.entries(bc.byPromo).sort((a,b)=>a[0].localeCompare(b[0]));
+    destroy('promo');
+    charts.promo = new Chart(document.getElementById('bc-promo-chart'),{
+      type:'bar',
+      data:{labels:pe.map(x=>x[0]),datasets:[{data:pe.map(x=>x[1].count),
+        backgroundColor:pe.map(x=> (x[0]===currentPromo || currentPromo==='Toutes') ? '#ffce3a' : '#445067'),
+        borderRadius:6}]},
+      options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}},
+        onClick:(e,els)=>{ if(els.length){ currentPromo=pe[els[0].index][0]; renderBootcamp(); } }}
+    });
+    const tb = document.querySelector('#bc-promo-table tbody'); tb.innerHTML='';
+    pe.forEach(([k,v])=>{ tb.insertAdjacentHTML('beforeend',`<tr><td>${k}</td><td class="num">${NUM(v.count)}</td><td class="num">${EUR(v.montant)}</td></tr>`); });
+  } else { destroy('promo'); }
 
   const scnt = s.statutCounts||{};
   const scParts = Object.entries(scnt).map(([k,v])=>`${k} : ${v}`).join(' · ');
@@ -806,14 +812,6 @@ function renderBcPilotage(s, scopeLabel){
     options:{cutout:'62%',plugins:{legend:{position:'bottom'}}}
   });
   document.getElementById('bc-pay-note').innerHTML = `<b>${NUM(p.un_fois)}</b> en 1 fois · <b>${NUM(p.quatre_fois)}</b> en 4 fois (322,50€/mois ×4). ${p.installments_collectees||0} mensualités encaissées à ce jour.`;
-
-  const days = Object.entries(s.byDay||{}).sort((a,b)=>a[0].localeCompare(b[0]));
-  destroy('day');
-  charts.day = new Chart(document.getElementById('bc-day-chart'),{
-    type:'line',
-    data:{labels:days.map(d=>d[0].slice(5)),datasets:[{data:days.map(d=>d[1]),borderColor:'#ffce3a',backgroundColor:'rgba(255,206,58,.12)',fill:true,tension:.3,pointRadius:2}]},
-    options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}
-  });
 }
 
 function renderBcDemo(s, scopeLabel){
@@ -2004,7 +2002,7 @@ if(AUTH && AUTH.token){
 <script>
 // ===== Vue Acquisition (bilan ads par promo) — données /api/acquisition =====
 (function(){
-  let DATAQ=null, acqPromo='PROMO 2', loading=false;
+  let DATAQ=null, acqPromo='Global', loading=false;
   async function load(){
     if(DATAQ){ render(); return; }
     if(loading) return; loading=true;
@@ -2017,10 +2015,21 @@ if(AUTH && AUTH.token){
       document.getElementById('acq-notes').textContent='Erreur de chargement : '+e.message;
     }finally{ loading=false; }
   }
+  function proms(){
+    return (DATAQ.promoOrder||[]).filter(p=>DATAQ.scopes[p])
+      .sort((a,b)=>((+(a.match(/\d+/)||[99])[0])-(+(b.match(/\d+/)||[99])[0])));
+  }
   function filterBar(){
     const bar=document.getElementById('acq-filter'); bar.innerHTML='';
-    (DATAQ.promoOrder||[]).forEach(p=>{
-      const s=DATAQ.scopes[p]; if(!s) return;
+    const list=proms();
+    const totalIns=list.reduce((n,p)=>n+(DATAQ.scopes[p].inscrits||0),0);
+    const gb=document.createElement('button');
+    gb.className='promo-btn'+('Global'===acqPromo?' active':'');
+    gb.innerHTML='🌍 Global <span class="cnt">'+NUM(totalIns)+'</span>';
+    gb.onclick=()=>{ acqPromo='Global'; render(); };
+    bar.appendChild(gb);
+    list.forEach(p=>{
+      const s=DATAQ.scopes[p];
       const b=document.createElement('button');
       b.className='promo-btn'+(p===acqPromo?' active':'');
       b.innerHTML=p+' <span class="cnt">'+NUM(s.inscrits)+'</span>'+(s.fige?' 🔒':'');
@@ -2029,9 +2038,13 @@ if(AUTH && AUTH.token){
     });
   }
   function render(){
-    if(!DATAQ || !DATAQ.scopes[acqPromo]) return;
-    const s=DATAQ.scopes[acqPromo], C=DATAQ.colors, K=s.kpis;
+    if(!DATAQ) return;
     filterBar();
+    const single=document.getElementById('acq-single'), glob=document.getElementById('acq-global');
+    if(acqPromo==='Global'){ single.classList.add('hidden'); glob.classList.remove('hidden'); renderGlobal(); return; }
+    single.classList.remove('hidden'); glob.classList.add('hidden');
+    if(!DATAQ.scopes[acqPromo]) return;
+    const s=DATAQ.scopes[acqPromo], C=DATAQ.colors, K=s.kpis;
     document.getElementById('acq-spend').textContent=EUR(s.spend.total);
     document.getElementById('acq-spend-sub').textContent='dont RTG '+EUR(s.spend.rtg)+' · '+s.fenetre;
     document.getElementById('acq-ins').textContent=NUM(s.inscrits);
@@ -2086,6 +2099,76 @@ if(AUTH && AUTH.token){
       tb2.appendChild(tr);
     });
     document.getElementById('acq-notes').innerHTML=(s.notes||[]).map(n=>'• '+n).join('<br>');
+  }
+  function kpiCard(label,val,sub,cls){ return '<div class="card kpi"><div class="label">'+label+'</div><div class="value '+(cls||'')+'">'+val+'</div><div class="sub">'+(sub||'')+'</div></div>'; }
+  function renderGlobal(){
+    const list=proms(), C=DATAQ.colors, host=document.getElementById('acq-global');
+    const num2=v=>(v==null||isNaN(v))?'—':Number(v).toLocaleString('fr-FR',{maximumFractionDigits:2});
+    // Agrégats globaux
+    let spend=0,ins=0,metaIns=0,metaFac=0,caFac=0,ventes=0,refunds=0;
+    const chanNames=[], chanIns={};
+    list.forEach(p=>{ const s=DATAQ.scopes[p], K=s.kpis;
+      spend+=s.spend.total||0; ins+=s.inscrits||0; caFac+=K.caFac||0; ventes+=K.ventes||0; refunds+=K.refunds||0;
+      const m=s.channels.find(c=>c.name==='Paid Meta (ads)')||{ins:0,fac:0}; metaIns+=m.ins||0; metaFac+=m.fac||0;
+      s.channels.forEach(c=>{ if(!chanNames.includes(c.name)) chanNames.push(c.name); (chanIns[c.name]=chanIns[c.name]||{})[p]=c.ins||0; });
+    });
+    const gCpl=metaIns?spend/metaIns:null, gRoasAds=spend?metaFac/spend:null, gRoasBl=spend?caFac/spend:null,
+          gCac=ventes?spend/ventes:null, gConv=ins?ventes/ins*100:null;
+
+    let html='<div class="grid kpis">'
+      +kpiCard('Dépense ads totale',EUR(Math.round(spend)),list.length+' promo(s)','yellow')
+      +kpiCard('Inscrits total',NUM(ins),NUM(ventes)+' ventes · '+NUM(refunds)+' remb.')
+      +kpiCard('CPL moyen',gCpl!=null?num2(gCpl)+' €':'—','dépense / inscrits Meta')
+      +kpiCard('ROAS ads moyen',num2(gRoasAds)+'×','CA Meta / dépense','green')
+      +kpiCard('ROAS blended',num2(gRoasBl)+'×','CA total / dépense')
+      +kpiCard('CA total généré',EUR(Math.round(caFac)),'toutes sources')
+      +'</div>';
+
+    html+='<div class="card" style="margin-top:16px"><h3><span class="dot"></span>Comparatif par promo</h3>'
+      +'<table><thead><tr><th>Promo</th><th class="num">Inscrits</th><th class="num">Dépense</th><th class="num">CPL</th><th class="num">ROAS ads</th><th class="num">ROAS blended</th><th class="num">CAC</th><th class="num">Conv.</th><th class="num">CA généré</th></tr></thead><tbody>';
+    list.forEach(p=>{ const s=DATAQ.scopes[p], K=s.kpis;
+      html+='<tr><td><b>'+p+'</b>'+(s.fige?' 🔒':'')+'</td>'
+        +'<td class="num">'+NUM(s.inscrits)+'</td>'
+        +'<td class="num">'+EUR(Math.round(s.spend.total))+'</td>'
+        +'<td class="num">'+(K.cpl!=null?num2(K.cpl)+' €':'—')+'</td>'
+        +'<td class="num" style="font-weight:700;color:'+(K.roasMeta>=1?'var(--green)':'var(--txt)')+'">'+num2(K.roasMeta)+'×</td>'
+        +'<td class="num">'+num2(K.roasBlended)+'×</td>'
+        +'<td class="num">'+(K.cac!=null?EUR(Math.round(K.cac)):'—')+'</td>'
+        +'<td class="num">'+(K.conv!=null?num2(K.conv)+' %':'—')+'</td>'
+        +'<td class="num">'+EUR(Math.round(K.caFac))+'</td></tr>';
+    });
+    html+='<tr style="border-top:2px solid var(--line);font-weight:700"><td>🌍 Global</td>'
+      +'<td class="num">'+NUM(ins)+'</td><td class="num">'+EUR(Math.round(spend))+'</td>'
+      +'<td class="num">'+(gCpl!=null?num2(gCpl)+' €':'—')+'</td>'
+      +'<td class="num" style="color:'+(gRoasAds>=1?'var(--green)':'var(--txt)')+'">'+num2(gRoasAds)+'×</td>'
+      +'<td class="num">'+num2(gRoasBl)+'×</td>'
+      +'<td class="num">'+(gCac!=null?EUR(Math.round(gCac)):'—')+'</td>'
+      +'<td class="num">'+(gConv!=null?num2(gConv)+' %':'—')+'</td>'
+      +'<td class="num">'+EUR(Math.round(caFac))+'</td></tr>';
+    html+='</tbody></table></div>';
+
+    html+='<div class="grid row2" style="margin-top:16px">'
+      +'<div class="card"><h3>Inscrits par canal — par promo</h3><div class="chart-box"><canvas id="acq-g-mix"></canvas></div></div>'
+      +'<div class="card"><h3>Efficacité par promo — CPL &amp; ROAS ads</h3><div class="chart-box"><canvas id="acq-g-eff"></canvas></div></div>'
+      +'</div>';
+    host.innerHTML=html;
+
+    destroy('gMix');
+    charts.gMix=new Chart(document.getElementById('acq-g-mix'),{
+      type:'bar',
+      data:{labels:list,datasets:chanNames.map(n=>({label:n,data:list.map(p=>(chanIns[n]&&chanIns[n][p])||0),backgroundColor:C[n]||'#666'}))},
+      options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}}},responsive:true,maintainAspectRatio:false,scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true,ticks:{precision:0}}}}
+    });
+    destroy('gEff');
+    charts.gEff=new Chart(document.getElementById('acq-g-eff'),{
+      type:'bar',
+      data:{labels:list,datasets:[
+        {type:'bar',label:'CPL (€)',data:list.map(p=>DATAQ.scopes[p].kpis.cpl),backgroundColor:'#ffce3a',yAxisID:'yCpl',borderRadius:5},
+        {type:'line',label:'ROAS ads (×)',data:list.map(p=>DATAQ.scopes[p].kpis.roasMeta),borderColor:'#3ecf8e',backgroundColor:'#3ecf8e',yAxisID:'yRoas',tension:.3,pointRadius:4}
+      ]},
+      options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10}}}},responsive:true,maintainAspectRatio:false,
+        scales:{yCpl:{position:'left',beginAtZero:true,title:{display:true,text:'CPL €'}},yRoas:{position:'right',beginAtZero:true,grid:{drawOnChartArea:false},title:{display:true,text:'ROAS ×'}}}}
+    });
   }
   window.ACQ={load};
 })();
