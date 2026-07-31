@@ -8,6 +8,11 @@
 //   GSC_SITES                   = propriété(s) Search Console, séparées par des virgules
 const crypto = require("crypto");
 
+// Seuil anti-bruit pour le comptage des mots-clés positionnés : on ne compte
+// en top 10 / top 11-50 que les requêtes ayant au moins ce nombre d'impressions
+// sur le mois (une requête vue 1 fois n'est pas un vrai positionnement suivi).
+const MIN_KW_IMPRESSIONS = 10;
+
 const b64url = (buf) =>
   Buffer.from(buf).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
@@ -94,6 +99,7 @@ async function gscMonth(sites, startDate, endDate) {
     const jk = await rk.json();
     if (rk.ok) {
       for (const row of jk.rows || []) {
+        if ((row.impressions || 0) < MIN_KW_IMPRESSIONS) continue; // filtre anti-bruit
         const p = row.position || 999;
         if (p <= 10) top10++;
         else if (p <= 50) top1150++;
