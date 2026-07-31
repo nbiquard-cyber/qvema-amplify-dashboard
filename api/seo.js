@@ -116,6 +116,17 @@ async function upsert(fields) {
   return { created: !existing };
 }
 
+// Import Google + upsert d'un mois (utilisé par l'action "sync" et par le cron mensuel).
+async function syncMonth(mk) {
+  const data = await fetchFromGoogle(mk);
+  const gf = {}; gf[F.mois] = mk + "-01";
+  const put = (v, key) => { if (v != null) gf[key] = v; };
+  put(data.organique, F.organique); put(data.payant, F.payant); put(data.direct, F.direct);
+  put(data.global, F.global); put(data.position, F.position); put(data.top10, F.top10); put(data.top1150, F.top1150);
+  const out = await upsert(gf);
+  return { created: out.created, data };
+}
+
 module.exports = async (req, res) => {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");
@@ -141,19 +152,15 @@ module.exports = async (req, res) => {
         return res.end(JSON.stringify({ ok: false, error: "Mois invalide (format attendu AAAA-MM)." }));
       }
       // Import depuis Google : "fetch" = aperçu (aucune écriture) ; "sync" = import + upsert.
-      if (b.action === "fetch" || b.action === "sync") {
+      if (b.action === "fetch") {
         const data = await fetchFromGoogle(mk);
-        if (b.action === "fetch") {
-          res.statusCode = 200;
-          return res.end(JSON.stringify({ ok: true, mois: mk, data }));
-        }
-        const gf = {}; gf[F.mois] = mk + "-01";
-        const put = (v, key) => { if (v != null) gf[key] = v; };
-        put(data.organique, F.organique); put(data.payant, F.payant); put(data.direct, F.direct);
-        put(data.global, F.global); put(data.position, F.position); put(data.top10, F.top10); put(data.top1150, F.top1150);
-        const out = await upsert(gf);
         res.statusCode = 200;
-        return res.end(JSON.stringify({ ok: true, saved: mk, created: out.created, data }));
+        return res.end(JSON.stringify({ ok: true, mois: mk, data }));
+      }
+      if (b.action === "sync") {
+        const out = await syncMonth(mk);
+        res.statusCode = 200;
+        return res.end(JSON.stringify({ ok: true, saved: mk, created: out.created, data: out.data }));
       }
 
       // Saisie / édition manuelle.
@@ -179,3 +186,6 @@ module.exports = async (req, res) => {
     return res.end(JSON.stringify({ ok: false, error: String((e && e.message) || e) }));
   }
 };
+
+// Exposé pour le cron mensuel (api/seo-cron.js).
+module.exports.syncMonth = syncMonth;

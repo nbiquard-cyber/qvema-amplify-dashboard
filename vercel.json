@@ -17,6 +17,18 @@
     },
     "api/comments.js": {
       "maxDuration": 30
+    },
+    "api/seo.js": {
+      "maxDuration": 60
+    },
+    "api/seo-cron.js": {
+      "maxDuration": 60
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/seo-cron",
+      "schedule": "0 6 4 * *"
+    }
+  ]
 }
