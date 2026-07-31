@@ -1878,14 +1878,15 @@ if(AUTH && AUTH.token){
 <script>
 // ===== Vue Acquisition (bilan ads par promo) — données /api/acquisition =====
 (function(){
-  let DATAQ=null, acqPromo='PROMO 2', loading=false;
-  async function load(){
-    if(DATAQ){ render(); return; }
+  let DATAQ=null, acqPromo='PROMO 2', loading=false, loadedAt=0;
+  const ACQ_TTL=60000; // re-fetch auto à l'ouverture de l'onglet au-delà de 60 s (aligné sur le cache serveur)
+  async function load(force){
+    if(DATAQ && !force && Date.now()-loadedAt<ACQ_TTL){ render(); return; }
     if(loading) return; loading=true;
     try{
       const r=await fetch('/api/acquisition',{headers:authHeaders()});
       if(!r.ok) throw new Error('HTTP '+r.status);
-      DATAQ=await r.json();
+      DATAQ=await r.json(); loadedAt=Date.now();
       render();
     }catch(e){
       document.getElementById('acq-notes').textContent='Erreur de chargement : '+e.message;
@@ -1961,6 +1962,9 @@ if(AUTH && AUTH.token){
     });
     document.getElementById('acq-notes').innerHTML=(s.notes||[]).map(n=>'• '+n).join('<br>');
   }
+  // Le bouton global « ↻ Rafraîchir » recharge aussi l'Acquisition (listener additif).
+  const _rb=document.getElementById('refreshBtn');
+  if(_rb) _rb.addEventListener('click',()=>{ if(typeof currentPage!=='undefined' && currentPage==='acquisition') load(true); else { DATAQ=null; loadedAt=0; } });
   window.ACQ={load};
 })();
 </script>
