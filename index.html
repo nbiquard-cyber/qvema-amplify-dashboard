@@ -2354,7 +2354,9 @@ if(AUTH && AUTH.token){
       set('seo-f-pos',d.position); set('seo-f-t10',d.top10); set('seo-f-t1150',d.top1150);
       const bonus=[]; if(d.clics!=null)bonus.push(fmtN(d.clics)+' clics Google'); if(d.impressions!=null)bonus.push(fmtN(d.impressions)+' impressions'); if(d.ctr!=null)bonus.push('CTR '+String(d.ctr).replace('.',',')+' %');
       const per=d.periode||{};
-      el('seo-import-msg').innerHTML='<span style="color:var(--green)">✓ Importé ('+escH(per.start||'')+' → '+escH(per.end||'')+')'+(bonus.length?(' · '+bonus.join(' · ')):'')+'. Vérifie puis enregistre.</span>';
+      let msg='<span style="color:var(--green)">✓ Importé ('+escH(per.start||'')+' → '+escH(per.end||'')+')'+(bonus.length?(' · '+bonus.join(' · ')):'')+'. Vérifie puis enregistre.</span>';
+      if(d.erreurs&&d.erreurs.length) msg+='<br><span style="color:var(--red)">⚠ '+d.erreurs.map(escH).join('<br>⚠ ')+'</span>';
+      el('seo-import-msg').innerHTML=msg;
     }catch(e){ el('seo-import-msg').innerHTML='<span style="color:var(--red)">Échec import : '+escH(e.message)+'</span>'; }
     finally{ btn.disabled=false; btn.textContent=old; }
   }

@@ -84,17 +84,22 @@ function monthRange(mk) {
 // Récupère les chiffres d'un mois depuis GA4 + Search Console.
 async function fetchFromGoogle(mk) {
   const { start, end } = monthRange(mk);
-  const propertyId = process.env.GA4_PROPERTY_ID || "";
+  const propertyId = (process.env.GA4_PROPERTY_ID || "").trim();
   const sites = (process.env.GSC_SITES || "").split(",").map((s) => s.trim()).filter(Boolean);
-  if (!propertyId && !sites.length) throw new Error("Config Google absente (GA4_PROPERTY_ID / GSC_SITES).");
-  const ga = propertyId ? await google.ga4Sessions(propertyId, start, end) : { organique: null, payant: null, direct: null, global: null };
-  const gsc = sites.length ? await google.gscMonth(sites, start, end) : { position: null, top10: null, top1150: null, clicks: null, impressions: null, ctr: null };
-  return {
-    organique: ga.organique, payant: ga.payant, direct: ga.direct, global: ga.global,
-    position: gsc.position, top10: gsc.top10, top1150: gsc.top1150,
-    clics: gsc.clicks, impressions: gsc.impressions, ctr: gsc.ctr,
-    periode: { start, end },
+  const out = {
+    organique: null, payant: null, direct: null, global: null,
+    position: null, top10: null, top1150: null, clics: null, impressions: null, ctr: null,
+    periode: { start, end }, erreurs: [],
   };
+  if (propertyId) {
+    try { const ga = await google.ga4Sessions(propertyId, start, end); out.organique = ga.organique; out.payant = ga.payant; out.direct = ga.direct; out.global = ga.global; }
+    catch (e) { out.erreurs.push("GA4 : " + e.message); }
+  } else out.erreurs.push("GA4_PROPERTY_ID absente dans Vercel.");
+  if (sites.length) {
+    try { const g = await google.gscMonth(sites, start, end); out.position = g.position; out.top10 = g.top10; out.top1150 = g.top1150; out.clics = g.clicks; out.impressions = g.impressions; out.ctr = g.ctr; }
+    catch (e) { out.erreurs.push("Search Console : " + e.message); }
+  } else out.erreurs.push("GSC_SITES absente dans Vercel.");
+  return out;
 }
 
 // Upsert d'un mois dans Airtable (crée ou met à jour selon la clé "Mois").
