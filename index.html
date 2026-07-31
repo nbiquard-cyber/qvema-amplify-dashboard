@@ -2250,25 +2250,43 @@ if(AUTH && AUTH.token){
   function render(){
     const M=DATASEO||[];
     if(!M.length){ el('seo-body').innerHTML='<div class="card"><div class="note">Aucune donnée pour le moment. Clique sur « ＋ Ajouter le mois » pour saisir un premier mois.</div></div>'; wireAdd(); return; }
-    if(!selMonth || !M.find(m=>m.moisKey===selMonth)) selMonth=M[M.length-1].moisKey;
-    const idx=M.findIndex(m=>m.moisKey===selMonth);
-    const sel=M[idx], prev=idx>0?M[idx-1]:null, pl=prev?mLabel(prev.moisKey):'';
+    if(!selMonth || (selMonth!=='Global' && !M.find(m=>m.moisKey===selMonth))) selMonth='Global';
+    const isGlobal = selMonth==='Global';
 
-    // Filtre mois (en haut).
+    // Filtre : Global (agrégé) + un bouton par mois.
     let html='<div class="promo-filter" id="seo-monthfilter">'
+      +'<button class="promo-btn'+(isGlobal?' active':'')+'" data-mk="Global">🌐 Global</button>'
       +M.slice().reverse().map(m=>'<button class="promo-btn'+(m.moisKey===selMonth?' active':'')+'" data-mk="'+m.moisKey+'">'+mLabel(m.moisKey,true)+'</button>').join('')
       +'</div>';
 
-    // KPIs du mois sélectionné (variation vs mois précédent).
-    html+='<div class="grid kpis">'
-      +kpi('Trafic global', fmtN(sel.global), mLabel(sel.moisKey,true), prev?delta(sel.global,prev.global,{prevLabel:pl}):'')
-      +kpi('Trafic organique (SEO)', fmtN(sel.organique), (sel.part!=null?('part '+fmtP(sel.part)):''), prev?delta(sel.organique,prev.organique,{prevLabel:pl}):'', 'green')
-      +kpi('Clics Google', fmtN(sel.clics), 'Search Console', (prev&&prev.clics!=null)?delta(sel.clics,prev.clics,{prevLabel:pl}):'', 'green')
-      +kpi('Impressions', fmtN(sel.impressions), 'Search Console', (prev&&prev.impressions!=null)?delta(sel.impressions,prev.impressions,{prevLabel:pl}):'')
-      +kpi('CTR moyen', (sel.ctr!=null?fmtP(sel.ctr):'—'), 'clics / impressions', prev?deltaPts(sel.ctr,prev.ctr,pl):'')
-      +kpi('Position moyenne SEO', fmtPos(sel.position), 'plus bas = mieux', prev?delta(sel.position,prev.position,{invert:true,pos:true,prevLabel:pl}):'')
-      +kpi('Mots-clés top 10', fmtN(sel.top10), (sel.top1150!=null?(fmtN(sel.top1150)+' en top 11-50'):''), prev?delta(sel.top10,prev.top10,{prevLabel:pl}):'', 'yellow')
-      +'</div>';
+    html+='<div class="grid kpis">';
+    if(isGlobal){
+      // Agrégats sur toute la période : cumuls (flux) + moyennes pondérées + évolution 1er→dernier mois.
+      let clics=0,impr=0,org=0,glob=0,posW=0,posI=0,partSum=0,partN=0;
+      M.forEach(m=>{ clics+=m.clics||0; impr+=m.impressions||0; org+=m.organique||0; glob+=m.global||0;
+        if(m.position!=null&&m.impressions!=null){ posW+=m.position*m.impressions; posI+=m.impressions; }
+        if(m.part!=null){ partSum+=m.part; partN++; } });
+      const G={ ctr:impr?Math.round(clics/impr*1000)/10:null, position:posI?Math.round(posW/posI*100)/100:null, partMoy:partN?Math.round(partSum/partN*10)/10:null };
+      const f=M[0], l=M[M.length-1], multi=M.length>1, fl=mLabel(f.moisKey,true);
+      html+=kpi('Trafic global (cumul)', fmtN(glob), 'sur '+M.length+' mois')
+        +kpi('Trafic organique (cumul)', fmtN(org), (G.partMoy!=null?('part moy. '+fmtP(G.partMoy)):''), multi?delta(l.organique,f.organique,{prevLabel:fl}):'', 'green')
+        +kpi('Clics Google (cumul)', fmtN(clics), 'Search Console', (multi&&f.clics!=null)?delta(l.clics,f.clics,{prevLabel:fl}):'', 'green')
+        +kpi('Impressions (cumul)', fmtN(impr), 'Search Console')
+        +kpi('CTR moyen', (G.ctr!=null?fmtP(G.ctr):'—'), 'pondéré (clics/impr)')
+        +kpi('Position moyenne', fmtPos(G.position), 'pondérée sur la période', multi?delta(l.position,f.position,{invert:true,pos:true,prevLabel:fl}):'')
+        +kpi('Mots-clés top 10', fmtN(l.top10), 'à fin '+mLabel(l.moisKey,true), multi?delta(l.top10,f.top10,{prevLabel:fl}):'', 'yellow');
+    } else {
+      const idx=M.findIndex(m=>m.moisKey===selMonth);
+      const sel=M[idx], prev=idx>0?M[idx-1]:null, pl=prev?mLabel(prev.moisKey):'';
+      html+=kpi('Trafic global', fmtN(sel.global), mLabel(sel.moisKey,true), prev?delta(sel.global,prev.global,{prevLabel:pl}):'')
+        +kpi('Trafic organique (SEO)', fmtN(sel.organique), (sel.part!=null?('part '+fmtP(sel.part)):''), prev?delta(sel.organique,prev.organique,{prevLabel:pl}):'', 'green')
+        +kpi('Clics Google', fmtN(sel.clics), 'Search Console', (prev&&prev.clics!=null)?delta(sel.clics,prev.clics,{prevLabel:pl}):'', 'green')
+        +kpi('Impressions', fmtN(sel.impressions), 'Search Console', (prev&&prev.impressions!=null)?delta(sel.impressions,prev.impressions,{prevLabel:pl}):'')
+        +kpi('CTR moyen', (sel.ctr!=null?fmtP(sel.ctr):'—'), 'clics / impressions', prev?deltaPts(sel.ctr,prev.ctr,pl):'')
+        +kpi('Position moyenne SEO', fmtPos(sel.position), 'plus bas = mieux', prev?delta(sel.position,prev.position,{invert:true,pos:true,prevLabel:pl}):'')
+        +kpi('Mots-clés top 10', fmtN(sel.top10), (sel.top1150!=null?(fmtN(sel.top1150)+' en top 11-50'):''), prev?delta(sel.top10,prev.top10,{prevLabel:pl}):'', 'yellow');
+    }
+    html+='</div>';
 
     // Graphes (évolution sur tous les mois).
     html+='<div class="grid row2" style="margin-top:16px">'+card('Trafic par source','seo-c-traffic')+card('Part du trafic organique','seo-c-part')+'</div>';
