@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Audit SEO — QVEMA Amplify</title>
+<style>
+  :root{
+    --paper:#F3F5F8; --card:#FFFFFF; --ink:#14243B; --ink-soft:#54617A; --ink-faint:#8592A6;
+    --line:#E3E7EE; --line-strong:#CED5E0;
+    --gold:#A9781F; --gold-soft:#EFE6D2;
+    --good:#1E7A52; --good-bg:#E4F1EA; --watch:#B57518; --watch-bg:#F6ECDA;
+    --risk:#B0392C; --risk-bg:#F6E3E0; --info:#2C5AA0; --info-bg:#E5ECF7;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  @media (prefers-color-scheme: dark){:root{
+    --paper:#0F141B; --card:#161D28; --ink:#E9ECF1; --ink-soft:#A2AEBE; --ink-faint:#71809A;
+    --line:#232D3B; --line-strong:#334153; --gold:#D2A24A; --gold-soft:#2A2416;
+    --good:#4FBE89; --good-bg:#16261E; --watch:#E2A64F; --watch-bg:#2A2314;
+    --risk:#E17163; --risk-bg:#2C1A18; --info:#7CA6E6; --info-bg:#16202F;
+  }}
+  :root[data-theme="light"]{
+    --paper:#F3F5F8; --card:#FFFFFF; --ink:#14243B; --ink-soft:#54617A; --ink-faint:#8592A6;
+    --line:#E3E7EE; --line-strong:#CED5E0; --gold:#A9781F; --gold-soft:#EFE6D2;
+    --good:#1E7A52; --good-bg:#E4F1EA; --watch:#B57518; --watch-bg:#F6ECDA;
+    --risk:#B0392C; --risk-bg:#F6E3E0; --info:#2C5AA0; --info-bg:#E5ECF7;
+  }
+  :root[data-theme="dark"]{
+    --paper:#0F141B; --card:#161D28; --ink:#E9ECF1; --ink-soft:#A2AEBE; --ink-faint:#71809A;
+    --line:#232D3B; --line-strong:#334153; --gold:#D2A24A; --gold-soft:#2A2416;
+    --good:#4FBE89; --good-bg:#16261E; --watch:#E2A64F; --watch-bg:#2A2314;
+    --risk:#E17163; --risk-bg:#2C1A18; --info:#7CA6E6; --info-bg:#16202F;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.6;
+    -webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+  .wrap{max-width:940px;margin:0 auto;padding:0 24px}
+  .measure{max-width:720px}
+  h1,h2,h3{font-family:var(--serif);font-weight:600;line-height:1.15;text-wrap:balance;margin:0}
+  p{margin:0 0 14px}
+  .eyebrow{font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--gold)}
+  a{color:var(--info)}
+  header{border-bottom:1px solid var(--line);background:linear-gradient(180deg,var(--card),var(--paper))}
+  .head-in{padding:40px 0 30px}
+  header h1{font-size:clamp(28px,4.6vw,42px);margin:12px 0 12px;letter-spacing:-.01em}
+  .lede{font-size:18px;color:var(--ink-soft);max-width:660px}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 22px;margin-top:20px;font-size:13px;color:var(--ink-faint)}
+  .meta b{color:var(--ink-soft);font-weight:600}
+  .back{display:inline-block;margin-bottom:2px;font-size:13px;font-weight:600;text-decoration:none}
+  section{padding:38px 0;border-bottom:1px solid var(--line)}
+  .snum{font-size:12px;font-weight:700;letter-spacing:.14em;color:var(--gold)}
+  .stitle{font-size:25px;margin:8px 0 18px;letter-spacing:-.01em}
+  section h3{font-size:18px;margin:24px 0 8px}
+  .verdict{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:12px;padding:22px 24px;margin-top:24px}
+  .verdict p:last-child{margin-bottom:0}
+  .verdict .big{font-family:var(--serif);font-size:20px;line-height:1.35;margin-bottom:16px}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:24px 0 4px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px}
+  .stat .n{font-family:var(--serif);font-size:36px;font-weight:600;letter-spacing:-.02em;line-height:1}
+  .stat .k{font-size:13px;color:var(--ink-soft);margin-top:8px}
+  .stat .sub{font-size:12px;color:var(--ink-faint);margin-top:4px}
+  .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--card);margin-top:8px}
+  table{border-collapse:collapse;width:100%;font-size:14px;min-width:560px}
+  th,td{padding:11px 14px;text-align:left;border-bottom:1px solid var(--line)}
+  thead th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);font-weight:700;background:var(--paper)}
+  tbody tr:last-child td{border-bottom:none}
+  td.num,th.num{text-align:right}
+  .kpi-name{font-weight:600}
+  .chip{display:inline-block;font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;white-space:nowrap}
+  .c-good{color:var(--good);background:var(--good-bg)} .c-watch{color:var(--watch);background:var(--watch-bg)}
+  .c-risk{color:var(--risk);background:var(--risk-bg)} .c-info{color:var(--info);background:var(--info-bg)}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:1px}
+  .d-good{background:var(--good)} .d-watch{background:var(--watch)} .d-risk{background:var(--risk)}
+  .mix{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:18px}
+  @media(max-width:640px){.mix{grid-template-columns:1fr}.stats{grid-template-columns:1fr}}
+  .mixcard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
+  .mixcard h4{margin:0 0 4px;font-family:var(--sans);font-size:14px;font-weight:700}
+  .mixcard .tot{font-size:12px;color:var(--ink-faint);margin-bottom:12px}
+  .bar{display:flex;height:26px;border-radius:6px;overflow:hidden;background:var(--line)}
+  .seg{height:100%} .seg-org{background:var(--good)} .seg-pay{background:var(--gold)} .seg-dir{background:var(--line-strong)}
+  .legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:11px;font-size:12px;color:var(--ink-soft)}
+  .legend span{display:flex;align-items:center;gap:6px}
+  .sw{width:10px;height:10px;border-radius:3px;display:inline-block}
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:8px}
+  @media(max-width:640px){.cards{grid-template-columns:1fr}}
+  .fcard{border:1px solid var(--line);border-radius:12px;padding:18px 20px;background:var(--card)}
+  .fcard .tag{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;display:inline-block}
+  .fcard h4{font-family:var(--sans);font-size:15px;font-weight:700;margin:0 0 6px}
+  .fcard ul{margin:0;padding-left:18px;font-size:14px;color:var(--ink-soft)} .fcard li{margin:5px 0}
+  .t-good{color:var(--good)} .t-risk{color:var(--risk)} .t-watch{color:var(--watch)} .t-info{color:var(--info)}
+  .fcard.good{border-top:3px solid var(--good)} .fcard.risk{border-top:3px solid var(--risk)}
+  .fcard.watch{border-top:3px solid var(--watch)} .fcard.info{border-top:3px solid var(--info)}
+  .phase{display:flex;gap:18px;padding:20px 0;border-top:1px solid var(--line)}
+  .phase:first-of-type{border-top:none}
+  .phase .when{flex:0 0 150px}
+  .phase .when .lab{font-family:var(--serif);font-size:18px}
+  .phase .when .hz{font-size:12px;color:var(--gold);font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-top:3px}
+  .phase ol{margin:0;padding-left:20px} .phase li{margin:0 0 10px;font-size:14.5px}
+  .phase li .why{color:var(--ink-faint);font-size:13px}
+  @media(max-width:640px){.phase{flex-direction:column;gap:8px}.phase .when{flex-basis:auto}}
+  .note{font-size:13px;color:var(--ink-faint);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+  .kexpl{font-size:13px;color:var(--ink-soft);border-left:2px solid var(--gold-soft);padding-left:12px;margin:0 0 14px}
+  footer{padding:34px 0 60px;color:var(--ink-faint);font-size:13px}
+  strong{color:var(--ink)}
+  .center-msg{max-width:520px;margin:80px auto;text-align:center;color:var(--ink-soft)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+(function(){
+  // Thème : suit le dashboard (localStorage) sinon prefers-color-scheme (géré en CSS).
+  try{ var th=localStorage.getItem('qvema_theme'); if(th) document.documentElement.setAttribute('data-theme',th); }catch(e){}
+
+  var app=document.getElementById('app');
+  var params=new URLSearchParams(location.search);
+  var mk=(params.get('mois')||'').slice(0,7);
+  function token(){ try{ return (JSON.parse(sessionStorage.getItem('qvema_auth')||'{}').token)||''; }catch(e){ return ''; } }
+  function msg(html){ app.innerHTML='<div class="center-msg">'+html+'</div>'; }
+
+  var MFULL=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  function mLabel(k){ var p=(k||'').split('-'); var i=(+p[1])-1; return (i>=0&&i<12)?(MFULL[i]+' '+p[0]):k; }
+  var esc=function(s){ var d=document.createElement('div'); d.textContent=(s==null?'':s); return d.innerHTML; };
+  var fmtN=function(v){ return v==null?'—':Number(v).toLocaleString('fr-FR'); };
+  var fmtP=function(v){ return v==null?'—':String(v).replace('.',',')+' %'; };
+  var fmtPos=function(v){ return v==null?'—':String(Math.round(Number(v)*100)/100).replace('.',','); };
+  function pct(cur,prev){ if(cur==null||prev==null||prev===0) return null; return Math.round((cur-prev)/prev*100); }
+  function pts(cur,prev){ if(cur==null||prev==null) return null; return Math.round((cur-prev)*10)/10; }
+  function signPct(v){ return v==null?'—':((v>0?'+':'')+v+' %'); }
+  function signPts(v){ return v==null?'—':((v>0?'+':'')+String(v).replace('.',',')+' pts'); }
+
+  if(!token()){ msg('<h2 style="font-family:var(--serif)">Connexion requise</h2><p>Ouvre ce rapport depuis le dashboard (onglet Site &amp; SEO), en étant connecté.</p><p><a href="/">← Retour au dashboard</a></p>'); return; }
+  if(!/^\d{4}-\d{2}$/.test(mk)){ msg('<h2 style="font-family:var(--serif)">Mois non précisé</h2><p>Ce rapport s\'ouvre depuis un mois du dashboard.</p><p><a href="/">← Retour au dashboard</a></p>'); return; }
+
+  msg('<p>Génération de l\'audit…</p>');
+  fetch('/api/seo',{headers:{Authorization:'Bearer '+token()}}).then(function(r){return r.json();}).then(function(j){
+    if(!j.ok){ throw new Error(j.error||'Erreur'); }
+    var M=(j.mois||[]).slice().sort(function(a,b){return a.mois.localeCompare(b.mois);});
+    var idx=-1; for(var i=0;i<M.length;i++){ if(M[i].moisKey===mk){ idx=i; break; } }
+    if(idx<0){ msg('<h2 style="font-family:var(--serif)">Mois introuvable</h2><p>Aucune donnée pour '+esc(mLabel(mk))+'.</p><p><a href="/">← Retour</a></p>'); return; }
+    render(M[idx], idx>0?M[idx-1]:null);
+  }).catch(function(e){ msg('<p>Erreur : '+esc(e.message)+'</p><p><a href="/">← Retour</a></p>'); });
+
+  function verdictText(c,p){
+    var clP=pct(c.clics,p&&p.clics), partD=pts(c.part,p&&p.part);
+    var reservThin=(c.top1150!=null && c.top10!=null && (c.top1150<20 || c.top1150 < c.top10*0.3));
+    var s='';
+    if(clP!=null && clP>=25) s='La visibilité Google progresse nettement ce mois-ci (clics '+signPct(clP)+'). ';
+    else if(clP!=null && clP<=-15) s='La visibilité Google recule ce mois-ci (clics '+signPct(clP)+'), à surveiller de près. ';
+    else s='La visibilité Google est globalement stable ce mois-ci. ';
+    if(partD!=null && partD<0) s+='Mais la part de l\'organique baisse ('+signPts(partD)+') : la croissance penche vers le trafic payant. ';
+    if(reservThin) s+='Et le « réservoir » de mots-clés en positions 11–50 reste mince ('+fmtN(c.top1150)+') : sans nouveau contenu, l\'organique risque de plafonner.';
+    return s;
+  }
+
+  function findings(c,p){
+    var F={good:[],risk:[],watch:[],info:[]};
+    var clP=pct(c.clics,p&&p.clics), imP=pct(c.impressions,p&&p.impressions), ctrD=pts(c.ctr,p&&p.ctr),
+        posD=(p&&c.position!=null&&p.position!=null)?Math.round((c.position-p.position)*100)/100:null,
+        t10D=(p?(c.top10-p.top10):null), partD=pts(c.part,p&&p.part),
+        orgP=pct(c.organique,p&&p.organique), payP=pct(c.payant,p&&p.payant);
+    // Forces
+    if(clP!=null&&clP>=20) F.good.push('Visibilité en hausse : clics '+signPct(clP)+'.');
+    if(imP!=null&&imP>=15) F.good.push('Plus d\'apparitions dans Google : impressions '+signPct(imP)+'.');
+    if(ctrD!=null&&ctrD>0) F.good.push('Taux de clic en hausse ('+signPts(ctrD)+', à '+fmtP(c.ctr)+').');
+    if(posD!=null&&posD<0) F.good.push('Position moyenne améliorée ('+fmtPos(p.position)+' → '+fmtPos(c.position)+').');
+    if(t10D!=null&&t10D>0) F.good.push('+'+fmtN(t10D)+' mots-clés en top 10 (total '+fmtN(c.top10)+').');
+    if(c.position!=null&&c.position<=6) F.good.push('Position moyenne ~'+fmtPos(c.position)+' : vous êtes majoritairement en page 1.');
+    if(!F.good.length) F.good.push('Socle de visibilité maintenu ce mois-ci.');
+    // Faiblesses / risques
+    if(partD!=null&&partD<0) F.risk.push('Part de l\'organique en baisse ('+fmtP(p.part)+' → '+fmtP(c.part)+') : dépendance à la pub qui s\'installe.');
+    if(c.top1150!=null&&(c.top1150<20||(c.top10&&c.top1150<c.top10*0.3))) F.risk.push('Réservoir 11–50 quasi vide ('+fmtN(c.top1150)+') : croissance organique menacée de plateau.');
+    if(c.position!=null&&c.position<=5&&c.ctr!=null&&c.ctr>=8) F.risk.push('Profil probablement « de marque » (position ~'+fmtPos(c.position)+' + CTR '+fmtP(c.ctr)+') : peu de preuves d\'acquisition nouvelle.');
+    F.risk.push('Aucune mesure de conversion organique : la valeur business du SEO reste inconnue.');
+    // Incohérences / à vérifier
+    if(payP!=null&&orgP!=null&&payP>orgP&&payP>0) F.watch.push('Croissance tirée par le payant ('+signPct(payP)+') plus que par l\'organique ('+signPct(orgP)+').');
+    if(c.global){ var dShare=Math.round((c.direct||0)/c.global*100); if(dShare>=40) F.watch.push('Direct / autres = '+dShare+' % du trafic : à qualifier (peut cacher du trafic mal tracké).'); }
+    if(!p) F.watch.push('Premier mois de données : pas de comparaison possible, à confirmer sur les mois suivants.');
+    else F.watch.push('Un seul mois de recul sur ce point — à confirmer sur la durée.');
+    // Quick wins (constants stratégiques)
+    F.info.push('Séparer marque / hors-marque (filtre Search Console) pour isoler l\'acquisition réelle.');
+    F.info.push('Brancher les conversions organiques dans GA4 (inscriptions Bootcamp/Amplify).');
+    F.info.push('Optimiser titres &amp; descriptions des pages très vues mais peu cliquées.');
+    F.info.push('Pousser les mots-clés en position 11–20 vers la page 1.');
+    return F;
+  }
+
+  function scoreRow(name, cur, prev, opts){
+    opts=opts||{};
+    var fmt=opts.fmt||fmtN, better=opts.better||'up';
+    var dTxt, dv;
+    if(opts.pts){ dv=pts(cur,prev); dTxt=signPts(dv); } else { dv=pct(cur,prev); dTxt=signPct(dv); }
+    var dot='d-watch';
+    if(prev==null){ dot=''; dTxt='—'; }
+    else if(better==='down'){ dot=(cur<prev)?'d-good':(cur>prev?'d-risk':'d-watch'); }
+    else if(better==='up'){ dot=(cur>prev)?'d-good':(cur<prev?'d-risk':'d-watch'); }
+    else { dot='d-watch'; }
+    if(opts.floor!=null && cur!=null && cur<opts.floor) dot='d-risk';
+    if(opts.neutral) dot='d-watch';
+    return '<tr><td class="kpi-name">'+name+'</td><td class="num">'+fmt(prev)+'</td><td class="num">'+fmt(cur)+'</td><td class="num">'+dTxt+'</td><td>'+(dot?('<span class="dot '+dot+'"></span>'):'')+'</td></tr>';
+  }
+
+  function render(c,p){
+    var lab=mLabel(c.moisKey), plab=p?mLabel(p.moisKey):null;
+    var clP=pct(c.clics,p&&p.clics);
+    var pg=c.global||0, so=pg?((c.organique||0)/pg*100):0, sp=pg?((c.payant||0)/pg*100):0, sd=pg?((c.direct||0)/pg*100):0;
+    var F=findings(c,p);
+    var mixCards='<div class="mixcard"><h4>'+esc(lab)+' — '+fmtN(c.global)+' visites</h4><div class="tot">Répartition des sources</div>'
+      +'<div class="bar"><div class="seg seg-org" style="width:'+so.toFixed(1)+'%"></div><div class="seg seg-pay" style="width:'+sp.toFixed(1)+'%"></div><div class="seg seg-dir" style="width:'+sd.toFixed(1)+'%"></div></div>'
+      +'<div class="legend"><span><i class="sw seg-org"></i>Organique '+Math.round(so)+' %</span><span><i class="sw seg-pay"></i>Payant '+Math.round(sp)+' %</span><span><i class="sw seg-dir"></i>Direct/autres '+Math.round(sd)+' %</span></div></div>';
+    if(p){
+      var pg2=p.global||0, o2=pg2?((p.organique||0)/pg2*100):0, p2=pg2?((p.payant||0)/pg2*100):0, d2=pg2?((p.direct||0)/pg2*100):0;
+      mixCards='<div class="mixcard"><h4>'+esc(plab)+' — '+fmtN(p.global)+' visites</h4><div class="tot">Mois précédent</div>'
+        +'<div class="bar"><div class="seg seg-org" style="width:'+o2.toFixed(1)+'%"></div><div class="seg seg-pay" style="width:'+p2.toFixed(1)+'%"></div><div class="seg seg-dir" style="width:'+d2.toFixed(1)+'%"></div></div>'
+        +'<div class="legend"><span><i class="sw seg-org"></i>Organique '+Math.round(o2)+' %</span><span><i class="sw seg-pay"></i>Payant '+Math.round(p2)+' %</span><span><i class="sw seg-dir"></i>Direct/autres '+Math.round(d2)+' %</span></div></div>'+mixCards;
+    }
+
+    var rows=''
+      +scoreRow('Trafic total (visites)', c.global, p&&p.global, {better:'up'})
+      +scoreRow('Trafic organique (SEO)', c.organique, p&&p.organique, {better:'up'})
+      +scoreRow('Trafic payant (pub)', c.payant, p&&p.payant, {neutral:true})
+      +scoreRow('Direct / référents / autres', c.direct, p&&p.direct, {neutral:true})
+      +scoreRow('Part de l\'organique', c.part, p&&p.part, {fmt:fmtP,better:'up',pts:true})
+      +scoreRow('Clics Google (SEO)', c.clics, p&&p.clics, {better:'up'})
+      +scoreRow('Impressions', c.impressions, p&&p.impressions, {better:'up'})
+      +scoreRow('Taux de clic (CTR)', c.ctr, p&&p.ctr, {fmt:fmtP,better:'up',pts:true})
+      +scoreRow('Position moyenne', c.position, p&&p.position, {fmt:fmtPos,better:'down'})
+      +scoreRow('Mots-clés top 10', c.top10, p&&p.top10, {better:'up'})
+      +scoreRow('Mots-clés 11–50 (réservoir)', c.top1150, p&&p.top1150, {better:'up',floor:20});
+
+    function ul(a){ return '<ul>'+a.map(function(x){return '<li>'+x+'</li>';}).join('')+'</ul>'; }
+    var comment = c.commentaire ? ('<p class="kexpl" style="margin-top:16px"><strong>Note du mois :</strong> '+esc(c.commentaire)+'</p>') : '';
+
+    app.innerHTML=''
+    +'<header><div class="wrap head-in">'
+      +'<a class="back" href="/">← Retour au dashboard</a>'
+      +'<div class="eyebrow">Audit SEO · QVEMA Amplify</div>'
+      +'<h1>Audit SEO — '+esc(lab)+'</h1>'
+      +'<p class="lede">Lecture experte des performances Google du mois, en langage clair'+(p?(' — comparé à '+esc(plab)):'')+'. Généré automatiquement à partir de Google Analytics et Search Console.</p>'
+      +'<div class="meta"><span><b>Mois</b> '+esc(lab)+'</span>'+(p?('<span><b>Comparé à</b> '+esc(plab)+'</span>'):'')+'<span><b>Sources</b> GA4 + Search Console</span></div>'
+    +'</div></header>'
+    +'<main class="wrap">'
+      +'<section><div class="snum">SYNTHÈSE</div><h2 class="stitle">Le verdict en 30 secondes</h2>'
+        +'<div class="verdict"><p class="big">'+verdictText(c,p)+'</p>'
+        +'<p><span class="chip c-good">Forces</span>&nbsp; '+F.good[0]+'</p>'
+        +'<p><span class="chip c-risk">À corriger</span>&nbsp; '+(F.risk[0]||'—')+'</p>'
+        +(F.watch[0]?('<p><span class="chip c-watch">À vérifier</span>&nbsp; '+F.watch[0]+'</p>'):'')
+        +'</div>'+comment+'</section>'
+
+      +'<section><div class="snum">01 — LES CHIFFRES</div><h2 class="stitle">Le mois en un coup d\'œil</h2>'
+        +'<div class="stats">'
+          +'<div class="stat"><div class="n">'+(clP!=null?signPct(clP):fmtN(c.clics))+'</div><div class="k">Clics Google (SEO)</div><div class="sub">'+(p?(fmtN(p.clics)+' → '+fmtN(c.clics)):fmtN(c.clics)+' clics')+'</div></div>'
+          +'<div class="stat"><div class="n">'+fmtP(c.ctr)+'</div><div class="k">Taux de clic moyen</div><div class="sub">'+(p?('vs '+fmtP(p.ctr)+' le mois d\'avant'):'sur le mois')+'</div></div>'
+          +'<div class="stat"><div class="n">'+fmtN(c.top10)+'</div><div class="k">Mots-clés en 1ʳᵉ page</div><div class="sub">'+(p?(fmtN(p.top10)+' → '+fmtN(c.top10)):'top 10 Google')+'</div></div>'
+        +'</div>'
+        +'<div class="tablewrap"><table><thead><tr><th>Indicateur</th><th class="num">'+(p?esc(plab):'—')+'</th><th class="num">'+esc(lab)+'</th><th class="num">Évol.</th><th>Lecture</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+        +'<h3>Composition du trafic</h3><p class="kexpl">D\'où vient la croissance ? La répartition des sources révèle si le trafic est « gagné » (organique) ou « acheté » (payant).</p>'
+        +'<div class="mix">'+mixCards+'</div>'
+      +'</section>'
+
+      +'<section><div class="snum">02 — DIAGNOSTIC</div><h2 class="stitle">Forces, faiblesses, quick wins</h2>'
+        +'<div class="cards">'
+          +'<div class="fcard good"><span class="tag t-good">● Forces</span>'+ul(F.good)+'</div>'
+          +'<div class="fcard risk"><span class="tag t-risk">● Faiblesses &amp; risques</span>'+ul(F.risk)+'</div>'
+          +'<div class="fcard watch"><span class="tag t-watch">● À vérifier</span>'+ul(F.watch)+'</div>'
+          +'<div class="fcard info"><span class="tag t-info">● Quick wins</span>'+ul(F.info)+'</div>'
+        +'</div>'
+      +'</section>'
+
+      +'<section><div class="snum">03 — ANGLES MORTS</div><h2 class="stitle">Les données qui manquent pour piloter</h2>'
+        +'<p class="measure">Les KPI actuels décrivent la <strong>visibilité</strong>. Il manque ceux de l\'<strong>acquisition réelle</strong> et de la <strong>valeur</strong>.</p>'
+        +'<div class="tablewrap"><table><thead><tr><th>KPI à ajouter</th><th>Pourquoi c\'est décisif</th><th class="num">Effort</th></tr></thead><tbody>'
+          +'<tr><td class="kpi-name">Marque vs hors-marque</td><td>Sépare la notoriété de la vraie acquisition SEO. Le n°1 manquant.</td><td class="num"><span class="chip c-good">Facile</span></td></tr>'
+          +'<tr><td class="kpi-name">Conversions organiques</td><td>Combien d\'inscrits le SEO génère : relie le SEO au chiffre d\'affaires.</td><td class="num"><span class="chip c-watch">Moyen</span></td></tr>'
+          +'<tr><td class="kpi-name">Top requêtes &amp; top pages</td><td>Ce qui marche déjà, pour l\'amplifier.</td><td class="num"><span class="chip c-good">Facile</span></td></tr>'
+          +'<tr><td class="kpi-name">Couverture d\'indexation</td><td>Santé technique : pages bien indexées ou perdues.</td><td class="num"><span class="chip c-good">Facile</span></td></tr>'
+          +'<tr><td class="kpi-name">Domaines référents (backlinks)</td><td>L\'autorité qui fait grimper durablement.</td><td class="num"><span class="chip c-watch">Moyen</span></td></tr>'
+        +'</tbody></table></div>'
+      +'</section>'
+
+      +'<section><div class="snum">04 — PLAN D\'ACTION</div><h2 class="stitle">Par où avancer</h2>'
+        +'<div class="phase"><div class="when"><div class="lab">Tout de suite</div><div class="hz">Cette semaine</div></div><ol>'
+          +'<li><b>Séparer marque / hors-marque.</b> <span class="why">Le seul moyen de savoir si le SEO va chercher de nouveaux publics.</span></li>'
+          +'<li><b>Brancher les conversions organiques dans GA4.</b> <span class="why">Transforme le SEO en levier de revenu mesurable.</span></li>'
+          +'<li><b>Sortir le top des requêtes et des pages.</b> <span class="why">Savoir ce qui marche pour l\'amplifier.</span></li>'
+        +'</ol></div>'
+        +'<div class="phase"><div class="when"><div class="lab">Moyen terme</div><div class="hz">1 à 3 mois</div></div><ol>'
+          +'<li><b>Plan de contenu hors-marque</b> (questions réelles de l\'audience). <span class="why">Remplit le réservoir 11–50, futur de la croissance organique.</span></li>'
+          +'<li><b>Optimiser titres &amp; métas</b> et pousser les positions 11–20. <span class="why">Gains rapides sur l\'existant.</span></li>'
+          +'<li><b>Ajouter les KPI manquants au dashboard</b> + fixer des objectifs chiffrés.</li>'
+        +'</ol></div>'
+        +'<div class="phase"><div class="when"><div class="lab">Long terme</div><div class="hz">3 à 12 mois</div></div><ol>'
+          +'<li><b>Autorité thématique</b> (grappes de contenu) &amp; <b>backlinks</b>. <span class="why">La croissance durable qui réduit la dépendance à la pub.</span></li>'
+          +'<li><b>Remonter la part de l\'organique</b> au-dessus de 28 %.</li>'
+          +'<li><b>Rituel de reporting mensuel</b> sur les KPI enrichis.</li>'
+        +'</ol></div>'
+      +'</section>'
+
+      +'<footer><p><strong>Méthode.</strong> Rapport généré automatiquement à partir des données GA4 + Search Console du mois (dashboard « SEO Mensuel »). Les constats sont établis par règles sur les écarts mois à mois ; les sections « angles morts » et « plan d\'action » sont des recommandations de fond, stables d\'un mois à l\'autre. Mots-clés comptés à ≥ 10 impressions/mois ; position moyenne non filtrée (Search Console).</p></footer>'
+    +'</main>';
+  }
+})();
+</script>
+</body>
+</html>
