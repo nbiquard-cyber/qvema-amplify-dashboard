@@ -2325,6 +2325,8 @@ if(AUTH && AUTH.token){
       +'<div class="crm-dh"><div class="crm-dh-t">'+(rec?('Éditer — '+mLabel(rec.moisKey,true)):'Ajouter un mois')+'</div><div class="crm-dh-s">Saisis les chiffres du mois</div><button class="crm-close" id="seo-close">✕</button></div>'
       +'<div style="display:flex;flex-direction:column;gap:12px">'
       +fld('Mois','seo-f-mois','month',mk?rec.moisKey:defMk, mk?'readonly':'')
+      +'<button class="crm-btn" type="button" id="seo-import" style="align-self:flex-start">🔄 Pré-remplir depuis Google (GA4 + Search Console)</button>'
+      +'<div id="seo-import-msg" style="font-size:12px;min-height:14px"></div>'
       +row2f(fld('Trafic organique','seo-f-org','number',rec?v(rec.organique):''), fld('Trafic payant','seo-f-pay','number',rec?v(rec.payant):''))
       +row2f(fld('Trafic direct / autres','seo-f-dir','number',rec?v(rec.direct):''), fld('Trafic global','seo-f-glob','number',rec?v(rec.global):'','','vide = somme auto'))
       +row2f(fld('Position moyenne SEO','seo-f-pos','number',rec?v(rec.position):'','','ex. 4,2'), fld('Mots-clés top 10','seo-f-t10','number',rec?v(rec.top10):''))
@@ -2336,6 +2338,25 @@ if(AUTH && AUTH.token){
     el('seo-panel').classList.remove('hidden');
     el('seo-close').onclick=closeForm; el('seo-panel-bg').onclick=closeForm;
     el('seo-save').onclick=save;
+    const ib=el('seo-import'); if(ib) ib.onclick=importFromGoogle;
+  }
+
+  async function importFromGoogle(){
+    const mois=(el('seo-f-mois').value||'').trim();
+    if(!/^\d{4}-\d{2}$/.test(mois)){ el('seo-import-msg').innerHTML='<span style="color:var(--red)">Choisis d\'abord un mois valide (AAAA-MM).</span>'; return; }
+    const btn=el('seo-import'); btn.disabled=true; const old=btn.textContent; btn.textContent='⏳ Import en cours…'; el('seo-import-msg').textContent='';
+    try{
+      const r=await fetch('/api/seo',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},authHeaders()),body:JSON.stringify({action:'fetch',mois})});
+      const j=await r.json();
+      if(!r.ok||!j.ok) throw new Error(j.error||('HTTP '+r.status));
+      const d=j.data||{}, set=(id,val)=>{ const e=el(id); if(e&&val!=null) e.value=val; };
+      set('seo-f-org',d.organique); set('seo-f-pay',d.payant); set('seo-f-dir',d.direct); set('seo-f-glob',d.global);
+      set('seo-f-pos',d.position); set('seo-f-t10',d.top10); set('seo-f-t1150',d.top1150);
+      const bonus=[]; if(d.clics!=null)bonus.push(fmtN(d.clics)+' clics Google'); if(d.impressions!=null)bonus.push(fmtN(d.impressions)+' impressions'); if(d.ctr!=null)bonus.push('CTR '+String(d.ctr).replace('.',',')+' %');
+      const per=d.periode||{};
+      el('seo-import-msg').innerHTML='<span style="color:var(--green)">✓ Importé ('+escH(per.start||'')+' → '+escH(per.end||'')+')'+(bonus.length?(' · '+bonus.join(' · ')):'')+'. Vérifie puis enregistre.</span>';
+    }catch(e){ el('seo-import-msg').innerHTML='<span style="color:var(--red)">Échec import : '+escH(e.message)+'</span>'; }
+    finally{ btn.disabled=false; btn.textContent=old; }
   }
 
   async function save(){

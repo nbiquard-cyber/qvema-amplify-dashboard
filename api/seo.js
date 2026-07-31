@@ -3,6 +3,7 @@
 //   POST : crée OU met à jour un mois (upsert par mois YYYY-MM). Auth + permission "seo".
 // Lecture avec AIRTABLE_TOKEN ; écriture avec AIRTABLE_WRITE_TOKEN (comme le CRM).
 const auth = require("./_auth.js");
+const google = require("./_google.js");
 
 const READ_TOKEN = process.env.AIRTABLE_TOKEN || "";
 const WRITE_TOKEN = process.env.AIRTABLE_WRITE_TOKEN || process.env.AIRTABLE_TOKEN || "";
@@ -68,6 +69,48 @@ function toObj(rec) {
   };
 }
 
+// Plage de dates d'un mois "YYYY-MM" (borne haute jamais dans le futur).
+function monthRange(mk) {
+  const y = Number(mk.slice(0, 4)), m = Number(mk.slice(5, 7));
+  const pad = (n) => String(n).padStart(2, "0");
+  const start = mk + "-01";
+  const last = new Date(y, m, 0);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const yest = new Date(today.getTime() - 86400000);
+  const endD = last.getTime() > yest.getTime() ? yest : last;
+  return { start, end: endD.getFullYear() + "-" + pad(endD.getMonth() + 1) + "-" + pad(endD.getDate()) };
+}
+
+// Récupère les chiffres d'un mois depuis GA4 + Search Console.
+async function fetchFromGoogle(mk) {
+  const { start, end } = monthRange(mk);
+  const propertyId = process.env.GA4_PROPERTY_ID || "";
+  const sites = (process.env.GSC_SITES || "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (!propertyId && !sites.length) throw new Error("Config Google absente (GA4_PROPERTY_ID / GSC_SITES).");
+  const ga = propertyId ? await google.ga4Sessions(propertyId, start, end) : { organique: null, payant: null, direct: null, global: null };
+  const gsc = sites.length ? await google.gscMonth(sites, start, end) : { position: null, top10: null, top1150: null, clicks: null, impressions: null, ctr: null };
+  return {
+    organique: ga.organique, payant: ga.payant, direct: ga.direct, global: ga.global,
+    position: gsc.position, top10: gsc.top10, top1150: gsc.top1150,
+    clics: gsc.clicks, impressions: gsc.impressions, ctr: gsc.ctr,
+    periode: { start, end },
+  };
+}
+
+// Upsert d'un mois dans Airtable (crée ou met à jour selon la clé "Mois").
+async function upsert(fields) {
+  const recs = await fetchAll();
+  const mk = monthKey(fields[F.mois]);
+  const existing = recs.find((r) => monthKey((r.fields || {})[F.mois]) === mk);
+  const url = "https://api.airtable.com/v0/" + BASE + "/" + TABLE;
+  const headers = { "Content-Type": "application/json", Authorization: "Bearer " + WRITE_TOKEN };
+  const payload = existing ? { records: [{ id: existing.id, fields }] } : { records: [{ fields }] };
+  const r = await fetch(url, { method: existing ? "PATCH" : "POST", headers, body: JSON.stringify(payload) });
+  const j = await r.json();
+  if (!r.ok) throw new Error((j.error && j.error.message) || "airtable_write_error");
+  return { created: !existing };
+}
+
 module.exports = async (req, res) => {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");
@@ -92,6 +135,23 @@ module.exports = async (req, res) => {
         res.statusCode = 400;
         return res.end(JSON.stringify({ ok: false, error: "Mois invalide (format attendu AAAA-MM)." }));
       }
+      // Import depuis Google : "fetch" = aperçu (aucune écriture) ; "sync" = import + upsert.
+      if (b.action === "fetch" || b.action === "sync") {
+        const data = await fetchFromGoogle(mk);
+        if (b.action === "fetch") {
+          res.statusCode = 200;
+          return res.end(JSON.stringify({ ok: true, mois: mk, data }));
+        }
+        const gf = {}; gf[F.mois] = mk + "-01";
+        const put = (v, key) => { if (v != null) gf[key] = v; };
+        put(data.organique, F.organique); put(data.payant, F.payant); put(data.direct, F.direct);
+        put(data.global, F.global); put(data.position, F.position); put(data.top10, F.top10); put(data.top1150, F.top1150);
+        const out = await upsert(gf);
+        res.statusCode = 200;
+        return res.end(JSON.stringify({ ok: true, saved: mk, created: out.created, data }));
+      }
+
+      // Saisie / édition manuelle.
       const fields = {};
       fields[F.mois] = mk + "-01";
       const setNum = (k, key) => { const v = num(b[k]); if (v != null) fields[key] = v; };
@@ -102,23 +162,9 @@ module.exports = async (req, res) => {
         if (s > 0) fields[F.global] = s;
       }
       if (typeof b.commentaire === "string") fields[F.commentaire] = b.commentaire;
-
-      // Upsert : on cherche un enregistrement déjà présent pour ce mois.
-      const recs = await fetchAll();
-      const existing = recs.find((r) => monthKey((r.fields || {})[F.mois]) === mk);
-      const url = "https://api.airtable.com/v0/" + BASE + "/" + TABLE;
-      const headers = { "Content-Type": "application/json", Authorization: "Bearer " + WRITE_TOKEN };
-      const payload = existing
-        ? { records: [{ id: existing.id, fields }] }
-        : { records: [{ fields }] };
-      const r = await fetch(url, { method: existing ? "PATCH" : "POST", headers, body: JSON.stringify(payload) });
-      const j = await r.json();
-      if (!r.ok) {
-        res.statusCode = 502;
-        return res.end(JSON.stringify({ ok: false, error: (j.error && j.error.message) || "airtable_write_error" }));
-      }
+      const out = await upsert(fields);
       res.statusCode = 200;
-      return res.end(JSON.stringify({ ok: true, saved: mk, created: !existing }));
+      return res.end(JSON.stringify({ ok: true, saved: mk, created: out.created }));
     }
 
     res.statusCode = 405;
