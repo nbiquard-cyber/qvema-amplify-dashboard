@@ -19,6 +19,9 @@ const F = {
   position: "Position moyenne",
   top10: "Top 10",
   top1150: "Top 11-50",
+  clics: "Clics",
+  impressions: "Impressions",
+  ctr: "CTR",
   commentaire: "Commentaire",
 };
 
@@ -65,6 +68,7 @@ function toObj(rec) {
     organique: org, payant: pay, direct: dir, global: glob,
     part: glob && org != null ? Math.round((org / glob) * 1000) / 10 : null,
     position: num(f[F.position]), top10: num(f[F.top10]), top1150: num(f[F.top1150]),
+    clics: num(f[F.clics]), impressions: num(f[F.impressions]), ctr: num(f[F.ctr]),
     commentaire: String(f[F.commentaire] || ""),
   };
 }
@@ -123,6 +127,7 @@ async function syncMonth(mk) {
   const put = (v, key) => { if (v != null) gf[key] = v; };
   put(data.organique, F.organique); put(data.payant, F.payant); put(data.direct, F.direct);
   put(data.global, F.global); put(data.position, F.position); put(data.top10, F.top10); put(data.top1150, F.top1150);
+  put(data.clics, F.clics); put(data.impressions, F.impressions); put(data.ctr, F.ctr);
   const out = await upsert(gf);
   return { created: out.created, data };
 }
@@ -169,6 +174,7 @@ module.exports = async (req, res) => {
       const setNum = (k, key) => { const v = num(b[k]); if (v != null) fields[key] = v; };
       setNum("organique", F.organique); setNum("payant", F.payant); setNum("direct", F.direct);
       setNum("global", F.global); setNum("position", F.position); setNum("top10", F.top10); setNum("top1150", F.top1150);
+      setNum("clics", F.clics); setNum("impressions", F.impressions); setNum("ctr", F.ctr);
       if (fields[F.global] == null) {
         const s = (num(b.organique) || 0) + (num(b.payant) || 0) + (num(b.direct) || 0);
         if (s > 0) fields[F.global] = s;
