@@ -2260,7 +2260,7 @@ if(AUTH && AUTH.token){
       +'</div>';
 
     if(!isGlobal){
-      html+='<div style="margin-top:14px"><a class="crm-btn" style="display:inline-block;text-decoration:none;font-weight:700" href="/seo-audit.html?mois='+selMonth+'" target="_blank" rel="noopener">📈 Audit SEO '+mLabel(selMonth,true)+'</a></div>';
+      html+='<div style="margin-top:14px"><a class="crm-btn" style="display:inline-block;text-decoration:none;font-weight:700" href="/seo-audit.html?mois='+selMonth+'#t='+encodeURIComponent(getToken()||'')+'" target="_blank" rel="noopener">📈 Audit SEO '+mLabel(selMonth,true)+'</a></div>';
     }
 
     html+='<div class="grid kpis">';

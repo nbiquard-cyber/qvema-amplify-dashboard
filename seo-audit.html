@@ -116,7 +116,10 @@
   var app=document.getElementById('app');
   var params=new URLSearchParams(location.search);
   var mk=(params.get('mois')||'').slice(0,7);
-  function token(){ try{ return (JSON.parse(sessionStorage.getItem('qvema_auth')||'{}').token)||''; }catch(e){ return ''; } }
+  function token(){
+    try{ var m=(location.hash||'').match(/[#&]t=([^&]+)/); if(m&&m[1]) return decodeURIComponent(m[1]); }catch(e){}
+    try{ return (JSON.parse(sessionStorage.getItem('qvema_auth')||'{}').token)||''; }catch(e){ return ''; }
+  }
   function msg(html){ app.innerHTML='<div class="center-msg">'+html+'</div>'; }
 
   var MFULL=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
