@@ -13,6 +13,10 @@ const crypto = require("crypto");
 // sur le mois (une requête vue 1 fois n'est pas un vrai positionnement suivi).
 const MIN_KW_IMPRESSIONS = 10;
 
+// Détection des requêtes « de marque » (notoriété) vs « hors-marque » (acquisition SEO réelle).
+const deburr = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+const BRAND_RE = /qvema|amplify|qui\s*veut.*associ|quiveut/;
+
 const b64url = (buf) =>
   Buffer.from(buf).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
@@ -84,6 +88,7 @@ async function ga4Sessions(propertyId, startDate, endDate) {
 async function gscMonth(sites, startDate, endDate) {
   const token = await getToken(["https://www.googleapis.com/auth/webmasters.readonly"]);
   let clicks = 0, impressions = 0, posWeighted = 0, posImpr = 0, top10 = 0, top1150 = 0;
+  let clicsMarque = 0, clicsHors = 0, imprHors = 0, posHorsW = 0; // split marque / hors-marque
   for (const site of sites) {
     const base = "https://searchconsole.googleapis.com/webmasters/v3/sites/" + encodeURIComponent(site) + "/searchAnalytics/query";
     const hdr = { Authorization: "Bearer " + token, "Content-Type": "application/json" };
@@ -99,7 +104,14 @@ async function gscMonth(sites, startDate, endDate) {
     const jk = await rk.json();
     if (rk.ok) {
       for (const row of jk.rows || []) {
-        if ((row.impressions || 0) < MIN_KW_IMPRESSIONS) continue; // filtre anti-bruit
+        const cl = row.clicks || 0, im = row.impressions || 0, ps = row.position || 0;
+        // Marque vs hors-marque (sur les requêtes connues de la Search Console).
+        if (BRAND_RE.test(deburr((row.keys && row.keys[0]) || ""))) {
+          clicsMarque += cl;
+        } else {
+          clicsHors += cl; imprHors += im; posHorsW += ps * im;
+        }
+        if (im < MIN_KW_IMPRESSIONS) continue; // filtre anti-bruit pour le comptage mots-clés
         const p = row.position || 999;
         if (p <= 10) top10++;
         else if (p <= 50) top1150++;
@@ -108,7 +120,35 @@ async function gscMonth(sites, startDate, endDate) {
   }
   const position = posImpr ? Math.round((posWeighted / posImpr) * 100) / 100 : null;
   const ctr = impressions ? Math.round((clicks / impressions) * 1000) / 10 : null;
-  return { clicks, impressions, position, ctr, top10, top1150 };
+  const positionHorsMarque = imprHors ? Math.round((posHorsW / imprHors) * 100) / 100 : null;
+  return {
+    clicks, impressions, position, ctr, top10, top1150,
+    clicsMarque, clicsHorsMarque: clicsHors, positionHorsMarque,
+  };
 }
 
-module.exports = { ga4Sessions, gscMonth };
+// GA4 : conversions (key events) organiques vs total, sur le mois.
+async function ga4Conversions(propertyId, startDate, endDate) {
+  const token = await getToken(["https://www.googleapis.com/auth/analytics.readonly"]);
+  const r = await fetch("https://analyticsdata.googleapis.com/v1beta/properties/" + propertyId + ":runReport", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      dateRanges: [{ startDate, endDate }],
+      dimensions: [{ name: "sessionDefaultChannelGroup" }],
+      metrics: [{ name: "keyEvents" }],
+    }),
+  });
+  const j = await r.json();
+  if (!r.ok) throw new Error("GA4 conversions : " + ((j.error && j.error.message) || ("HTTP " + r.status)));
+  let org = 0, tot = 0;
+  for (const row of j.rows || []) {
+    const ch = (row.dimensionValues[0] || {}).value;
+    const v = Number((row.metricValues[0] || {}).value) || 0;
+    tot += v;
+    if (ch === "Organic Search") org += v;
+  }
+  return { conversionsOrg: org, conversionsTot: tot };
+}
+
+module.exports = { ga4Sessions, ga4Conversions, gscMonth };

@@ -93,14 +93,18 @@ async function fetchFromGoogle(mk) {
   const out = {
     organique: null, payant: null, direct: null, global: null,
     position: null, top10: null, top1150: null, clics: null, impressions: null, ctr: null,
+    clicsMarque: null, clicsHorsMarque: null, positionHorsMarque: null,
+    conversionsOrg: null, conversionsTot: null,
     periode: { start, end }, erreurs: [],
   };
   if (propertyId) {
     try { const ga = await google.ga4Sessions(propertyId, start, end); out.organique = ga.organique; out.payant = ga.payant; out.direct = ga.direct; out.global = ga.global; }
     catch (e) { out.erreurs.push("GA4 : " + e.message); }
+    try { const cv = await google.ga4Conversions(propertyId, start, end); out.conversionsOrg = cv.conversionsOrg; out.conversionsTot = cv.conversionsTot; }
+    catch (e) { out.erreurs.push("GA4 conversions : " + e.message); }
   } else out.erreurs.push("GA4_PROPERTY_ID absente dans Vercel.");
   if (sites.length) {
-    try { const g = await google.gscMonth(sites, start, end); out.position = g.position; out.top10 = g.top10; out.top1150 = g.top1150; out.clics = g.clicks; out.impressions = g.impressions; out.ctr = g.ctr; }
+    try { const g = await google.gscMonth(sites, start, end); out.position = g.position; out.top10 = g.top10; out.top1150 = g.top1150; out.clics = g.clicks; out.impressions = g.impressions; out.ctr = g.ctr; out.clicsMarque = g.clicsMarque; out.clicsHorsMarque = g.clicsHorsMarque; out.positionHorsMarque = g.positionHorsMarque; }
     catch (e) { out.erreurs.push("Search Console : " + e.message); }
   } else out.erreurs.push("GSC_SITES absente dans Vercel.");
   return out;
