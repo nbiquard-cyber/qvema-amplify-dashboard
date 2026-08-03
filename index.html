@@ -2266,8 +2266,8 @@ if(AUTH && AUTH.token){
     html+='<div class="grid kpis">';
     if(isGlobal){
       // Agrégats sur toute la période : cumuls (flux) + moyennes pondérées + évolution 1er→dernier mois.
-      let clics=0,impr=0,org=0,glob=0,posW=0,posI=0,partSum=0,partN=0;
-      M.forEach(m=>{ clics+=m.clics||0; impr+=m.impressions||0; org+=m.organique||0; glob+=m.global||0;
+      let clics=0,impr=0,org=0,glob=0,posW=0,posI=0,partSum=0,partN=0,cMarque=0,cHors=0;
+      M.forEach(m=>{ clics+=m.clics||0; impr+=m.impressions||0; org+=m.organique||0; glob+=m.global||0; cMarque+=m.clicsMarque||0; cHors+=m.clicsHorsMarque||0;
         if(m.position!=null&&m.impressions!=null){ posW+=m.position*m.impressions; posI+=m.impressions; }
         if(m.part!=null){ partSum+=m.part; partN++; } });
       const G={ ctr:impr?Math.round(clics/impr*1000)/10:null, position:posI?Math.round(posW/posI*100)/100:null, partMoy:partN?Math.round(partSum/partN*10)/10:null };
@@ -2275,6 +2275,8 @@ if(AUTH && AUTH.token){
       html+=kpi('Trafic global (cumul)', fmtN(glob), 'sur '+M.length+' mois')
         +kpi('Trafic organique (cumul)', fmtN(org), (G.partMoy!=null?('part moy. '+fmtP(G.partMoy)):''), multi?delta(l.organique,f.organique,{prevLabel:fl}):'', 'green')
         +kpi('Clics Google (cumul)', fmtN(clics), 'Search Console', (multi&&f.clics!=null)?delta(l.clics,f.clics,{prevLabel:fl}):'', 'green')
+        +kpi('Clics hors-marque (cumul)', fmtN(cHors), 'vraie acquisition SEO', (multi&&f.clicsHorsMarque!=null)?delta(l.clicsHorsMarque,f.clicsHorsMarque,{prevLabel:fl}):'', 'green')
+        +kpi('Clics de marque (cumul)', fmtN(cMarque), 'notoriété')
         +kpi('Impressions (cumul)', fmtN(impr), 'Search Console')
         +kpi('CTR moyen', (G.ctr!=null?fmtP(G.ctr):'—'), 'pondéré (clics/impr)')
         +kpi('Position moyenne', fmtPos(G.position), 'pondérée sur la période', multi?delta(l.position,f.position,{invert:true,pos:true,prevLabel:fl}):'')
@@ -2285,6 +2287,8 @@ if(AUTH && AUTH.token){
       html+=kpi('Trafic global', fmtN(sel.global), mLabel(sel.moisKey,true), prev?delta(sel.global,prev.global,{prevLabel:pl}):'')
         +kpi('Trafic organique (SEO)', fmtN(sel.organique), (sel.part!=null?('part '+fmtP(sel.part)):''), prev?delta(sel.organique,prev.organique,{prevLabel:pl}):'', 'green')
         +kpi('Clics Google', fmtN(sel.clics), 'Search Console', (prev&&prev.clics!=null)?delta(sel.clics,prev.clics,{prevLabel:pl}):'', 'green')
+        +kpi('Clics hors-marque', fmtN(sel.clicsHorsMarque), 'vraie acquisition SEO', (prev&&prev.clicsHorsMarque!=null)?delta(sel.clicsHorsMarque,prev.clicsHorsMarque,{prevLabel:pl}):'', 'green')
+        +kpi('Clics de marque', fmtN(sel.clicsMarque), 'notoriété', (prev&&prev.clicsMarque!=null)?delta(sel.clicsMarque,prev.clicsMarque,{prevLabel:pl}):'')
         +kpi('Impressions', fmtN(sel.impressions), 'Search Console', (prev&&prev.impressions!=null)?delta(sel.impressions,prev.impressions,{prevLabel:pl}):'')
         +kpi('CTR moyen', (sel.ctr!=null?fmtP(sel.ctr):'—'), 'clics / impressions', prev?deltaPts(sel.ctr,prev.ctr,pl):'')
         +kpi('Position moyenne SEO', fmtPos(sel.position), 'plus bas = mieux', prev?delta(sel.position,prev.position,{invert:true,pos:true,prevLabel:pl}):'')
@@ -2296,6 +2300,7 @@ if(AUTH && AUTH.token){
     html+='<div class="grid row2" style="margin-top:16px">'+card('Trafic par source','seo-c-traffic')+card('Part du trafic organique','seo-c-part')+'</div>';
     html+='<div class="grid row2" style="margin-top:16px">'+card('Clics &amp; impressions Google','seo-c-clics')+card('CTR moyen','seo-c-ctr')+'</div>';
     html+='<div class="grid row2" style="margin-top:16px">'+cardSub('Position moyenne SEO','plus bas = mieux','seo-c-pos')+cardSub('Mots-clés positionnés','≥ 10 impressions/mois','seo-c-kw')+'</div>';
+    html+='<div class="grid row2" style="margin-top:16px">'+cardSub('Clics : marque vs hors-marque','hors-marque = acquisition réelle','seo-c-brand')+cardSub('Position : globale vs hors-marque','plus bas = mieux','seo-c-posmk')+'</div>';
 
     // Tableau mensuel complet.
     html+='<div class="card" style="margin-top:16px"><h3><span class="dot"></span>Détail mensuel <span style="color:var(--muted);font-weight:400">· clique une ligne pour éditer</span></h3>'
@@ -2352,6 +2357,18 @@ if(AUTH && AUTH.token){
         {label:'Top 10',data:M.map(m=>m.top10),backgroundColor:'#3ecf8e'},
         {label:'Top 11-50',data:M.map(m=>m.top1150),backgroundColor:'#445067'}]},
       options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}}},responsive:true,maintainAspectRatio:false,scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});
+    destroySeo('brand');
+    seoCharts.brand=new Chart(el('seo-c-brand'),{type:'bar',
+      data:{labels,datasets:[
+        {label:'Hors-marque',data:M.map(m=>m.clicsHorsMarque),backgroundColor:'#3ecf8e'},
+        {label:'Marque',data:M.map(m=>m.clicsMarque),backgroundColor:'#445067'}]},
+      options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}}},responsive:true,maintainAspectRatio:false,scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true,ticks:{precision:0}}}}});
+    destroySeo('posmk');
+    seoCharts.posmk=new Chart(el('seo-c-posmk'),{type:'line',
+      data:{labels,datasets:[
+        {label:'Globale',data:M.map(m=>m.position),borderColor:'#5b8def',backgroundColor:'#5b8def',tension:.3,pointRadius:3},
+        {label:'Hors-marque',data:M.map(m=>m.positionHorsMarque),borderColor:'#a779ff',backgroundColor:'#a779ff',tension:.3,pointRadius:3}]},
+      options:{plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11}}}},responsive:true,maintainAspectRatio:false,scales:{y:{reverse:true,ticks:{precision:0}}}}});
 
     [...document.querySelectorAll('#seo-monthfilter .promo-btn')].forEach(b=>b.onclick=()=>{ selMonth=b.dataset.mk; render(); });
     [...document.querySelectorAll('#seo-table tbody tr')].forEach(tr=>tr.onclick=()=>openForm(tr.dataset.mk));

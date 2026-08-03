@@ -175,7 +175,12 @@
     if(partD!=null&&partD<0) F.risk.push('Part de l\'organique en baisse ('+fmtP(p.part)+' → '+fmtP(c.part)+') : dépendance à la pub qui s\'installe.');
     if(c.top1150!=null&&(c.top1150<20||(c.top10&&c.top1150<c.top10*0.3))) F.risk.push('Réservoir 11–50 quasi vide ('+fmtN(c.top1150)+') : croissance organique menacée de plateau.');
     if(c.position!=null&&c.position<=5&&c.ctr!=null&&c.ctr>=8) F.risk.push('Profil probablement « de marque » (position ~'+fmtPos(c.position)+' + CTR '+fmtP(c.ctr)+') : peu de preuves d\'acquisition nouvelle.');
-    F.risk.push('Aucune mesure de conversion organique : la valeur business du SEO reste inconnue.');
+    if(c.clicsHorsMarque!=null&&c.clicsMarque!=null){
+      var known=c.clicsMarque+c.clicsHorsMarque, shareHM=known?Math.round(c.clicsHorsMarque/known*100):0;
+      if(shareHM<20) F.risk.push('SEO dominé par la marque : seulement '+fmtN(c.clicsHorsMarque)+' clics hors-marque ('+shareHM+' % des requêtes connues). L\'acquisition hors-notoriété reste très faible — c\'est là qu\'est le vrai gisement.');
+      if(c.positionHorsMarque!=null&&c.position!=null&&c.positionHorsMarque>c.position+1.5) F.watch.push('Écart de position marque/hors-marque : ~'+fmtPos(c.position)+' en global mais ~'+fmtPos(c.positionHorsMarque)+' hors-marque. Vous êtes 1ᵉʳ sur votre nom, loin derrière sur le reste.');
+    }
+    F.risk.push('Conversions non suivies dans GA4 : aucune conversion n\'est mesurée sur l\'ensemble des canaux. Tant que des « événements clés » (inscriptions) ne sont pas configurés dans GA4, la valeur business du SEO reste inconnue.');
     // Incohérences / à vérifier
     if(payP!=null&&orgP!=null&&payP>orgP&&payP>0) F.watch.push('Croissance tirée par le payant ('+signPct(payP)+') plus que par l\'organique ('+signPct(orgP)+').');
     if(c.global){ var dShare=Math.round((c.direct||0)/c.global*100); if(dShare>=40) F.watch.push('Direct / autres = '+dShare+' % du trafic : à qualifier (peut cacher du trafic mal tracké).'); }
@@ -230,7 +235,10 @@
       +scoreRow('Taux de clic (CTR)', c.ctr, p&&p.ctr, {fmt:fmtP,better:'up',pts:true})
       +scoreRow('Position moyenne', c.position, p&&p.position, {fmt:fmtPos,better:'down'})
       +scoreRow('Mots-clés top 10', c.top10, p&&p.top10, {better:'up'})
-      +scoreRow('Mots-clés 11–50 (réservoir)', c.top1150, p&&p.top1150, {better:'up',floor:20});
+      +scoreRow('Mots-clés 11–50 (réservoir)', c.top1150, p&&p.top1150, {better:'up',floor:20})
+      +scoreRow('Clics hors-marque (acquisition)', c.clicsHorsMarque, p&&p.clicsHorsMarque, {better:'up'})
+      +scoreRow('Clics de marque (notoriété)', c.clicsMarque, p&&p.clicsMarque, {neutral:true})
+      +scoreRow('Position hors-marque', c.positionHorsMarque, p&&p.positionHorsMarque, {fmt:fmtPos,better:'down'});
 
     function ul(a){ return '<ul>'+a.map(function(x){return '<li>'+x+'</li>';}).join('')+'</ul>'; }
     var comment = c.commentaire ? ('<p class="kexpl" style="margin-top:16px"><strong>Note du mois :</strong> '+esc(c.commentaire)+'</p>') : '';
