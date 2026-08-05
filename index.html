@@ -372,6 +372,11 @@
         <div class="sb-h">Site &amp; SEO</div>
         <a class="sb-item" data-nav="seo"><span class="sb-ic">🔍</span> Data</a>
       </div>
+      <div class="sb-group" id="sbg-rs">
+        <div class="sb-h">Réseaux sociaux</div>
+        <a class="sb-item" data-nav="rs-overview"><span class="sb-ic">🌐</span> Vue d'ensemble</a>
+        <a class="sb-item" data-nav="rs-monthly"><span class="sb-ic">📈</span> Évolution mensuelle</a>
+      </div>
       <div class="sb-group" id="sbg-crm">
         <div class="sb-h">CRM</div>
         <a class="sb-item" data-nav="crm"><span class="sb-ic">🗂️</span> Contacts</a>
@@ -586,6 +591,14 @@
     <div id="seo-body"><div class="fb-loading"><div class="spin"></div>Lecture des données SEO…</div></div>
   </section>
 
+  <section id="view-rs" class="hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+      <div style="color:var(--muted);font-size:13px" id="rs-sub">Performance des réseaux sociaux QVEMA.</div>
+      <button class="crm-btn" id="rs-add" style="font-weight:700">＋ Ajouter / éditer un mois</button>
+    </div>
+    <div id="rs-body"><div class="fb-loading"><div class="spin"></div>Lecture des données réseaux sociaux…</div></div>
+  </section>
+
   <!-- CRM (façon Twenty) -->
   <section id="view-crm" class="hidden crmwrap">
     <div class="crm-toolbar">
@@ -634,6 +647,11 @@
     <div class="crm-panel-card" id="seo-panel-card"></div>
   </div>
 
+  <div id="rs-panel" class="crm-panel hidden">
+    <div class="crm-panel-bg" id="rs-panel-bg"></div>
+    <div class="crm-panel-card" id="rs-panel-card"></div>
+  </div>
+
   <button id="cmtBtn" class="cmt-fab" title="Commentaires de cette page">💬 Commentaires</button>
   <div id="cmt-panel" class="cmt-panel hidden">
     <div class="cmt-bg" id="cmt-bg"></div>
@@ -676,7 +694,7 @@ let fbLoaded = false;
 let crmLoaded = false;
 let AUTH = null;
 let currentPage = 'pilotage';
-const PAGE_LABELS = { pilotage:'Pilotage', demo:'Démographie', feedback:'Feedbacks', amplify:'Amplify Connect', seo:'Site & SEO', crm:'CRM', board:'Board mensuel' };
+const PAGE_LABELS = { pilotage:'Pilotage', demo:'Démographie', feedback:'Feedbacks', amplify:'Amplify Connect', seo:'Site & SEO', 'rs-overview':'Réseaux — Vue d\'ensemble', 'rs-monthly':'Réseaux — Évolution', crm:'CRM', board:'Board mensuel' };
 
 function loadAuth(){ try{ AUTH = JSON.parse(sessionStorage.getItem('qvema_auth')||'null'); }catch(e){ AUTH=null; } return AUTH; }
 function getToken(){ return (AUTH && AUTH.token) || ''; }
@@ -1039,6 +1057,7 @@ function showTab(t){
   document.getElementById('view-board').classList.toggle('hidden',t!=='board');
   var _va=document.getElementById('view-acquisition'); if(_va) _va.classList.toggle('hidden',t!=='acquisition');
   var _vs=document.getElementById('view-seo'); if(_vs) _vs.classList.toggle('hidden',t!=='seo');
+  var _vr=document.getElementById('view-rs'); if(_vr) _vr.classList.toggle('hidden',t!=='rs');
   if(t==='seo' && window.SEO){ window.SEO.load(); }
   if(t==='crm' && !crmLoaded){ crmLoaded=true; window.CRM.load(); }
   if(t==='board'){ const f=document.getElementById('board-frame'); if(f && !f.getAttribute('src')) f.setAttribute('src','/board.html?embed=1&theme='+(document.documentElement.getAttribute('data-theme')||'dark')); }
@@ -1097,6 +1116,8 @@ const NAV = {
   acquisition: ()=>{ showTab('acquisition'); if(window.ACQ) window.ACQ.load(); },
   amplify:  ()=>{ showTab('amplify'); },
   seo:      ()=>{ showTab('seo'); },
+  'rs-overview': ()=>{ showTab('rs'); if(window.RS) window.RS.show('overview'); },
+  'rs-monthly':  ()=>{ showTab('rs'); if(window.RS) window.RS.show('monthly'); },
   crm:      ()=>{ showTab('crm'); },
   board:    ()=>{ showTab('board'); },
 };
@@ -1122,11 +1143,15 @@ function applyPerms(){
   show('.sb-item[data-nav="amplify"]', canAmp);
   const canSeo=hasPerm('seo');
   show('.sb-item[data-nav="seo"]', canSeo);
+  const canRs=hasPerm('rs');
+  show('.sb-item[data-nav="rs-overview"]', canRs);
+  show('.sb-item[data-nav="rs-monthly"]', canRs);
   show('.sb-item[data-nav="crm"]', canBoot||canAmp);
   show('#sb-board', hasPerm('board'));
   show('#sbg-bootcamp', canBoot||canFeed);
   show('#sbg-amplify', canAmp);
   show('#sbg-seo', canSeo);
+  show('#sbg-rs', canRs);
   show('#sbg-crm', canBoot||canAmp);
   show('#sbg-outils', hasPerm('board'));
   const nm = AUTH ? (AUTH.name||AUTH.email||'') : '';
@@ -2453,6 +2478,251 @@ if(AUTH && AUTH.token){
   }
 
   window.SEO={load};
+})();
+
+/* ===== Module Réseaux sociaux ===== */
+(function(){
+  let DATARS=null, loading=false, subPage='overview', rsNet='Tous', rsMonth='Global';
+  const rsCharts={};
+  const el=(id)=>document.getElementById(id);
+  const escH=(s)=>{const d=document.createElement('div');d.textContent=(s==null?'':s);return d.innerHTML;};
+  const MAB=['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'];
+  const MFULL=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  function mLabel(key,full){ const p=String(key||'').split('-'); const i=(+p[1])-1; if(i<0||i>11) return key||''; return (full?MFULL[i]:MAB[i])+' '+p[0]; }
+  const fmtN=(v)=> v==null?'—':Number(v).toLocaleString('fr-FR');
+  const fmtE=(v)=> v==null?'—':new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(v);
+  // Devise des revenus : Snapchat facture en $, converti en € pour les totaux.
+  const RATE=0.92;
+  const revEur=(net,rev)=> rev==null?0:(net==='Snapchat'? rev*RATE : rev);
+  const RS_COL={Facebook:'#1877F2',Instagram:'#E1306C',Snapchat:'#F7C948',TikTok:'#00C2CC',YouTube:'#FF0000',LinkedIn:'#0A66C2'};
+  function destroyR(k){ if(rsCharts[k]){ rsCharts[k].destroy(); delete rsCharts[k]; } }
+  function destroyAll(){ Object.keys(rsCharts).forEach(destroyR); }
+
+  function delta(cur,prev,opt){
+    opt=opt||{};
+    if(cur==null||prev==null||prev===0) return '';
+    const d=cur-prev; if(d===0) return '<span style="color:var(--muted);font-size:12px">= stable vs '+opt.prevLabel+'</span>';
+    const up=d>0, good = opt.invert ? !up : up;
+    const col = good ? 'var(--green)' : 'var(--red)', arrow = up ? '▲' : '▼';
+    const pctv = Math.round(Math.abs(d)/Math.abs(prev)*100);
+    const val = opt.eur ? fmtE(Math.abs(d)) : fmtN(Math.abs(d));
+    return '<span style="color:'+col+';font-size:12px;font-weight:600">'+arrow+' '+val+' ('+pctv+'%) vs '+opt.prevLabel+'</span>';
+  }
+
+  const months=()=> [...new Set((DATARS?DATARS.lignes:[]).map(x=>x.moisKey))].sort();
+  const at=(net,mk)=> (DATARS?DATARS.lignes:[]).find(x=>x.reseau===net&&x.moisKey===mk)||null;
+
+  async function load(){
+    if(loading) return; loading=true;
+    if(!DATARS) el('rs-body').innerHTML='<div class="fb-loading"><div class="spin"></div>Lecture des données réseaux sociaux…</div>';
+    try{
+      const r=await fetch('/api/rs',{headers:authHeaders()});
+      if(r.status===403){ el('rs-body').innerHTML='<div class="fb-err">Tu n\'as pas accès aux Réseaux sociaux.</div>'; return; }
+      const j=await r.json();
+      if(!j.ok) throw new Error(j.error||'Erreur');
+      DATARS={reseaux:j.reseaux||[], lignes:j.lignes||[]}; render();
+    }catch(e){ el('rs-body').innerHTML='<div class="fb-err">Erreur de lecture : '+escH(e.message)+'</div>'; }
+    finally{ loading=false; }
+  }
+
+  function show(sub){ subPage = (sub==='monthly')?'monthly':'overview'; el('rs-sub').textContent = subPage==='overview'?'Vue d\'ensemble — tous réseaux confondus.':'Évolution mois par mois, par réseau.'; if(DATARS) render(); else load(); }
+
+  function kpi(label,val,sub,deltaHtml,cls){ return '<div class="card kpi"><div class="label">'+label+'</div><div class="value '+(cls||'')+'">'+val+'</div><div class="sub">'+(sub||'')+(deltaHtml?('<div style="margin-top:3px">'+deltaHtml+'</div>'):'')+'</div></div>'; }
+  function card(title,cid,sub){ return '<div class="card"><h3><span class="dot"></span>'+title+(sub?' <span style="color:var(--muted);font-weight:400">· '+sub+'</span>':'')+'</h3><div class="chart-box"><canvas id="'+cid+'"></canvas></div></div>'; }
+  function wireAdd(){ const b=el('rs-add'); if(b) b.onclick=()=>openForm(null,null); }
+
+  function render(){
+    if(!DATARS){ return; }
+    if(!DATARS.lignes.length){ el('rs-body').innerHTML='<div class="card"><div class="note">Aucune donnée pour le moment. Clique sur « ＋ Ajouter / éditer un mois » pour saisir un premier mois.</div></div>'; wireAdd(); return; }
+    destroyAll();
+    if(subPage==='overview') renderOverview(); else renderMonthly();
+    wireAdd();
+  }
+
+  /* ---------- Vue d'ensemble ---------- */
+  function renderOverview(){
+    const L=DATARS.lignes, NETS=DATARS.reseaux, MO=months();
+    const last=MO[MO.length-1], prev=MO[MO.length-2]||null;
+    const rows=NETS.map(net=>{
+      const rl=L.filter(x=>x.reseau===net).sort((a,b)=>a.moisKey.localeCompare(b.moisKey));
+      const lastRow=at(net,last)||rl[rl.length-1]||null;
+      return {net,
+        abon: lastRow?lastRow.abonnes:null,
+        vuesCum: rl.reduce((s,x)=>s+(x.vues||0),0),
+        revCum: rl.reduce((s,x)=>s+revEur(net,x.revenus),0),
+        engCum: rl.reduce((s,x)=>s+(x.interactions||0),0) };
+    });
+    const totAbon=rows.reduce((s,r)=>s+(r.abon||0),0);
+    const totVues=rows.reduce((s,r)=>s+r.vuesCum,0);
+    const totRev=rows.reduce((s,r)=>s+r.revCum,0);
+    const sumAt=(mk,fn)=> L.filter(x=>x.moisKey===mk).reduce((s,x)=>s+fn(x),0);
+    const abonAt=(mk)=> sumAt(mk,x=>x.abonnes||0), vuesAt=(mk)=> sumAt(mk,x=>x.vues||0), revAt=(mk)=> sumAt(mk,x=>revEur(x.reseau,x.revenus)), engAt=(mk)=> sumAt(mk,x=>x.interactions||0);
+    const pl=prev?mLabel(prev):'';
+
+    let html='<div class="grid kpis">'
+      +kpi('👥 Abonnés — tous réseaux', fmtN(totAbon), 'à fin '+mLabel(last,true), prev?delta(abonAt(last),abonAt(prev),{prevLabel:pl}):'')
+      +kpi('👁 Vues cumulées', fmtN(totVues), 'cumul '+mLabel(MO[0])+' → '+mLabel(last), '', 'green')
+      +kpi('💰 Revenus globaux', fmtE(totRev), 'cumul · Snap converti $→€', '', 'yellow')
+      +kpi('👁 Vues du mois', fmtN(vuesAt(last)), mLabel(last,true), prev?delta(vuesAt(last),vuesAt(prev),{prevLabel:pl}):'')
+      +kpi('💰 Revenus du mois', fmtE(revAt(last)), mLabel(last,true), prev?delta(revAt(last),revAt(prev),{prevLabel:pl,eur:true}):'')
+      +kpi('❤️ Engagement du mois', fmtN(engAt(last)), 'interactions', prev?delta(engAt(last),engAt(prev),{prevLabel:pl}):'')
+      +'</div>';
+
+    html+='<div class="grid row2" style="margin-top:16px">'+card('Abonnés par réseau','rs-c-oabon','à fin '+mLabel(last))+card('Vues par réseau','rs-c-ovues','cumul période')+'</div>';
+    html+='<div class="grid row2" style="margin-top:16px">'+card('Revenus par réseau','rs-c-orev','€ · cumul période')+card('Engagement par réseau','rs-c-oeng','interactions · cumul')+'</div>';
+
+    // Tableau par réseau.
+    html+='<div class="card" style="margin-top:16px"><h3><span class="dot"></span>Synthèse par réseau</h3>'
+      +'<div style="overflow-x:auto"><table><thead><tr><th>Réseau</th><th class="num">Abonnés</th><th class="num">% abonnés</th><th class="num">Vues (cumul)</th><th class="num">% vues</th><th class="num">Revenus € (cumul)</th></tr></thead><tbody>';
+    rows.slice().sort((a,b)=>(b.abon||0)-(a.abon||0)).forEach(r=>{
+      html+='<tr><td><b><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+RS_COL[r.net]+';margin-right:7px"></span>'+r.net+'</b></td>'
+        +'<td class="num">'+fmtN(r.abon)+'</td><td class="num">'+(totAbon?Math.round((r.abon||0)/totAbon*1000)/10:0).toLocaleString('fr-FR')+' %</td>'
+        +'<td class="num">'+fmtN(r.vuesCum)+'</td><td class="num">'+(totVues?Math.round(r.vuesCum/totVues*1000)/10:0).toLocaleString('fr-FR')+' %</td>'
+        +'<td class="num">'+fmtE(r.revCum)+'</td></tr>';
+    });
+    html+='<tr style="border-top:2px solid var(--line)"><td><b>TOTAL</b></td><td class="num"><b>'+fmtN(totAbon)+'</b></td><td class="num">100 %</td><td class="num"><b>'+fmtN(totVues)+'</b></td><td class="num">100 %</td><td class="num"><b>'+fmtE(totRev)+'</b></td></tr>';
+    html+='</tbody></table></div></div>';
+
+    el('rs-body').innerHTML=html;
+
+    const labs=rows.map(r=>r.net), cols=rows.map(r=>RS_COL[r.net]);
+    const doughOpt={plugins:{legend:{position:'right',labels:{boxWidth:10,font:{size:11}}}},responsive:true,maintainAspectRatio:false,cutout:'55%'};
+    rsCharts.oabon=new Chart(el('rs-c-oabon'),{type:'doughnut',data:{labels:labs,datasets:[{data:rows.map(r=>r.abon),backgroundColor:cols,borderWidth:0}]},options:doughOpt});
+    rsCharts.ovues=new Chart(el('rs-c-ovues'),{type:'doughnut',data:{labels:labs,datasets:[{data:rows.map(r=>r.vuesCum),backgroundColor:cols,borderWidth:0}]},options:doughOpt});
+    rsCharts.orev=new Chart(el('rs-c-orev'),{type:'bar',data:{labels:labs,datasets:[{data:rows.map(r=>Math.round(r.revCum)),backgroundColor:cols}]},options:{plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{y:{beginAtZero:true,ticks:{callback:v=>v.toLocaleString('fr-FR')+' €'}}}}});
+    rsCharts.oeng=new Chart(el('rs-c-oeng'),{type:'bar',data:{labels:labs,datasets:[{data:rows.map(r=>r.engCum),backgroundColor:cols}]},options:{plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});
+  }
+
+  /* ---------- Évolution mensuelle ---------- */
+  function renderMonthly(){
+    const L=DATARS.lignes, NETS=DATARS.reseaux, MO=months();
+    if(!MO.includes(rsMonth) && rsMonth!=='Global') rsMonth='Global';
+    if(rsNet!=='Tous' && !NETS.includes(rsNet)) rsNet='Tous';
+    const scope = rsNet==='Tous'? NETS : [rsNet];
+    const isGlobal = rsMonth==='Global';
+    // Somme sur le périmètre (réseau) pour un mois donné.
+    const mSum=(mk,field)=> scope.reduce((s,net)=>{ const r=at(net,mk); if(!r) return s; return s+(field==='revenus'?revEur(net,r.revenus):(r[field]||0)); },0);
+    const has=(mk)=> scope.some(net=>at(net,mk));
+
+    // Filtres réseau + mois.
+    let html='<div class="promo-filter" id="rs-netfilter">'
+      +'<button class="promo-btn'+(rsNet==='Tous'?' active':'')+'" data-net="Tous">Tous</button>'
+      +NETS.map(n=>'<button class="promo-btn'+(rsNet===n?' active':'')+'" data-net="'+n+'"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+RS_COL[n]+';margin-right:6px"></span>'+n+'</button>').join('')
+      +'</div>';
+    html+='<div class="promo-filter" id="rs-monthfilter" style="margin-top:8px">'
+      +'<button class="promo-btn'+(isGlobal?' active':'')+'" data-mk="Global">🌐 Global</button>'
+      +MO.slice().reverse().map(mk=>'<button class="promo-btn'+(mk===rsMonth?' active':'')+'" data-mk="'+mk+'">'+mLabel(mk,true)+'</button>').join('')
+      +'</div>';
+
+    const scopeLabel = rsNet==='Tous'?'tous réseaux':rsNet;
+    html+='<div class="grid kpis" style="margin-top:14px">';
+    if(isGlobal){
+      const last=MO[MO.length-1], first=MO[0], prev=MO[MO.length-2]||null, pl=prev?mLabel(prev):'';
+      const cum=(f)=> MO.reduce((s,mk)=>s+mSum(mk,f),0);
+      html+=kpi('Abonnés ('+scopeLabel+')', fmtN(mSum(last,'abonnes')), 'à fin '+mLabel(last,true), prev?delta(mSum(last,'abonnes'),mSum(prev,'abonnes'),{prevLabel:pl}):'')
+        +kpi('Vues (cumul)', fmtN(cum('vues')), 'sur '+MO.length+' mois', '', 'green')
+        +kpi('Revenus € (cumul)', fmtE(cum('revenus')), 'Snap converti $→€', '', 'yellow')
+        +kpi('Engagement (cumul)', fmtN(cum('interactions')), 'interactions')
+        +kpi('Publications (cumul)', fmtN(cum('publications')), 'contenus publiés')
+        +kpi('Vues / mois (moy.)', fmtN(Math.round(cum('vues')/MO.length)), 'moyenne période');
+    } else {
+      const idx=MO.indexOf(rsMonth), prev=idx>0?MO[idx-1]:null, pl=prev?mLabel(prev):'';
+      html+=kpi('Abonnés ('+scopeLabel+')', fmtN(mSum(rsMonth,'abonnes')), 'à fin '+mLabel(rsMonth,true), prev?delta(mSum(rsMonth,'abonnes'),mSum(prev,'abonnes'),{prevLabel:pl}):'')
+        +kpi('Vues', fmtN(mSum(rsMonth,'vues')), mLabel(rsMonth,true), prev?delta(mSum(rsMonth,'vues'),mSum(prev,'vues'),{prevLabel:pl}):'', 'green')
+        +kpi('Revenus €', fmtE(mSum(rsMonth,'revenus')), mLabel(rsMonth,true), prev?delta(mSum(rsMonth,'revenus'),mSum(prev,'revenus'),{prevLabel:pl,eur:true}):'', 'yellow')
+        +kpi('Engagement', fmtN(mSum(rsMonth,'interactions')), 'interactions', prev?delta(mSum(rsMonth,'interactions'),mSum(prev,'interactions'),{prevLabel:pl}):'')
+        +kpi('Publications', fmtN(mSum(rsMonth,'publications')), 'ce mois-ci')
+        +kpi('Portée', fmtN(mSum(rsMonth,'portee')), 'comptes touchés / uniques');
+    }
+    html+='</div>';
+
+    // Graphes d'évolution (toujours toute la période).
+    const single = rsNet!=='Tous';
+    html+='<div class="grid row2" style="margin-top:16px">'+card('Évolution des abonnés','rs-c-abon',scopeLabel)+card('Vues par mois','rs-c-vues',scopeLabel)+'</div>';
+    html+='<div class="grid row2" style="margin-top:16px">'+card('Revenus € par mois','rs-c-rev',scopeLabel)+card('Engagement par mois','rs-c-eng',scopeLabel)+'</div>';
+
+    // Tableau détaillé.
+    html+='<div class="card" style="margin-top:16px"><h3><span class="dot"></span>Détail mensuel <span style="color:var(--muted);font-weight:400">· clique une ligne pour éditer</span></h3>'
+      +'<div style="overflow-x:auto"><table id="rs-table"><thead><tr><th>Mois</th><th>Réseau</th><th class="num">Abonnés</th><th class="num">Vues</th><th class="num">Revenus</th><th class="num">Publications</th><th class="num">Engagement</th><th class="num">Portée</th></tr></thead><tbody>';
+    const tblRows=[];
+    MO.slice().reverse().forEach(mk=> scope.forEach(net=>{ const r=at(net,mk); if(r) tblRows.push(r); }));
+    tblRows.forEach(r=>{
+      const cur=r.reseau==='Snapchat'?'$':'€';
+      html+='<tr data-mk="'+r.moisKey+'" data-net="'+r.reseau+'" style="cursor:pointer">'
+        +'<td><b>'+mLabel(r.moisKey,true)+'</b></td>'
+        +'<td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+RS_COL[r.reseau]+';margin-right:6px"></span>'+r.reseau+'</td>'
+        +'<td class="num">'+fmtN(r.abonnes)+'</td><td class="num">'+fmtN(r.vues)+'</td>'
+        +'<td class="num">'+(r.revenus!=null?fmtN(r.revenus)+' '+cur:'—')+'</td>'
+        +'<td class="num">'+fmtN(r.publications)+'</td><td class="num">'+fmtN(r.interactions)+'</td><td class="num">'+fmtN(r.portee)+'</td></tr>';
+    });
+    html+='</tbody></table></div></div>';
+
+    el('rs-body').innerHTML=html;
+
+    const labels=MO.map(m=>mLabel(m));
+    const seriesBar=(field)=> scope.map(net=>({label:net,data:MO.map(mk=>{const r=at(net,mk);return r?(field==='revenus'?Math.round(revEur(net,r.revenus)):r[field]):null;}),backgroundColor:RS_COL[net]}));
+    const stackOpt=(eur)=>({plugins:{legend:{display:!single,position:'bottom',labels:{boxWidth:10,font:{size:11}}}},responsive:true,maintainAspectRatio:false,scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true,ticks:eur?{callback:v=>v.toLocaleString('fr-FR')+' €'}:{precision:0}}}});
+    // Abonnés : lignes (stock), une par réseau.
+    rsCharts.abon=new Chart(el('rs-c-abon'),{type:'line',data:{labels,datasets:scope.map(net=>({label:net,data:MO.map(mk=>{const r=at(net,mk);return r?r.abonnes:null;}),borderColor:RS_COL[net],backgroundColor:RS_COL[net],tension:.3,pointRadius:3,fill:false}))},options:{plugins:{legend:{display:!single,position:'bottom',labels:{boxWidth:10,font:{size:11}}}},responsive:true,maintainAspectRatio:false,scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});
+    rsCharts.vues=new Chart(el('rs-c-vues'),{type:'bar',data:{labels,datasets:seriesBar('vues')},options:stackOpt(false)});
+    rsCharts.rev=new Chart(el('rs-c-rev'),{type:'bar',data:{labels,datasets:seriesBar('revenus')},options:stackOpt(true)});
+    rsCharts.eng=new Chart(el('rs-c-eng'),{type:'bar',data:{labels,datasets:seriesBar('interactions')},options:stackOpt(false)});
+
+    [...document.querySelectorAll('#rs-netfilter .promo-btn')].forEach(b=>b.onclick=()=>{ rsNet=b.dataset.net; render(); });
+    [...document.querySelectorAll('#rs-monthfilter .promo-btn')].forEach(b=>b.onclick=()=>{ rsMonth=b.dataset.mk; render(); });
+    [...document.querySelectorAll('#rs-table tbody tr')].forEach(tr=>tr.onclick=()=>openForm(tr.dataset.mk, tr.dataset.net));
+  }
+
+  /* ---------- Formulaire de saisie ---------- */
+  function fld(label,id,val,attr,hint){
+    return '<label class="q" style="font-weight:600;font-size:13px;display:block">'+label+(hint?' <span style="color:var(--muted);font-weight:400">· '+hint+'</span>':'')
+      +'<input id="'+id+'" type="text" inputmode="decimal" '+(attr||'')+' value="'+escH(String(val==null?'':val))+'" style="width:100%;margin-top:6px;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:var(--panel2);color:var(--txt);font-family:inherit'+(attr==='readonly'?';opacity:.7':'')+'"/></label>';
+  }
+  function row2f(a,b){ return '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'+a+b+'</div>'; }
+  function closeForm(){ el('rs-panel').classList.add('hidden'); }
+
+  function openForm(mk, net){
+    const NETS=DATARS.reseaux, MO=months();
+    const rec = (mk&&net)? at(net,mk) : null;
+    const defMk = mk || (function(){ if(MO.length){ const p=MO[MO.length-1].split('-').map(Number); const d=new Date(p[0],p[1],1); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); } const t=new Date(); return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0'); })();
+    const v=(x)=> x==null?'':x;
+    const opts=NETS.map(n=>'<option value="'+n+'"'+((net||rsNet!=='Tous'&&rsNet)===n?' selected':'')+'>'+n+'</option>').join('');
+    const card=el('rs-panel-card');
+    card.innerHTML=''
+      +'<div class="crm-dh"><div class="crm-dh-t">'+(rec?('Éditer — '+net+' · '+mLabel(mk,true)):'Ajouter un mois')+'</div><div class="crm-dh-s">Saisis les chiffres du mois pour un réseau</div><button class="crm-close" id="rs-close">✕</button></div>'
+      +'<div style="display:flex;flex-direction:column;gap:12px">'
+      +row2f('<label class="q" style="font-weight:600;font-size:13px;display:block">Mois<input id="rs-f-mois" type="month" placeholder="AAAA-MM" '+(mk?'readonly':'')+' value="'+escH(mk||defMk)+'" style="width:100%;margin-top:6px;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:var(--panel2);color:var(--txt);font-family:inherit'+(mk?';opacity:.7':'')+'"/></label>',
+              '<label class="q" style="font-weight:600;font-size:13px;display:block">Réseau<select id="rs-f-net" '+(net?'disabled':'')+' style="width:100%;margin-top:6px;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:var(--panel2);color:var(--txt);font-family:inherit'+(net?';opacity:.7':'')+'">'+opts+'</select></label>')
+      +row2f(fld('Abonnés (total)','rs-f-abon',rec?v(rec.abonnes):''), fld('Vues','rs-f-vues',rec?v(rec.vues):''))
+      +row2f(fld('Revenus','rs-f-rev',rec?v(rec.revenus):'','','€ — Snapchat en $'), fld('Publications','rs-f-pub',rec?v(rec.publications):''))
+      +row2f(fld('Engagement (interactions)','rs-f-eng',rec?v(rec.interactions):''), fld('Portée','rs-f-por',rec?v(rec.portee):'','','comptes touchés'))
+      +row2f(fld('RPM','rs-f-rpm',rec?v(rec.rpm):'','','revenu / 1000 vues'), fld('Durée visionnage (h)','rs-f-watch',rec?v(rec.watch):''))
+      +'<label class="q" style="font-weight:600;font-size:13px;display:block">Commentaire<textarea id="rs-f-com" rows="3" style="width:100%;margin-top:6px;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:var(--panel2);color:var(--txt);font-family:inherit;resize:vertical">'+escH(rec?rec.commentaire:'')+'</textarea></label>'
+      +'<div id="rs-f-msg" style="min-height:18px;font-size:13px"></div>'
+      +'<button class="crm-btn" id="rs-save" style="font-weight:700">💾 Enregistrer</button>'
+      +'</div>';
+    if(net){ const s=el('rs-f-net'); if(s) s.value=net; }
+    el('rs-panel').classList.remove('hidden');
+    el('rs-close').onclick=closeForm; el('rs-panel-bg').onclick=closeForm;
+    el('rs-save').onclick=save;
+  }
+
+  async function save(){
+    const g=(id)=>{ const e=el(id); return e?String(e.value).trim():''; };
+    const gn=(id)=> g(id).replace(',','.').replace(/\s/g,'');
+    const mois=g('rs-f-mois'), reseau=g('rs-f-net');
+    if(!/^\d{4}-\d{2}$/.test(mois)){ el('rs-f-msg').innerHTML='<span style="color:var(--red)">Mois invalide (format AAAA-MM, ex. 2026-07).</span>'; return; }
+    const payload={ mois, reseau, abonnes:gn('rs-f-abon'), vues:gn('rs-f-vues'), revenus:gn('rs-f-rev'), publications:gn('rs-f-pub'), interactions:gn('rs-f-eng'), portee:gn('rs-f-por'), rpm:gn('rs-f-rpm'), watch:gn('rs-f-watch'), commentaire:el('rs-f-com').value };
+    const btn=el('rs-save'); btn.disabled=true; const old=btn.textContent; btn.textContent='Enregistrement…'; el('rs-f-msg').textContent='';
+    try{
+      const r=await fetch('/api/rs',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},authHeaders()),body:JSON.stringify(payload)});
+      const j=await r.json();
+      if(!r.ok||!j.ok) throw new Error(j.error||('HTTP '+r.status));
+      closeForm(); DATARS=null; await load();
+    }catch(e){ el('rs-f-msg').innerHTML='<span style="color:var(--red)">Erreur : '+escH(e.message)+'</span>'; btn.disabled=false; btn.textContent=old; }
+  }
+
+  window.RS={load, show};
 })();
 </script>
 </body>
