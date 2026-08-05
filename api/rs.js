@@ -43,13 +43,23 @@ function readBody(req) {
 const num = (v) => (v === "" || v == null || isNaN(Number(v)) ? null : Number(v));
 const monthKey = (d) => String(d || "").slice(0, 7); // "YYYY-MM"
 
+async function fetchPage(token, offset) {
+  const u = new URL("https://api.airtable.com/v0/" + BASE + "/" + TABLE);
+  u.searchParams.set("pageSize", "100");
+  if (offset) u.searchParams.set("offset", offset);
+  return fetch(u, { headers: { Authorization: "Bearer " + token } });
+}
+
 async function fetchAll() {
-  let recs = [], offset = null;
+  // RS Mensuel est une table récente : le token de lecture peut ne pas y avoir accès.
+  // On tente le token de lecture puis, en cas d'échec, le token d'écriture (accès complet).
+  let token = READ_TOKEN;
+  let recs = [], offset = null, tried = false;
   do {
-    const u = new URL("https://api.airtable.com/v0/" + BASE + "/" + TABLE);
-    u.searchParams.set("pageSize", "100");
-    if (offset) u.searchParams.set("offset", offset);
-    const r = await fetch(u, { headers: { Authorization: "Bearer " + READ_TOKEN } });
+    let r = await fetchPage(token, offset);
+    if (!r.ok && !tried && WRITE_TOKEN && WRITE_TOKEN !== READ_TOKEN) {
+      tried = true; token = WRITE_TOKEN; r = await fetchPage(token, offset);
+    }
     if (!r.ok) throw new Error("airtable_read_" + r.status);
     const j = await r.json();
     recs = recs.concat(j.records || []);
