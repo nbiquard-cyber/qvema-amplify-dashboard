@@ -2491,9 +2491,11 @@ if(AUTH && AUTH.token){
   function mLabel(key,full){ const p=String(key||'').split('-'); const i=(+p[1])-1; if(i<0||i>11) return key||''; return (full?MFULL[i]:MAB[i])+' '+p[0]; }
   const fmtN=(v)=> v==null?'—':Number(v).toLocaleString('fr-FR');
   const fmtE=(v)=> v==null?'—':new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(v);
-  // Devise des revenus : Snapchat facture en $, converti en € pour les totaux.
-  const RATE=0.92;
-  const revEur=(net,rev)=> rev==null?0:(net==='Snapchat'? rev*RATE : rev);
+  // Revenus conservés dans leur devise native : Snapchat en $, les autres en €. Aucune conversion.
+  const isUsd=(net)=> net==='Snapchat';
+  const symOf=(net)=> isUsd(net)?'$':'€';
+  const fmtMoney=(v,sym)=> v==null?'—':new Intl.NumberFormat('fr-FR',{maximumFractionDigits:0}).format(v)+' '+sym;
+  const moneySplit=(eur,usd)=> (usd>0? (fmtMoney(eur,'€')+' + '+fmtMoney(usd,'$')) : fmtMoney(eur,'€'));
   const RS_COL={Facebook:'#1877F2',Instagram:'#E1306C',Snapchat:'#F7C948',TikTok:'#00C2CC',YouTube:'#FF0000',LinkedIn:'#0A66C2'};
   function destroyR(k){ if(rsCharts[k]){ rsCharts[k].destroy(); delete rsCharts[k]; } }
   function destroyAll(){ Object.keys(rsCharts).forEach(destroyR); }
@@ -2549,38 +2551,40 @@ if(AUTH && AUTH.token){
       return {net,
         abon: lastRow?lastRow.abonnes:null,
         vuesCum: rl.reduce((s,x)=>s+(x.vues||0),0),
-        revCum: rl.reduce((s,x)=>s+revEur(net,x.revenus),0),
+        revCum: rl.reduce((s,x)=>s+(x.revenus||0),0),
         engCum: rl.reduce((s,x)=>s+(x.interactions||0),0) };
     });
     const totAbon=rows.reduce((s,r)=>s+(r.abon||0),0);
     const totVues=rows.reduce((s,r)=>s+r.vuesCum,0);
-    const totRev=rows.reduce((s,r)=>s+r.revCum,0);
+    let totRevEur=0, totRevUsd=0;
+    rows.forEach(r=>{ if(isUsd(r.net)) totRevUsd+=r.revCum; else totRevEur+=r.revCum; });
     const sumAt=(mk,fn)=> L.filter(x=>x.moisKey===mk).reduce((s,x)=>s+fn(x),0);
-    const abonAt=(mk)=> sumAt(mk,x=>x.abonnes||0), vuesAt=(mk)=> sumAt(mk,x=>x.vues||0), revAt=(mk)=> sumAt(mk,x=>revEur(x.reseau,x.revenus)), engAt=(mk)=> sumAt(mk,x=>x.interactions||0);
+    const abonAt=(mk)=> sumAt(mk,x=>x.abonnes||0), vuesAt=(mk)=> sumAt(mk,x=>x.vues||0), engAt=(mk)=> sumAt(mk,x=>x.interactions||0);
+    const revAtEur=(mk)=> sumAt(mk,x=>isUsd(x.reseau)?0:(x.revenus||0)), revAtUsd=(mk)=> sumAt(mk,x=>isUsd(x.reseau)?(x.revenus||0):0);
     const pl=prev?mLabel(prev):'';
 
     let html='<div class="grid kpis">'
       +kpi('👥 Abonnés — tous réseaux', fmtN(totAbon), 'à fin '+mLabel(last,true), prev?delta(abonAt(last),abonAt(prev),{prevLabel:pl}):'')
       +kpi('👁 Vues cumulées', fmtN(totVues), 'cumul '+mLabel(MO[0])+' → '+mLabel(last), '', 'green')
-      +kpi('💰 Revenus globaux', fmtE(totRev), 'cumul · Snap converti $→€', '', 'yellow')
+      +kpi('💰 Revenus globaux', moneySplit(totRevEur,totRevUsd), 'cumul · sans conversion', '', 'yellow')
       +kpi('👁 Vues du mois', fmtN(vuesAt(last)), mLabel(last,true), prev?delta(vuesAt(last),vuesAt(prev),{prevLabel:pl}):'')
-      +kpi('💰 Revenus du mois', fmtE(revAt(last)), mLabel(last,true), prev?delta(revAt(last),revAt(prev),{prevLabel:pl,eur:true}):'')
+      +kpi('💰 Revenus du mois', moneySplit(revAtEur(last),revAtUsd(last)), mLabel(last,true)+' · sans conversion', '')
       +kpi('❤️ Engagement du mois', fmtN(engAt(last)), 'interactions', prev?delta(engAt(last),engAt(prev),{prevLabel:pl}):'')
       +'</div>';
 
     html+='<div class="grid row2" style="margin-top:16px">'+card('Abonnés par réseau','rs-c-oabon','à fin '+mLabel(last))+card('Vues par réseau','rs-c-ovues','cumul période')+'</div>';
-    html+='<div class="grid row2" style="margin-top:16px">'+card('Revenus par réseau','rs-c-orev','€ · cumul période')+card('Engagement par réseau','rs-c-oeng','interactions · cumul')+'</div>';
+    html+='<div class="grid row2" style="margin-top:16px">'+card('Revenus par réseau','rs-c-orev','€ / $ (Snap) · cumul')+card('Engagement par réseau','rs-c-oeng','interactions · cumul')+'</div>';
 
     // Tableau par réseau.
     html+='<div class="card" style="margin-top:16px"><h3><span class="dot"></span>Synthèse par réseau</h3>'
-      +'<div style="overflow-x:auto"><table><thead><tr><th>Réseau</th><th class="num">Abonnés</th><th class="num">% abonnés</th><th class="num">Vues (cumul)</th><th class="num">% vues</th><th class="num">Revenus € (cumul)</th></tr></thead><tbody>';
+      +'<div style="overflow-x:auto"><table><thead><tr><th>Réseau</th><th class="num">Abonnés</th><th class="num">% abonnés</th><th class="num">Vues (cumul)</th><th class="num">% vues</th><th class="num">Revenus (cumul)</th></tr></thead><tbody>';
     rows.slice().sort((a,b)=>(b.abon||0)-(a.abon||0)).forEach(r=>{
       html+='<tr><td><b><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:'+RS_COL[r.net]+';margin-right:7px"></span>'+r.net+'</b></td>'
         +'<td class="num">'+fmtN(r.abon)+'</td><td class="num">'+(totAbon?Math.round((r.abon||0)/totAbon*1000)/10:0).toLocaleString('fr-FR')+' %</td>'
         +'<td class="num">'+fmtN(r.vuesCum)+'</td><td class="num">'+(totVues?Math.round(r.vuesCum/totVues*1000)/10:0).toLocaleString('fr-FR')+' %</td>'
-        +'<td class="num">'+fmtE(r.revCum)+'</td></tr>';
+        +'<td class="num">'+fmtMoney(r.revCum, symOf(r.net))+'</td></tr>';
     });
-    html+='<tr style="border-top:2px solid var(--line)"><td><b>TOTAL</b></td><td class="num"><b>'+fmtN(totAbon)+'</b></td><td class="num">100 %</td><td class="num"><b>'+fmtN(totVues)+'</b></td><td class="num">100 %</td><td class="num"><b>'+fmtE(totRev)+'</b></td></tr>';
+    html+='<tr style="border-top:2px solid var(--line)"><td><b>TOTAL</b></td><td class="num"><b>'+fmtN(totAbon)+'</b></td><td class="num">100 %</td><td class="num"><b>'+fmtN(totVues)+'</b></td><td class="num">100 %</td><td class="num"><b>'+moneySplit(totRevEur,totRevUsd)+'</b></td></tr>';
     html+='</tbody></table></div></div>';
 
     el('rs-body').innerHTML=html;
@@ -2589,7 +2593,7 @@ if(AUTH && AUTH.token){
     const doughOpt={plugins:{legend:{position:'right',labels:{boxWidth:10,font:{size:11}}}},responsive:true,maintainAspectRatio:false,cutout:'55%'};
     rsCharts.oabon=new Chart(el('rs-c-oabon'),{type:'doughnut',data:{labels:labs,datasets:[{data:rows.map(r=>r.abon),backgroundColor:cols,borderWidth:0}]},options:doughOpt});
     rsCharts.ovues=new Chart(el('rs-c-ovues'),{type:'doughnut',data:{labels:labs,datasets:[{data:rows.map(r=>r.vuesCum),backgroundColor:cols,borderWidth:0}]},options:doughOpt});
-    rsCharts.orev=new Chart(el('rs-c-orev'),{type:'bar',data:{labels:labs,datasets:[{data:rows.map(r=>Math.round(r.revCum)),backgroundColor:cols}]},options:{plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{y:{beginAtZero:true,ticks:{callback:v=>v.toLocaleString('fr-FR')+' €'}}}}});
+    rsCharts.orev=new Chart(el('rs-c-orev'),{type:'bar',data:{labels:labs,datasets:[{data:rows.map(r=>Math.round(r.revCum)),backgroundColor:cols}]},options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:(c)=>c.parsed.y.toLocaleString('fr-FR')+' '+symOf(labs[c.dataIndex])}}},responsive:true,maintainAspectRatio:false,scales:{y:{beginAtZero:true,ticks:{callback:v=>v.toLocaleString('fr-FR')}}}}});
     rsCharts.oeng=new Chart(el('rs-c-oeng'),{type:'bar',data:{labels:labs,datasets:[{data:rows.map(r=>r.engCum),backgroundColor:cols}]},options:{plugins:{legend:{display:false}},responsive:true,maintainAspectRatio:false,scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});
   }
 
@@ -2599,10 +2603,12 @@ if(AUTH && AUTH.token){
     if(!MO.includes(rsMonth) && rsMonth!=='Global') rsMonth='Global';
     if(rsNet!=='Tous' && !NETS.includes(rsNet)) rsNet='Tous';
     const scope = rsNet==='Tous'? NETS : [rsNet];
+    const single = rsNet!=='Tous';
     const isGlobal = rsMonth==='Global';
     // Somme sur le périmètre (réseau) pour un mois donné.
-    const mSum=(mk,field)=> scope.reduce((s,net)=>{ const r=at(net,mk); if(!r) return s; return s+(field==='revenus'?revEur(net,r.revenus):(r[field]||0)); },0);
-    const has=(mk)=> scope.some(net=>at(net,mk));
+    const mSum=(mk,field)=> scope.reduce((s,net)=>{ const r=at(net,mk); return s+((r&&r[field]!=null)?r[field]:0); },0);
+    // Revenus : jamais convertis. On sépare € (tous sauf Snap) et $ (Snap).
+    const mRevSplit=(mk)=>{ let eur=0,usd=0; scope.forEach(net=>{ const r=at(net,mk); if(!r||r.revenus==null) return; if(isUsd(net)) usd+=r.revenus; else eur+=r.revenus; }); return {eur,usd}; };
 
     // Filtres réseau + mois.
     let html='<div class="promo-filter" id="rs-netfilter">'
@@ -2621,7 +2627,7 @@ if(AUTH && AUTH.token){
       const cum=(f)=> MO.reduce((s,mk)=>s+mSum(mk,f),0);
       html+=kpi('Abonnés ('+scopeLabel+')', fmtN(mSum(last,'abonnes')), 'à fin '+mLabel(last,true), prev?delta(mSum(last,'abonnes'),mSum(prev,'abonnes'),{prevLabel:pl}):'')
         +kpi('Vues (cumul)', fmtN(cum('vues')), 'sur '+MO.length+' mois', '', 'green')
-        +kpi('Revenus € (cumul)', fmtE(cum('revenus')), 'Snap converti $→€', '', 'yellow')
+        +(function(){ let e=0,u=0; MO.forEach(mk=>{const s=mRevSplit(mk); e+=s.eur; u+=s.usd;}); return kpi('Revenus (cumul)', moneySplit(e,u), 'sans conversion', '', 'yellow'); })()
         +kpi('Engagement (cumul)', fmtN(cum('interactions')), 'interactions')
         +kpi('Publications (cumul)', fmtN(cum('publications')), 'contenus publiés')
         +kpi('Vues / mois (moy.)', fmtN(Math.round(cum('vues')/MO.length)), 'moyenne période');
@@ -2629,7 +2635,7 @@ if(AUTH && AUTH.token){
       const idx=MO.indexOf(rsMonth), prev=idx>0?MO[idx-1]:null, pl=prev?mLabel(prev):'';
       html+=kpi('Abonnés ('+scopeLabel+')', fmtN(mSum(rsMonth,'abonnes')), 'à fin '+mLabel(rsMonth,true), prev?delta(mSum(rsMonth,'abonnes'),mSum(prev,'abonnes'),{prevLabel:pl}):'')
         +kpi('Vues', fmtN(mSum(rsMonth,'vues')), mLabel(rsMonth,true), prev?delta(mSum(rsMonth,'vues'),mSum(prev,'vues'),{prevLabel:pl}):'', 'green')
-        +kpi('Revenus €', fmtE(mSum(rsMonth,'revenus')), mLabel(rsMonth,true), prev?delta(mSum(rsMonth,'revenus'),mSum(prev,'revenus'),{prevLabel:pl,eur:true}):'', 'yellow')
+        +(function(){ const s=mRevSplit(rsMonth); if(single){ const sym=symOf(rsNet), cur=s.eur+s.usd, pv=prev?(function(){const p=mRevSplit(prev);return p.eur+p.usd;})():null; return kpi('Revenus', fmtMoney(cur,sym), mLabel(rsMonth,true), prev?delta(cur,pv,{prevLabel:pl,eur:(sym==='€')}):'', 'yellow'); } return kpi('Revenus', moneySplit(s.eur,s.usd), mLabel(rsMonth,true)+' · sans conversion', '', 'yellow'); })()
         +kpi('Engagement', fmtN(mSum(rsMonth,'interactions')), 'interactions', prev?delta(mSum(rsMonth,'interactions'),mSum(prev,'interactions'),{prevLabel:pl}):'')
         +kpi('Publications', fmtN(mSum(rsMonth,'publications')), 'ce mois-ci')
         +kpi('Portée', fmtN(mSum(rsMonth,'portee')), 'comptes touchés / uniques');
@@ -2637,9 +2643,8 @@ if(AUTH && AUTH.token){
     html+='</div>';
 
     // Graphes d'évolution (toujours toute la période).
-    const single = rsNet!=='Tous';
     html+='<div class="grid row2" style="margin-top:16px">'+card('Évolution des abonnés','rs-c-abon',scopeLabel)+card('Vues par mois','rs-c-vues',scopeLabel)+'</div>';
-    html+='<div class="grid row2" style="margin-top:16px">'+card('Revenus € par mois','rs-c-rev',scopeLabel)+card('Engagement par mois','rs-c-eng',scopeLabel)+'</div>';
+    html+='<div class="grid row2" style="margin-top:16px">'+card('Revenus par mois','rs-c-rev',single?symOf(rsNet):'€ / $ (Snap)')+card('Engagement par mois','rs-c-eng',scopeLabel)+'</div>';
 
     // Tableau détaillé.
     html+='<div class="card" style="margin-top:16px"><h3><span class="dot"></span>Détail mensuel <span style="color:var(--muted);font-weight:400">· clique une ligne pour éditer</span></h3>'
@@ -2660,12 +2665,12 @@ if(AUTH && AUTH.token){
     el('rs-body').innerHTML=html;
 
     const labels=MO.map(m=>mLabel(m));
-    const seriesBar=(field)=> scope.map(net=>({label:net,data:MO.map(mk=>{const r=at(net,mk);return r?(field==='revenus'?Math.round(revEur(net,r.revenus)):r[field]):null;}),backgroundColor:RS_COL[net]}));
+    const seriesBar=(field)=> scope.map(net=>({label:net,data:MO.map(mk=>{const r=at(net,mk);if(!r)return null;return field==='revenus'?(r.revenus==null?null:Math.round(r.revenus)):r[field];}),backgroundColor:RS_COL[net]}));
     const stackOpt=(eur)=>({plugins:{legend:{display:!single,position:'bottom',labels:{boxWidth:10,font:{size:11}}}},responsive:true,maintainAspectRatio:false,scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true,ticks:eur?{callback:v=>v.toLocaleString('fr-FR')+' €'}:{precision:0}}}});
     // Abonnés : lignes (stock), une par réseau.
     rsCharts.abon=new Chart(el('rs-c-abon'),{type:'line',data:{labels,datasets:scope.map(net=>({label:net,data:MO.map(mk=>{const r=at(net,mk);return r?r.abonnes:null;}),borderColor:RS_COL[net],backgroundColor:RS_COL[net],tension:.3,pointRadius:3,fill:false}))},options:{plugins:{legend:{display:!single,position:'bottom',labels:{boxWidth:10,font:{size:11}}}},responsive:true,maintainAspectRatio:false,scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});
     rsCharts.vues=new Chart(el('rs-c-vues'),{type:'bar',data:{labels,datasets:seriesBar('vues')},options:stackOpt(false)});
-    rsCharts.rev=new Chart(el('rs-c-rev'),{type:'bar',data:{labels,datasets:seriesBar('revenus')},options:stackOpt(true)});
+    rsCharts.rev=new Chart(el('rs-c-rev'),{type:'bar',data:{labels,datasets:seriesBar('revenus')},options:stackOpt(false)});
     rsCharts.eng=new Chart(el('rs-c-eng'),{type:'bar',data:{labels,datasets:seriesBar('interactions')},options:stackOpt(false)});
 
     [...document.querySelectorAll('#rs-netfilter .promo-btn')].forEach(b=>b.onclick=()=>{ rsNet=b.dataset.net; render(); });
