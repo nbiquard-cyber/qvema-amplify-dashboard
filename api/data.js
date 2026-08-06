@@ -196,6 +196,22 @@ module.exports = async (req, res) => {
     return res.end(JSON.stringify({ error: "forbidden" }));
   }
 
+  // Sous-route "progression" (répartition par module via tags Circle) hébergée sur
+  // /api/data pour ne pas ajouter une fonction serverless (limite Hobby atteinte).
+  const only = (req.query && req.query.only) || require("url").parse(req.url, true).query.only;
+  if (only === "progression") {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const prog = await require("./_circle.js").progression();
+      res.statusCode = 200;
+      return res.end(JSON.stringify(prog));
+    } catch (e) {
+      res.statusCode = 502;
+      return res.end(JSON.stringify({ ok: false, error: String((e && e.message) || e) }));
+    }
+  }
+
   try {
     // Cache chaud : réponse quasi instantanée si les données ont < 60 s.
     if (_cache.data && Date.now() - _cache.at < _CACHE_TTL) {
