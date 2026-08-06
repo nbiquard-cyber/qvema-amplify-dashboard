@@ -76,15 +76,24 @@ async function progression() {
   return data;
 }
 
-// Diagnostic : renvoie la réponse brute de Circle (structure/clés) pour caler le parsing.
+// Diagnostic : teste plusieurs bases/en-têtes Circle pour trouver la bonne combinaison.
 async function debugRaw() {
-  const r = await fetch(BASE + "/community_members?per_page=2&page=1", {
-    headers: { Authorization: "Token " + TOKEN },
-  });
-  const text = await r.text();
-  let keys = null;
-  try { keys = Object.keys(JSON.parse(text)); } catch (e) { keys = "non-JSON"; }
-  return { status: r.status, ok: r.ok, tokenPresent: !!TOKEN, keys, sample: text.slice(0, 700) };
+  const combos = [
+    { label: "v1+Token", url: "https://app.circle.so/api/v1/community_members?per_page=1", h: { Authorization: "Token " + TOKEN } },
+    { label: "v1+Bearer", url: "https://app.circle.so/api/v1/community_members?per_page=1", h: { Authorization: "Bearer " + TOKEN } },
+    { label: "adminv2+Bearer", url: "https://app.circle.so/api/admin/v2/community_members?per_page=1", h: { Authorization: "Bearer " + TOKEN } },
+    { label: "adminv2+Token", url: "https://app.circle.so/api/admin/v2/community_members?per_page=1", h: { Authorization: "Token " + TOKEN } },
+    { label: "headless+Bearer", url: "https://app.circle.so/api/headless/v1/community_members?per_page=1", h: { Authorization: "Bearer " + TOKEN } },
+  ];
+  const tries = [];
+  for (const c of combos) {
+    try {
+      const r = await fetch(c.url, { headers: c.h });
+      const t = await r.text();
+      tries.push({ combo: c.label, status: r.status, body: t.slice(0, 140) });
+    } catch (e) { tries.push({ combo: c.label, error: String((e && e.message) || e) }); }
+  }
+  return { tokenPresent: !!TOKEN, tokenLen: TOKEN.length, tries };
 }
 
 module.exports = { progression, debugRaw };
