@@ -43,7 +43,7 @@ async function progression() {
 
   for (const m of members) {
     const tags = m.member_tags || [];
-    let promoNum = null, maxMod = null;
+    let promoNum = null, maxMod = null, finisher = false;
     for (const t of tags) {
       const nm = (t.name || "").trim();
       let mm;
@@ -53,10 +53,13 @@ async function progression() {
       } else if ((mm = nm.match(MODULE_RE))) {
         const n = Number(mm[1]);
         if (maxMod == null || n > maxMod) maxMod = n;
-      }
+      } else if (/^finisher$/i.test(nm)) finisher = true;
     }
     if (promoNum == null) { horsPromo++; continue; } // pas un apprenant de promo (coach, alumni…)
-    const bucket = maxMod == null ? "none" : String(maxMod);
+    // Le tag "Module N" signifie "a TERMINÉ le module N-1". Donc module atteint = plus haut tag - 1.
+    // "Finisher" = a terminé tout le bootcamp (module 7). Aucun tag Module = non démarré.
+    const level = finisher ? 7 : (maxMod == null ? null : Math.max(0, maxMod - 1));
+    const bucket = level == null ? "none" : String(level);
     for (const k of ["PROMO " + promoNum, "Toutes"]) {
       const s = ensure(k);
       s.total++;

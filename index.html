@@ -980,19 +980,19 @@ function renderBcProgression(){
   const sc = PROGRESSION.scopes[currentPromo];
   if(!sc || !sc.total){ destroy('prog'); document.getElementById('bc-prog-note').textContent='Aucune donnée de progression pour ce périmètre.'; return; }
   const mods = PROGRESSION.modules || [0,1,2,3,4,5,6,7];
-  const labels = mods.map(m=>'Module '+m).concat('Non commencé');
+  const labels = mods.map(m=>'Module '+m).concat('Non démarré');
   const data = mods.map(m=>sc.byModule[String(m)]||0).concat(sc.byModule.none||0);
   destroy('prog');
   charts.prog = new Chart(el,{
     type:'bar',
-    data:{labels,datasets:[{data,backgroundColor:labels.map(l=>l==='Non commencé'?'#445067':'#a779ff'),borderRadius:5}]},
-    options:{plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>{const v=ctx.parsed.y; return NUM(v)+' · '+(sc.total?Math.round(v/sc.total*100):0)+'%';}}}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}
+    data:{labels,datasets:[{data,backgroundColor:labels.map(l=>l==='Non démarré'?'#445067':'#a779ff'),borderRadius:5}]},
+    options:{plugins:{legend:{display:false},tooltip:{callbacks:{title:(items)=>items[0].label,label:(ctx)=>{const v=ctx.parsed.y; return NUM(v)+' apprenant(s) · '+(sc.total?Math.round(v/sc.total*100):0)+'%';}}}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}
   });
   const parts = mods.filter(m=>sc.byModule[String(m)]).map(m=>'M'+m+' : '+sc.byModule[String(m)]+' ('+Math.round(sc.byModule[String(m)]/sc.total*100)+'%)');
   const none = sc.byModule.none||0;
-  document.getElementById('bc-prog-note').innerHTML = `${NUM(sc.total)} apprenant(s) · `+(parts.join(' · ')||'aucun module taggé')
-    +(none?` · Non commencé : ${none} (${Math.round(none/sc.total*100)}%)`:'')
-    +` <span style="color:var(--muted)">· tags Circle (créés le 22/07 → Promo 1 partiellement taguée)</span>`;
+  document.getElementById('bc-prog-note').innerHTML = `${NUM(sc.total)} apprenant(s) · `+(parts.join(' · ')||'aucun module terminé')
+    +(none?` · Non démarré : ${none} (${Math.round(none/sc.total*100)}%)`:'')
+    +` <span style="color:var(--muted)">· « Module N » = a terminé le module N (tag Circle = module suivant). Tags créés le 22/07 → Promo 1 partiellement taguée.</span>`;
 }
 
 /* ====== AMPLIFY ====== */
