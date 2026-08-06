@@ -361,7 +361,7 @@
         <div class="sb-h">Bootcamp</div>
         <a class="sb-item" data-nav="pilotage"><span class="sb-ic">📊</span> Pilotage</a>
         <a class="sb-item" data-nav="acquisition"><span class="sb-ic">🎯</span> Acquisition</a>
-        <a class="sb-item" data-nav="demo"><span class="sb-ic">👥</span> Démographie</a>
+        <a class="sb-item" data-nav="demo"><span class="sb-ic">👥</span> Stats apprenants</a>
         <a class="sb-item" data-nav="feedback"><span class="sb-ic">💬</span> Feedbacks</a>
       </div>
       <div class="sb-group" id="sbg-amplify">
@@ -700,7 +700,7 @@ let fbLoaded = false;
 let crmLoaded = false;
 let AUTH = null;
 let currentPage = 'pilotage';
-const PAGE_LABELS = { pilotage:'Pilotage', demo:'Démographie', feedback:'Feedbacks', amplify:'Amplify Connect', seo:'Site & SEO', 'rs-overview':'Réseaux — Vue d\'ensemble', 'rs-monthly':'Réseaux — Évolution', crm:'CRM', board:'Board mensuel' };
+const PAGE_LABELS = { pilotage:'Pilotage', demo:'Stats apprenants', feedback:'Feedbacks', amplify:'Amplify Connect', seo:'Site & SEO', 'rs-overview':'Réseaux — Vue d\'ensemble', 'rs-monthly':'Réseaux — Évolution', crm:'CRM', board:'Board mensuel' };
 
 function loadAuth(){ try{ AUTH = JSON.parse(sessionStorage.getItem('qvema_auth')||'null'); }catch(e){ AUTH=null; } return AUTH; }
 function getToken(){ return (AUTH && AUTH.token) || ''; }
@@ -1111,7 +1111,7 @@ function showBcSub(sub){
   document.getElementById('bc-sub-pilotage').classList.toggle('hidden',sub!=='pilotage');
   document.getElementById('bc-sub-demo').classList.toggle('hidden',sub!=='demo');
   document.getElementById('bc-sub-feedback').classList.toggle('hidden',sub!=='feedback');
-  // Le filtre promo ne concerne que Pilotage & Démographie.
+  // Le filtre promo ne concerne que Pilotage & Stats apprenants.
   document.getElementById('bc-filter').classList.toggle('hidden',sub==='feedback');
   if(sub==='feedback' && !fbLoaded){ fbLoaded = true; window.FB.load(); }
 }
@@ -1243,7 +1243,7 @@ if(AUTH && AUTH.token){
   const escH=(s)=>{const d=document.createElement('div');d.textContent=(s==null?'':s);return d.innerHTML;};
   const NAVS=[
     {key:'pilotage',label:'Pilotage',ic:'📊',perm:'bootcamp'},
-    {key:'demo',label:'Démographie',ic:'👥',perm:'bootcamp'},
+    {key:'demo',label:'Stats apprenants',ic:'👥',perm:'bootcamp'},
     {key:'feedback',label:'Feedbacks',ic:'💬',perm:'feedback'},
     {key:'amplify',label:'Amplify Connect',ic:'🔗',perm:'amplify'},
     {key:'seo',label:'Site & SEO',ic:'🔍',perm:'seo'},
