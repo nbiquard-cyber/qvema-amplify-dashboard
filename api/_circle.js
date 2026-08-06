@@ -5,7 +5,7 @@
 // haut tag "Module". On agrège, par promo (et en global "Toutes"), la répartition.
 // Variable d'env : CIRCLE_API_TOKEN (token Admin API Circle, accès lecture membres).
 const TOKEN = process.env.CIRCLE_API_TOKEN || "";
-const BASE = "https://app.circle.so/api/v1";
+const BASE = "https://app.circle.so/api/admin/v2";
 const PROMO_RE = /^promo\s*(\d+)$/i;
 const MODULE_RE = /^module\s*(\d+)$/i;
 
@@ -16,7 +16,7 @@ async function fetchAllMembers() {
   let members = [], page = 1;
   for (;;) {
     const r = await fetch(BASE + "/community_members?per_page=100&page=" + page, {
-      headers: { Authorization: "Token " + TOKEN },
+      headers: { Authorization: "Bearer " + TOKEN },
     });
     if (!r.ok) {
       const t = await r.text().catch(() => "");
