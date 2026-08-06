@@ -23,12 +23,19 @@
     },
     "api/seo-cron.js": {
       "maxDuration": 60
+    },
+    "api/rs.js": {
+      "maxDuration": 60
     }
   },
   "crons": [
     {
       "path": "/api/seo-cron",
       "schedule": "0 6 4 * *"
+    },
+    {
+      "path": "/api/rs",
+      "schedule": "0 5 * * *"
     }
   ]
 }

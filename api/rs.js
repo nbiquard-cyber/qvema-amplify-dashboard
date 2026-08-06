@@ -7,12 +7,19 @@
 //     fonctions serverless du plan Vercel.)
 const auth = require("./_auth.js");
 const crypto = require("crypto");
+const graph = require("./_msgraph.js");
 
 const READ_TOKEN = process.env.AIRTABLE_TOKEN || "";
 const WRITE_TOKEN = process.env.AIRTABLE_WRITE_TOKEN || process.env.AIRTABLE_TOKEN || "";
 const BASE = process.env.AIRTABLE_BASE || "appUjhN2jh25MBAAl";
 const TABLE = "tblUk7VMqvGagLmPu"; // RS Mensuel
 const IMPORT_SECRET = process.env.RS_IMPORT_SECRET || "";
+const CRON_SECRET = process.env.CRON_SECRET || "";
+// Emplacement de l'Excel Teams (SharePoint) — valeurs par défaut = fichier RS QVEMA.
+const RS_DRIVE_ID = process.env.RS_DRIVE_ID || "b!9sg7UHd1e0Kb0xEO_0B9dVMscmM9-DdEq0rnHj272WouVxyHBddLRYdqIh7ec4Lf";
+const RS_ITEM_ID = process.env.RS_ITEM_ID || "01AQAWV27HY43GNMCTLFA2HE6LKDVZFQDN";
+const RS_SHEET = process.env.RS_SHEET || "BILANS MENSUELS";
+const RS_RANGE = process.env.RS_RANGE || "A1:AH70";
 
 // Réseaux gérés + devise de leurs revenus (Snapchat facture en $, les autres en €).
 const RESEAUX = ["Facebook", "Instagram", "Snapchat", "TikTok", "YouTube", "LinkedIn"];
@@ -165,16 +172,9 @@ async function batchWrite(method, records) {
     if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error((j.error && j.error.message) || ("airtable_write_" + r.status)); }
   }
 }
-async function handleImport(req, res) {
-  if (!WRITE_TOKEN) { res.statusCode = 500; return res.end(JSON.stringify({ ok: false, error: "missing_token" })); }
-  const body = await readBody(req);
-  const rows = Array.isArray(body) ? body : (body.values || body.rows || null);
-  if (!Array.isArray(rows) || !Array.isArray(rows[0])) {
-    res.statusCode = 400;
-    return res.end(JSON.stringify({ ok: false, error: "Corps invalide : attendu { values: [[...]] } (tableau 2D de la feuille BILANS MENSUELS)." }));
-  }
-  const items = buildImportRecords(rows);
-  if (!items.length) { res.statusCode = 200; return res.end(JSON.stringify({ ok: true, imported: 0, note: "Aucune donnée exploitable." })); }
+// Applique une liste d'items {mk, reseau, rec} dans Airtable (upsert par Clé, en lots de 10).
+async function applyItems(items) {
+  if (!items.length) return { imported: 0, created: 0, updated: 0 };
   const existing = await fetchAll();
   const byCle = {};
   existing.forEach((r) => { const k = (r.fields || {})[F.cle]; if (k) byCle[k] = r.id; });
@@ -187,21 +187,57 @@ async function handleImport(req, res) {
   }
   if (toUpdate.length) await batchWrite("PATCH", toUpdate);
   if (toCreate.length) await batchWrite("POST", toCreate);
+  return { imported: items.length, created: toCreate.length, updated: toUpdate.length };
+}
+
+// Voie 1 : import « push » — Power Automate envoie le tableau 2D de la feuille.
+async function handleImport(req, res) {
+  if (!WRITE_TOKEN) { res.statusCode = 500; return res.end(JSON.stringify({ ok: false, error: "missing_token" })); }
+  const body = await readBody(req);
+  const rows = Array.isArray(body) ? body : (body.values || body.rows || null);
+  if (!Array.isArray(rows) || !Array.isArray(rows[0])) {
+    res.statusCode = 400;
+    return res.end(JSON.stringify({ ok: false, error: "Corps invalide : attendu { values: [[...]] } (tableau 2D de la feuille BILANS MENSUELS)." }));
+  }
+  const out = await applyItems(buildImportRecords(rows));
   res.statusCode = 200;
-  return res.end(JSON.stringify({ ok: true, imported: items.length, created: toCreate.length, updated: toUpdate.length }));
+  return res.end(JSON.stringify({ ok: true, source: "push", ...out }));
+}
+
+// Voie 2 : import « pull » — le dashboard lit l'Excel Teams via Microsoft Graph (cron quotidien).
+async function graphSync(res) {
+  if (!WRITE_TOKEN) { res.statusCode = 500; return res.end(JSON.stringify({ ok: false, error: "missing_token" })); }
+  const rows = await graph.readRange(RS_DRIVE_ID, RS_ITEM_ID, RS_SHEET, RS_RANGE);
+  if (!Array.isArray(rows) || !Array.isArray(rows[0])) {
+    res.statusCode = 502;
+    return res.end(JSON.stringify({ ok: false, error: "Réponse Graph inattendue (pas de tableau 2D)." }));
+  }
+  const out = await applyItems(buildImportRecords(rows));
+  res.statusCode = 200;
+  return res.end(JSON.stringify({ ok: true, source: "graph", ...out }));
 }
 
 module.exports = async (req, res) => {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");
 
-  // Voie d'import automatique (Power Automate) : POST + header secret, sans auth cockpit.
-  if (req.method === "POST") {
-    const given = req.headers["x-rs-secret"] || (req.query && req.query.secret) || "";
-    if (IMPORT_SECRET && given && safeEq(given, IMPORT_SECRET)) {
-      try { return await handleImport(req, res); }
-      catch (e) { res.statusCode = 500; return res.end(JSON.stringify({ ok: false, error: String((e && e.message) || e) })); }
-    }
+  const rsSecret = req.headers["x-rs-secret"] || (req.query && req.query.secret) || "";
+  const authz = req.headers["authorization"] || "";
+  const isCron = CRON_SECRET && authz === "Bearer " + CRON_SECRET;
+  const hasImportSecret = IMPORT_SECRET && rsSecret && safeEq(rsSecret, IMPORT_SECRET);
+  const wantGraph = req.query && (req.query.source === "graph" || req.query.sync === "graph");
+
+  // Synchro « pull » via Microsoft Graph : déclenchée par le cron Vercel, ou manuellement
+  // avec le secret d'import + ?source=graph. Sans auth cockpit.
+  if (isCron || (hasImportSecret && wantGraph)) {
+    try { return await graphSync(res); }
+    catch (e) { res.statusCode = 500; return res.end(JSON.stringify({ ok: false, error: String((e && e.message) || e) })); }
+  }
+
+  // Import « push » (Power Automate) : POST + header secret, sans auth cockpit.
+  if (req.method === "POST" && hasImportSecret) {
+    try { return await handleImport(req, res); }
+    catch (e) { res.statusCode = 500; return res.end(JSON.stringify({ ok: false, error: String((e && e.message) || e) })); }
   }
 
   const user = auth.authFromRequest(req);
