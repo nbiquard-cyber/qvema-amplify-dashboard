@@ -76,4 +76,15 @@ async function progression() {
   return data;
 }
 
-module.exports = { progression };
+// Diagnostic : renvoie la réponse brute de Circle (structure/clés) pour caler le parsing.
+async function debugRaw() {
+  const r = await fetch(BASE + "/community_members?per_page=2&page=1", {
+    headers: { Authorization: "Token " + TOKEN },
+  });
+  const text = await r.text();
+  let keys = null;
+  try { keys = Object.keys(JSON.parse(text)); } catch (e) { keys = "non-JSON"; }
+  return { status: r.status, ok: r.ok, tokenPresent: !!TOKEN, keys, sample: text.slice(0, 700) };
+}
+
+module.exports = { progression, debugRaw };
