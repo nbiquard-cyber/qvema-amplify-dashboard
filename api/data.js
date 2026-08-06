@@ -203,9 +203,7 @@ module.exports = async (req, res) => {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.setHeader("Cache-Control", "no-store");
     try {
-      const circle = require("./_circle.js");
-      const debug = (req.query && req.query.debug) || require("url").parse(req.url, true).query.debug;
-      const prog = debug ? await circle.debugRaw() : await circle.progression();
+      const prog = await require("./_circle.js").progression();
       res.statusCode = 200;
       return res.end(JSON.stringify(prog));
     } catch (e) {
