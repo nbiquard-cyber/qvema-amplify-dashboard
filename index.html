@@ -365,8 +365,10 @@
         <a class="sb-item" data-nav="feedback"><span class="sb-ic">💬</span> Feedbacks</a>
       </div>
       <div class="sb-group" id="sbg-amplify">
-        <div class="sb-h">Communauté</div>
-        <a class="sb-item" data-nav="amplify"><span class="sb-ic">🔗</span> Amplify Connect</a>
+        <div class="sb-h">Amplify Connect</div>
+        <a class="sb-item" data-nav="amplify"><span class="sb-ic">📊</span> Data</a>
+        <a class="sb-item" data-nav="amplify-crm"><span class="sb-ic">🗂️</span> CRM Amplify Connect</a>
+        <a class="sb-item" data-nav="amplify-retro"><span class="sb-ic">🗓️</span> Rétroplanning</a>
       </div>
       <div class="sb-group" id="sbg-seo">
         <div class="sb-h">Site &amp; SEO</div>
@@ -605,6 +607,14 @@
     <div id="rs-body"><div class="fb-loading"><div class="spin"></div>Lecture des données réseaux sociaux…</div></div>
   </section>
 
+  <!-- RÉTROPLANNING PLAN DE COM (Amplify Connect) -->
+  <section id="view-retro" class="hidden">
+    <div style="margin-bottom:14px">
+      <div style="color:var(--muted);font-size:13px">Rétroplanning du plan de communication — Amplify Connect · deux entreprises mises en avant par semaine.</div>
+    </div>
+    <div id="retro-body"></div>
+  </section>
+
   <!-- CRM (façon Twenty) -->
   <section id="view-crm" class="hidden crmwrap">
     <div class="crm-toolbar">
@@ -700,7 +710,7 @@ let fbLoaded = false;
 let crmLoaded = false;
 let AUTH = null;
 let currentPage = 'pilotage';
-const PAGE_LABELS = { pilotage:'Pilotage', demo:'Stats apprenants', feedback:'Feedbacks', amplify:'Amplify Connect', seo:'Site & SEO', 'rs-overview':'Réseaux — Vue d\'ensemble', 'rs-monthly':'Réseaux — Évolution', crm:'CRM', board:'Board mensuel' };
+const PAGE_LABELS = { pilotage:'Pilotage', demo:'Stats apprenants', feedback:'Feedbacks', amplify:'Amplify Connect — Data', 'amplify-crm':'Amplify Connect — CRM', 'amplify-retro':'Amplify Connect — Rétroplanning', seo:'Site & SEO', 'rs-overview':'Réseaux — Vue d\'ensemble', 'rs-monthly':'Réseaux — Évolution', crm:'CRM', board:'Board mensuel' };
 
 function loadAuth(){ try{ AUTH = JSON.parse(sessionStorage.getItem('qvema_auth')||'null'); }catch(e){ AUTH=null; } return AUTH; }
 function getToken(){ return (AUTH && AUTH.token) || ''; }
@@ -1101,6 +1111,7 @@ function showTab(t){
   var _va=document.getElementById('view-acquisition'); if(_va) _va.classList.toggle('hidden',t!=='acquisition');
   var _vs=document.getElementById('view-seo'); if(_vs) _vs.classList.toggle('hidden',t!=='seo');
   var _vr=document.getElementById('view-rs'); if(_vr) _vr.classList.toggle('hidden',t!=='rs');
+  var _vt=document.getElementById('view-retro'); if(_vt) _vt.classList.toggle('hidden',t!=='retro');
   if(t==='seo' && window.SEO){ window.SEO.load(); }
   if(t==='crm' && !crmLoaded){ crmLoaded=true; window.CRM.load(); }
   if(t==='board'){ const f=document.getElementById('board-frame'); if(f && !f.getAttribute('src')) f.setAttribute('src','/board.html?embed=1&theme='+(document.documentElement.getAttribute('data-theme')||'dark')); }
@@ -1158,6 +1169,8 @@ const NAV = {
   feedback: ()=>{ showTab('bootcamp'); showBcSub('feedback'); },
   acquisition: ()=>{ showTab('acquisition'); if(window.ACQ) window.ACQ.load(); },
   amplify:  ()=>{ showTab('amplify'); },
+  'amplify-crm': ()=>{ showTab('crm'); Promise.resolve(window.CRM&&window.CRM.ensure&&window.CRM.ensure()).then(()=>{ if(window.CRM&&window.CRM.setObj) window.CRM.setObj('amplify'); }); },
+  'amplify-retro': ()=>{ showTab('retro'); if(window.RETRO) window.RETRO.render(); },
   seo:      ()=>{ showTab('seo'); },
   'rs-overview': ()=>{ showTab('rs'); if(window.RS) window.RS.show('overview'); },
   'rs-monthly':  ()=>{ showTab('rs'); if(window.RS) window.RS.show('monthly'); },
@@ -1184,6 +1197,8 @@ function applyPerms(){
   show('.sb-item[data-nav="acquisition"]', canBoot);
   show('.sb-item[data-nav="feedback"]', canFeed);
   show('.sb-item[data-nav="amplify"]', canAmp);
+  show('.sb-item[data-nav="amplify-crm"]', canAmp);
+  show('.sb-item[data-nav="amplify-retro"]', canAmp);
   const canSeo=hasPerm('seo');
   show('.sb-item[data-nav="seo"]', canSeo);
   const canRs=hasPerm('rs');
@@ -1245,7 +1260,9 @@ if(AUTH && AUTH.token){
     {key:'pilotage',label:'Pilotage',ic:'📊',perm:'bootcamp'},
     {key:'demo',label:'Stats apprenants',ic:'👥',perm:'bootcamp'},
     {key:'feedback',label:'Feedbacks',ic:'💬',perm:'feedback'},
-    {key:'amplify',label:'Amplify Connect',ic:'🔗',perm:'amplify'},
+    {key:'amplify',label:'Amplify Connect — Data',ic:'📊',perm:'amplify'},
+    {key:'amplify-crm',label:'CRM Amplify Connect',ic:'🗂️',perm:'amplify'},
+    {key:'amplify-retro',label:'Rétroplanning Amplify',ic:'🗓️',perm:'amplify'},
     {key:'seo',label:'Site & SEO',ic:'🔍',perm:'seo'},
     {key:'crm',label:'CRM',ic:'🗂️',perm:'crm'},
   ];
@@ -2089,6 +2106,7 @@ if(AUTH && AUTH.token){
       DATAC.amplify.map(r=>({obj:'amplify',id:r.id,name:r.nom||r.email,sub:r.email,ic:'🔗'}))
     ),
     open: (o,id)=>{ obj=o; selection.clear(); syncButtons(); renderAll(); openDetail(id); },
+    setObj: (o)=>{ obj=o; selection.clear(); syncButtons(); renderAll(); },
   };
 })();
 </script>
@@ -2766,6 +2784,66 @@ if(AUTH && AUTH.token){
   }
 
   window.RS={load, show};
+})();
+</script>
+
+<script>
+// ===== Rétroplanning plan de com — Amplify Connect (statique, hors semaines de pause) =====
+(function(){
+  const el=(id)=>document.getElementById(id);
+  const escH=(s)=>{const d=document.createElement('div');d.textContent=(s==null?'':s);return d.innerHTML;};
+  const RETRO=[
+    ["31/08","SuperJetCar (imposé)","Odivale"],
+    ["07/09","Hekatech (sept.)","Les Petits Prodiges (sept.)"],
+    ["14/09","Evena (sept.)","Bonbecshow (sept.)"],
+    ["21/09","Kivala Système (imposé)","Sister Feel (27/09)"],
+    ["28/09","Palomano (imposé)","Araw (sept.)"],
+    ["05/10","Poudrée Paris","Black-Line"],
+    ["12/10","Agrikolis","Cosmos"],
+    ["19/10","Piano LED","Beezen"],
+    ["26/10","Féroce","Capillum (oct-déc)"],
+    ["02/11","Pimpant","Ma Petite Laine (oct-déc)"],
+    ["09/11","Ethylowheel","Ekkopol"],
+    ["16/11","Abies Lagrimus (imposé)","Tchao Tchao"],
+    ["23/11","SuperBeer","BlinkBook"],
+    ["30/11","Douin","Ops Eco Innovation"],
+    ["07/12","My Cocoon (Stooly) (oct-déc)","Hocoia"],
+    ["14/12","Boarding Ring (oct-déc)","Disgo (SUPE)"],
+    ["04/01","Block'Fire (reprise)","Dentoa"],
+    ["11/01","La Marinette","Pomad Paris"],
+    ["18/01","Kerluna","—"]
+  ];
+  function weekDate(dm){ const p=dm.split('/').map(Number); const y=p[1]>=8?2026:2027; return new Date(y,p[1]-1,p[0]); }
+  function cell(txt){
+    if(!txt || txt==='—') return '<span style="color:var(--muted)">—</span>';
+    const m=txt.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+    if(!m) return '<b>'+escH(txt)+'</b>';
+    const name=m[1].trim(), tag=m[2].trim(), imposed=/impos/i.test(tag);
+    const col=imposed?'#C98B3A':'var(--muted)', bg=imposed?'rgba(201,139,58,.16)':'var(--panel2)';
+    return '<b>'+escH(name)+'</b> <span style="font-size:11px;font-weight:600;color:'+col+';background:'+bg+';padding:1px 8px;border-radius:999px;white-space:nowrap;margin-left:4px">'+escH(tag)+'</span>';
+  }
+  function render(){
+    const host=el('retro-body'); if(!host) return;
+    const now=new Date(); now.setHours(0,0,0,0);
+    let act=-1; for(let i=0;i<RETRO.length;i++){ if(weekDate(RETRO[i][0])<=now) act=i; }
+    const hi = act>=0 ? act : 0;
+    const tdS='padding:11px 13px;border-bottom:1px solid var(--line);vertical-align:top';
+    let rows='';
+    RETRO.forEach((r,i)=>{
+      const rowStyle = i===hi ? 'background:rgba(167,121,255,.12)' : (i<hi ? 'opacity:.5' : '');
+      const badge = i===hi ? ' <span style="font-size:10px;color:#a779ff;font-weight:700">'+(act>=0?'● en cours':'● à venir')+'</span>' : '';
+      rows+='<tr style="'+rowStyle+'"><td style="'+tdS+';white-space:nowrap;font-weight:700">'+escH(r[0])+badge+'</td>'
+        +'<td style="'+tdS+'">'+cell(r[1])+'</td><td style="'+tdS+'">'+cell(r[2])+'</td></tr>';
+    });
+    const thS='text-align:left;padding:10px 13px;border-bottom:1px solid var(--line);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--panel2)';
+    host.innerHTML='<div class="card"><h3><span class="dot"></span>Rétroplanning — plan de communication <span style="color:var(--muted);font-weight:400">· 2 entreprises / semaine</span></h3>'
+      +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:14px">'
+      +'<thead><tr><th style="'+thS+'">Semaine</th><th style="'+thS+'">Entreprise 1</th><th style="'+thS+'">Entreprise 2</th></tr></thead>'
+      +'<tbody>'+rows+'</tbody></table></div>'
+      +'<div class="note" style="margin-top:12px">'+RETRO.length+' semaines de publication. Les annotations (imposé, sept., oct-déc, reprise…) reprennent tes contraintes de calendrier. Semaines de pause non affichées.</div>'
+      +'</div>';
+  }
+  window.RETRO={ render };
 })();
 </script>
 </body>
