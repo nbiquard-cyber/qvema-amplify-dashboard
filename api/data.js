@@ -465,6 +465,14 @@ module.exports = async (req, res) => {
         if (em) { const ts = (c.created || 0) * 1000; if (ts > (lastFailedByEmail[em] || 0)) lastFailedByEmail[em] = ts; }
       }
     }
+    // Total net encaissé par email sur le bootcamp (mensualités + solde payé en une fois, ex.
+    // "Solde Bootcamp…"), hors produit Amplify (1000€) : sert à détecter les plans 4x SOLDÉS.
+    const bcNetByEmail = {};
+    for (const c of succeeded) {
+      if (bucket(c.amount) === "amplify") continue;
+      const em = chargeEmail(c);
+      if (em) bcNetByEmail[em] = (bcNetByEmail[em] || 0) + (c.amount - (c.amount_refunded || 0)) / 100;
+    }
 
     // ----- Impayés (recouvrement) : payeurs 4x en retard sur l'échéancier OU dont une
     // mensualité a échoué dans Stripe (tentative échouée après le dernier paiement réussi).
@@ -477,7 +485,9 @@ module.exports = async (req, res) => {
     for (const e in instByEmail) {
       const info = instByEmail[e];
       if (refundedSet.has(e) || info.refunded) continue; // remboursé => pas un impayé
-      if (info.count >= 4) continue; // plan 4x soldé
+      if (info.count >= 4) continue; // plan 4x soldé (4 mensualités)
+      // Solde payé en une fois : total net encaissé >= mensualité × 4 (tolérance 1€) => à jour.
+      if ((bcNetByEmail[e] || 0) >= (info.amount / 100) * 4 - 1) continue;
       const first = isFinite(info.first) ? info.first : info.last;
       // Mensualités DÉJÀ ÉCHUES à ce jour (1 à la souscription puis 1/mois), tolérance 7j.
       let echues = 0;
