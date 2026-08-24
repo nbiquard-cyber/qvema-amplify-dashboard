@@ -69,6 +69,36 @@ function bucket(amount) {
   return "other";
 }
 
+// --- Stockage partagé de l'agenda des lives (table "Agenda Lives", 1 enreg. Clé=store) ---
+const AGENDA_TABLE = "tblyw8J0NEPRXQARb";
+const AGENDA_WRITE_TOKEN = process.env.AIRTABLE_WRITE_TOKEN || CONFIG.airtableToken;
+function readBody(req) {
+  if (req.body && typeof req.body === "object") return Promise.resolve(req.body);
+  return new Promise((resolve) => {
+    let d = ""; req.on("data", (c) => (d += c));
+    req.on("end", () => { try { resolve(JSON.parse(d || "{}")); } catch (e) { resolve({}); } });
+    req.on("error", () => resolve({}));
+  });
+}
+async function agendaRecord() {
+  const url = "https://api.airtable.com/v0/" + CONFIG.airtableBase + "/" + AGENDA_TABLE +
+    "?maxRecords=1&filterByFormula=" + encodeURIComponent("{Clé}='store'");
+  const r = await fetch(url, { headers: { Authorization: "Bearer " + AGENDA_WRITE_TOKEN } });
+  if (!r.ok) throw new Error("agenda read " + r.status);
+  const j = await r.json();
+  return (j.records && j.records[0]) || null;
+}
+function agendaEvents(rec) { try { return rec ? (JSON.parse(rec.fields.Data || "{}") || {}) : {}; } catch (e) { return {}; } }
+async function agendaWrite(events, rec) {
+  const fields = { "Clé": "store", Data: JSON.stringify(events), Updated: new Date().toISOString() };
+  const base = "https://api.airtable.com/v0/" + CONFIG.airtableBase + "/" + AGENDA_TABLE;
+  const opt = rec
+    ? { url: base + "/" + rec.id, method: "PATCH", body: JSON.stringify({ fields }) }
+    : { url: base, method: "POST", body: JSON.stringify({ records: [{ fields }] }) };
+  const r = await fetch(opt.url, { method: opt.method, headers: { Authorization: "Bearer " + AGENDA_WRITE_TOKEN, "Content-Type": "application/json" }, body: opt.body });
+  if (!r.ok) throw new Error("agenda write " + r.status + ": " + (await r.text()).slice(0, 150));
+}
+
 // --- Démographie : département (code postal) -> région française ---
 // La feuille Clients n'a pas de champ Région : on le déduit du code postal.
 const REGION_BY_DEPT = (() => {
@@ -215,6 +245,33 @@ module.exports = async (req, res) => {
     } catch (e) {
       res.statusCode = 502;
       return res.end(JSON.stringify({ ok: false, error: String((e && e.message) || e) }));
+    }
+  }
+
+  // Agenda des lives — stockage PARTAGÉ (lecture/écriture). Accès : agenda, bootcamp ou amplify.
+  if (only === "agenda-events" || only === "agenda-save" || only === "agenda-delete" || only === "agenda-set-all") {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    if (!auth.has(user.perms, "agenda") && !auth.has(user.perms, "bootcamp") && !auth.has(user.perms, "amplify")) {
+      res.statusCode = 403; return res.end(JSON.stringify({ ok: false, error: "forbidden" }));
+    }
+    try {
+      const rec = await agendaRecord();
+      if (req.method !== "POST" && only === "agenda-events") {
+        res.statusCode = 200;
+        return res.end(JSON.stringify({ ok: true, events: agendaEvents(rec), seeded: !!rec }));
+      }
+      const body = await readBody(req);
+      let events = agendaEvents(rec);
+      if (only === "agenda-set-all") { events = (body.events && typeof body.events === "object") ? body.events : {}; }
+      else if (only === "agenda-save") { const ev = body.event; if (!ev || ev.id == null) throw new Error("event.id requis"); events[ev.id] = ev; }
+      else if (only === "agenda-delete") { if (body.id != null) delete events[body.id]; }
+      else { throw new Error("action agenda invalide"); }
+      await agendaWrite(events, rec);
+      res.statusCode = 200;
+      return res.end(JSON.stringify({ ok: true, count: Object.keys(events).length }));
+    } catch (e) {
+      res.statusCode = 502; return res.end(JSON.stringify({ ok: false, error: String((e && e.message) || e) }));
     }
   }
 

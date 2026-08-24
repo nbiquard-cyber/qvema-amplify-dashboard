@@ -121,10 +121,10 @@ footer{max-width:1180px;margin:0 auto;padding:0 24px 40px;font-size:11px;color:v
 <span><i class="dot d3"></i> Promo 3 — Pauline Lupion</span>
 </div>
 <div class="editbar">
-<span class="tip">Cliquez un live pour le modifier ou le supprimer, une case vide (ou « + Nouveau live ») pour en créer un. Vos changements restent dans ce navigateur : cliquez <b>« Télécharger la page à jour »</b> pour obtenir un fichier partageable qui les contient.</span>
+<span class="tip">Cliquez un live pour le modifier ou le supprimer, une case vide (ou « + Nouveau live ») pour en créer un. Les changements sont <b>enregistrés pour tous</b> ; créer un live génère aussi un <b>brouillon dans Circle</b>.</span>
 <button id="new">+ Nouveau live</button>
-<button id="dl">Télécharger la page à jour</button>
-<button id="rst">Réinitialiser</button>
+<button id="rst">↻ Rafraîchir</button>
+<button id="dl">Exporter (sauvegarde)</button>
 </div>
 </div></header>
 <main>
@@ -185,12 +185,17 @@ function loadStore(){try{return JSON.parse(localStorage.getItem(KEY))||{};}catch
 function saveStore(o){try{localStorage.setItem(KEY,JSON.stringify(o));return true;}catch(e){return false;}}
 
 var EV=JSON.parse(JSON.stringify(EV0));
-(function(){
- var s=loadStore();
- if(s.ov)Object.keys(s.ov).forEach(function(id){if(EV[id])for(var k in s.ov[id])EV[id][k]=s.ov[id][k];});
- if(s.created)Object.keys(s.created).forEach(function(id){EV[id]=s.created[id];});
- if(s.deleted)Object.keys(s.deleted).forEach(function(id){delete EV[id];});
-})();
+var CKTOKEN=(location.hash.match(/[#&]t=([^&]+)/)||[])[1];CKTOKEN=CKTOKEN?decodeURIComponent(CKTOKEN):'';
+function apiFetch(path,opts){opts=opts||{};opts.headers=opts.headers||{};if(CKTOKEN)opts.headers['Authorization']='Bearer '+CKTOKEN;return fetch(path,opts);}
+// Chargement PARTAGÉ : lit le store serveur ; si vide, l'initialise une fois avec les données de base.
+function loadFromServer(){
+ if(!CKTOKEN)return Promise.resolve();
+ return apiFetch('/api/data?only=agenda-events').then(function(r){return r.json();}).then(function(j){
+   if(j&&j.ok&&j.events&&Object.keys(j.events).length){EV=j.events;return;}
+   return apiFetch('/api/data?only=agenda-set-all',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({events:EV0})})
+     .then(function(){EV=JSON.parse(JSON.stringify(EV0));});
+ }).catch(function(){});
+}
 
 function labelOf(e){if(e.invite==='Team Amplify')return 'Live Amplify';if(GUEST_INFO[e.invite])return e.invite+' ('+GUEST_INFO[e.invite]+')';return e.invite||'(sans invité)';}
 function diffSrc(id){var a=EV[id],b=EV0[id];if(!b)return true;for(var i=0;i<FIELDS.length;i++){var f=FIELDS[i];if(String(a[f]==null?'':a[f])!==String(b[f]==null?'':b[f]))return true;}return false;}
@@ -311,30 +316,38 @@ function readInto(e){
  e.tel=V('f_tel').value.trim();e.lien=V('f_lien').value.trim();e.note=V('f_note').value.trim();
  e.datefr=e.date?datefrOf(e.date):'';
 }
-var CKTOKEN=(location.hash.match(/[#&]t=([^&]+)/)||[])[1];CKTOKEN=CKTOKEN?decodeURIComponent(CKTOKEN):'';
 function createCircleDraft(e){
- if(!CKTOKEN){toast('Enregistré. (Ouvre l\'agenda depuis le dashboard pour créer le brouillon Circle.)');return;}
- toast('Création du brouillon dans Circle…');
- fetch('/api/data?only=create-live-draft',{method:'POST',headers:{'Authorization':'Bearer '+CKTOKEN,'Content-Type':'application/json'},body:JSON.stringify({promo:e.promo,name:e.titre||labelOf(e),date:e.date,deb:e.deb,fin:e.fin,body:e.note})})
+ if(!CKTOKEN)return;
+ apiFetch('/api/data?only=create-live-draft',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({promo:e.promo,name:e.titre||labelOf(e),date:e.date,deb:e.deb,fin:e.fin,body:e.note})})
   .then(function(r){return r.json();})
-  .then(function(j){toast(j&&j.ok?('✓ Brouillon créé dans Circle — Lives Promo '+e.promo+'.'):('Enregistré localement. Échec Circle : '+((j&&j.error)||'?')));})
-  .catch(function(){toast('Enregistré localement. Circle injoignable.');});
+  .then(function(j){toast(j&&j.ok?'✓ Live enregistré (partagé) + brouillon créé dans Circle.':('Live enregistré. Brouillon Circle en échec : '+((j&&j.error)||'?')));})
+  .catch(function(){toast('Live enregistré. Circle injoignable pour le brouillon.');});
 }
 function save(){
  var e=creating?draft:EV[cur];
  readInto(e);
  if(!e.date||DATES.indexOf(e.date)<0){toast('Date hors du calendrier affiché (juin 2026 → janvier 2027).');return;}
  var wasCreating=creating;
- if(creating)EV[e.id]=e;
- var ok=persist();
+ if(wasCreating)EV[e.id]=e;
  render();closeM();
- if(wasCreating){createCircleDraft(e);}
- else{toast(ok?'Enregistré. Pour partager, cliquez « Télécharger la page à jour ».':'Enregistré pour cette session (stockage indisponible).');}
+ if(!CKTOKEN){toast('Ouvre l\'agenda depuis le dashboard pour enregistrer (partagé).');return;}
+ apiFetch('/api/data?only=agenda-save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event:e})})
+  .then(function(r){return r.json();})
+  .then(function(j){
+    if(!(j&&j.ok)){toast('Échec de l\'enregistrement partagé : '+((j&&j.error)||'?'));return;}
+    if(wasCreating){createCircleDraft(e);}else{toast('✓ Modifications enregistrées (visibles par tous).');}
+  })
+  .catch(function(){toast('Serveur injoignable : modification non enregistrée.');});
 }
 function del(){
  if(creating||cur==null)return;
  if(!pendingDel){pendingDel=true;V('mdelete').textContent='Confirmer la suppression';V('mdelete').classList.add('armed');return;}
- delete EV[cur];persist();render();closeM();toast('Live supprimé.');
+ var id=cur;delete EV[id];render();closeM();
+ if(!CKTOKEN){toast('Live supprimé (local).');return;}
+ apiFetch('/api/data?only=agenda-delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id})})
+  .then(function(r){return r.json();})
+  .then(function(j){toast(j&&j.ok?'✓ Live supprimé (pour tous).':'Échec de la suppression partagée.');})
+  .catch(function(){toast('Serveur injoignable : suppression non enregistrée.');});
 }
 V('msave').addEventListener('click',save);
 V('mdelete').addEventListener('click',del);
@@ -365,9 +378,12 @@ function downloadPage(){
 }
 document.getElementById('dl').addEventListener('click',downloadPage);
 document.getElementById('rst').addEventListener('click',function(){
- try{localStorage.removeItem(KEY);}catch(e){}
- EV=JSON.parse(JSON.stringify(EV0));render();toast('Modifications réinitialisées.');
+ loadFromServer().then(function(){render();toast('Agenda rechargé depuis le serveur.');});
 });
 
+// Rendu immédiat (données de base) puis chargement PARTAGÉ depuis le serveur.
 render();
+loadFromServer().then(function(){render();});
+// Au retour sur l'onglet, recharge pour voir les changements des autres (hors édition en cours).
+window.addEventListener('focus',function(){ if(ov&&!ov.classList.contains('on')) loadFromServer().then(render); });
 </script></body></html>
