@@ -432,9 +432,18 @@ module.exports = async (req, res) => {
       }
     }
 
-    // ----- Impayés (recouvrement) : payeurs 4x qui ont arrêté de payer avant les 4 mensualités.
-    // Critère : < 4 mensualités encaissées ET plus aucun paiement depuis > 40 jours (les
-    // remboursés sont exclus). Montant impayé = mensualités restantes x montant mensuel.
+    // Tentatives de mensualité 4x ÉCHOUÉES dans Stripe (par email, la plus récente).
+    const lastFailedByEmail = {};
+    for (const c of charges) {
+      if (c.status === "failed" && bucket(c.amount) === "b4x") {
+        const em = chargeEmail(c);
+        if (em) { const ts = (c.created || 0) * 1000; if (ts > (lastFailedByEmail[em] || 0)) lastFailedByEmail[em] = ts; }
+      }
+    }
+
+    // ----- Impayés (recouvrement) : payeurs 4x en retard sur l'échéancier OU dont une
+    // mensualité a échoué dans Stripe (tentative échouée après le dernier paiement réussi).
+    // Les remboursés sont exclus. Montant impayé = échéances non réglées x montant mensuel.
     const nameByEmail = {};
     for (const c of clients) { const e = lower(c.fields["Email"]); if (e) nameByEmail[e] = (norm(c.fields["Prénom"]) + " " + norm(c.fields["Nom"])).trim(); }
     const refundedSet = new Set(refunds.map((c) => lower(c.fields["Email"])).filter(Boolean));
@@ -448,13 +457,20 @@ module.exports = async (req, res) => {
       // Mensualités DÉJÀ ÉCHUES à ce jour (1 à la souscription puis 1/mois), tolérance 7j.
       let echues = 0;
       for (let k = 0; k < 4; k++) { if (first + k * MONTH + GRACE <= NOW) echues++; }
-      const retard = Math.max(0, echues - info.count); // échéances passées non payées
-      if (retard < 1) continue; // à jour sur l'échéancier
+      let retard = Math.max(0, echues - info.count); // échéances passées non payées (calendrier)
+      // Échec Stripe : une tentative échouée APRÈS le dernier paiement réussi = mensualité en
+      // échec non rattrapée (même si la tolérance calendaire de 7 j n'est pas encore dépassée).
+      const lf = lastFailedByEmail[e] || 0;
+      const echecStripe = lf > (info.last || 0);
+      if (echecStripe) retard = Math.max(retard, 1);
+      if (retard < 1) continue; // à jour : aucune échéance due non réglée, aucun échec Stripe
       const perso = {
         email: e, nom: nameByEmail[e] || "", promo: emailToPromoAll[e] || "Sans promo",
-        paye: info.count, echues, retard, mensualite: Math.round((info.amount / 100) * 100) / 100,
+        paye: info.count, echues: Math.max(echues, info.count + (echecStripe ? 1 : 0)), retard,
+        mensualite: Math.round((info.amount / 100) * 100) / 100,
         montant: Math.round(retard * (info.amount / 100) * 100) / 100,
         dernierPaiement: info.last ? new Date(info.last).toISOString().slice(0, 10) : null,
+        echecStripe, dernierEchec: echecStripe ? new Date(lf).toISOString().slice(0, 10) : null,
       };
       (impayesByPromo[perso.promo] = impayesByPromo[perso.promo] || []).push(perso);
       impayesAll.push(perso);

@@ -743,7 +743,8 @@ function openImpayes(imp, scopeLabel){
   const card=document.getElementById('imp-panel-card');
   const rows=(imp.personnes||[]).map(p=>{
     const nom=p.nom||p.email;
-    return `<div class="imp-item"><div class="imp-top"><span class="imp-nom">${escHtml(nom)}</span><span class="imp-mt">${EUR(p.montant)}</span></div><div class="imp-sub">${escHtml(p.email)} · ${escHtml(p.promo)}</div><div class="imp-meta">Payé ${p.paye}/4 · <b style="color:var(--red)">${p.retard} mensualité(s) en retard</b> · dernier paiement ${escHtml(p.dernierPaiement||'—')}</div></div>`;
+    const echec=p.echecStripe?` · <span style="color:#ff5c5c;font-weight:600">⚠️ échec Stripe${p.dernierEchec?(' le '+escHtml(p.dernierEchec)):''}</span>`:'';
+    return `<div class="imp-item"><div class="imp-top"><span class="imp-nom">${escHtml(nom)}</span><span class="imp-mt">${EUR(p.montant)}</span></div><div class="imp-sub">${escHtml(p.email)} · ${escHtml(p.promo)}</div><div class="imp-meta">Payé ${p.paye}/4 · <b style="color:var(--red)">${p.retard} mensualité(s) en retard</b>${echec} · dernier paiement ${escHtml(p.dernierPaiement||'—')}</div></div>`;
   }).join('');
   card.innerHTML =
     `<div class="crm-dh"><div class="crm-dh-t">💶 Impayés — ${escHtml(scopeLabel)}</div><div class="crm-dh-s">${imp.count} personne(s) · ${EUR(imp.montant)} à recouvrir</div><button class="crm-close" id="imp-close">✕</button></div>`
@@ -756,7 +757,7 @@ function openImpayes(imp, scopeLabel){
   const emails=(imp.personnes||[]).map(p=>p.email).join('; ');
   document.getElementById('imp-copy').onclick=()=>{ try{navigator.clipboard.writeText(emails);}catch(e){} const b=document.getElementById('imp-copy'); b.textContent='✓ Copié'; setTimeout(()=>{b.textContent='📋 Copier les emails';},1500); };
   document.getElementById('imp-csv').onclick=()=>{
-    const cols=[['nom','Nom'],['email','Email'],['promo','Promo'],['paye','Payé sur 4'],['retard','Mensualités en retard'],['montant','Montant dû (€)'],['dernierPaiement','Dernier paiement']];
+    const cols=[['nom','Nom'],['email','Email'],['promo','Promo'],['paye','Payé sur 4'],['retard','Mensualités en retard'],['montant','Montant dû (€)'],['echecStripe','Échec Stripe'],['dernierEchec','Date échec'],['dernierPaiement','Dernier paiement']];
     const escc=v=>{v=(v==null?'':String(v));return /[",\n;]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
     const csv='﻿'+cols.map(c=>escc(c[1])).join(';')+'\n'+(imp.personnes||[]).map(p=>cols.map(c=>escc(p[c[0]])).join(';')).join('\n');
     const bl=new Blob([csv],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(bl); a.download='impayes-'+String(scopeLabel).replace(/\s+/g,'_')+'.csv'; document.body.appendChild(a); a.click(); a.remove();
