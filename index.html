@@ -363,6 +363,7 @@
         <a class="sb-item" data-nav="acquisition"><span class="sb-ic">🎯</span> Acquisition</a>
         <a class="sb-item" data-nav="demo"><span class="sb-ic">👥</span> Stats apprenants</a>
         <a class="sb-item" data-nav="feedback"><span class="sb-ic">💬</span> Feedbacks</a>
+        <a class="sb-item" data-nav="agenda"><span class="sb-ic">🎥</span> Agenda des lives</a>
       </div>
       <div class="sb-group" id="sbg-amplify">
         <div class="sb-h">Amplify Connect</div>
@@ -637,6 +638,10 @@
     <iframe id="board-frame" class="board-frame" title="Board mensuel"></iframe>
   </section>
 
+  <section id="view-agenda" class="hidden">
+    <iframe id="agenda-frame" class="board-frame" title="Agenda des lives"></iframe>
+  </section>
+
   <div id="crm-panel" class="crm-panel hidden">
     <div class="crm-panel-bg" id="crm-panel-bg"></div>
     <div class="crm-panel-card" id="crm-panel-card"></div>
@@ -699,7 +704,7 @@ let fbLoaded = false;
 let crmLoaded = false;
 let AUTH = null;
 let currentPage = 'pilotage';
-const PAGE_LABELS = { pilotage:'Pilotage', demo:'Stats apprenants', feedback:'Feedbacks', amplify:'Amplify Connect — Data', 'amplify-crm':'Amplify Connect — CRM', 'amplify-retro':'Amplify Connect — Rétroplanning', seo:'Site & SEO', 'rs-overview':'Réseaux — Vue d\'ensemble', 'rs-monthly':'Réseaux — Évolution', crm:'CRM', board:'Board mensuel' };
+const PAGE_LABELS = { pilotage:'Pilotage', demo:'Stats apprenants', feedback:'Feedbacks', agenda:'Agenda des lives', amplify:'Amplify Connect — Data', 'amplify-crm':'Amplify Connect — CRM', 'amplify-retro':'Amplify Connect — Rétroplanning', seo:'Site & SEO', 'rs-overview':'Réseaux — Vue d\'ensemble', 'rs-monthly':'Réseaux — Évolution', crm:'CRM', board:'Board mensuel' };
 
 function loadAuth(){ try{ AUTH = JSON.parse(sessionStorage.getItem('qvema_auth')||'null'); }catch(e){ AUTH=null; } return AUTH; }
 function getToken(){ return (AUTH && AUTH.token) || ''; }
@@ -1092,6 +1097,8 @@ function showTab(t){
   var _vs=document.getElementById('view-seo'); if(_vs) _vs.classList.toggle('hidden',t!=='seo');
   var _vr=document.getElementById('view-rs'); if(_vr) _vr.classList.toggle('hidden',t!=='rs');
   var _vt=document.getElementById('view-retro'); if(_vt) _vt.classList.toggle('hidden',t!=='retro');
+  var _vg=document.getElementById('view-agenda'); if(_vg) _vg.classList.toggle('hidden',t!=='agenda');
+  if(t==='agenda'){ const f=document.getElementById('agenda-frame'); if(f && !f.getAttribute('src')) f.setAttribute('src','/agenda.html#t='+encodeURIComponent(getToken())); }
   if(t==='seo' && window.SEO){ window.SEO.load(); }
   if(t==='crm' && !crmLoaded){ crmLoaded=true; window.CRM.load(); }
   if(t==='board'){ const f=document.getElementById('board-frame'); if(f && !f.getAttribute('src')) f.setAttribute('src','/board.html?embed=1&theme='+(document.documentElement.getAttribute('data-theme')||'dark')); }
@@ -1149,6 +1156,7 @@ const NAV = {
   feedback: ()=>{ showTab('bootcamp'); showBcSub('feedback'); },
   acquisition: ()=>{ showTab('acquisition'); if(window.ACQ) window.ACQ.load(); },
   amplify:  ()=>{ showTab('amplify'); },
+  agenda:   ()=>{ showTab('agenda'); },
   'amplify-crm': ()=>{ showTab('crm'); Promise.resolve(window.CRM&&window.CRM.ensure&&window.CRM.ensure()).then(()=>{ if(window.CRM&&window.CRM.setObj) window.CRM.setObj('amplify'); }); },
   'amplify-retro': ()=>{ showTab('retro'); if(window.RETRO) window.RETRO.render(); },
   seo:      ()=>{ showTab('seo'); },
@@ -1176,6 +1184,7 @@ function applyPerms(){
   show('.sb-item[data-nav="demo"]', canBoot);
   show('.sb-item[data-nav="acquisition"]', canBoot);
   show('.sb-item[data-nav="feedback"]', canFeed);
+  show('.sb-item[data-nav="agenda"]', canBoot);
   show('.sb-item[data-nav="amplify"]', canAmp);
   show('.sb-item[data-nav="amplify-crm"]', canAmp);
   show('.sb-item[data-nav="amplify-retro"]', canAmp);
@@ -1240,6 +1249,7 @@ if(AUTH && AUTH.token){
     {key:'pilotage',label:'Pilotage',ic:'📊',perm:'bootcamp'},
     {key:'demo',label:'Stats apprenants',ic:'👥',perm:'bootcamp'},
     {key:'feedback',label:'Feedbacks',ic:'💬',perm:'feedback'},
+    {key:'agenda',label:'Agenda des lives',ic:'🎥',perm:'bootcamp'},
     {key:'amplify',label:'Amplify Connect — Data',ic:'📊',perm:'amplify'},
     {key:'amplify-crm',label:'CRM Amplify Connect',ic:'🗂️',perm:'amplify'},
     {key:'amplify-retro',label:'Rétroplanning Amplify',ic:'🗓️',perm:'amplify'},
