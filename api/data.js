@@ -189,21 +189,17 @@ module.exports = async (req, res) => {
     res.setHeader("Content-Type", "application/json");
     return res.end(JSON.stringify({ error: "unauthorized" }));
   }
-  // Accès aux données business : nécessite Bootcamp ou Amplify (ou Admin).
-  if (!auth.has(user.perms, "bootcamp") && !auth.has(user.perms, "amplify")) {
-    res.statusCode = 403;
-    res.setHeader("Content-Type", "application/json");
-    return res.end(JSON.stringify({ error: "forbidden" }));
-  }
-
-  // Sous-route "progression" (répartition par module via tags Circle) hébergée sur
-  // /api/data pour ne pas ajouter une fonction serverless (limite Hobby atteinte).
+  // Sous-routes hébergées sur /api/data (limite Hobby : pas de nouvelle fonction serverless).
   const only = (req.query && req.query.only) || require("url").parse(req.url, true).query.only;
 
-  // POST : crée un live en BROUILLON dans Circle (depuis l'agenda). Hébergé sur /api/data.
+  // POST : crée un live en BROUILLON dans Circle (depuis l'agenda). Accès : agenda, bootcamp ou amplify.
   if (req.method === "POST" && only === "create-live-draft") {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.setHeader("Cache-Control", "no-store");
+    if (!auth.has(user.perms, "agenda") && !auth.has(user.perms, "bootcamp") && !auth.has(user.perms, "amplify")) {
+      res.statusCode = 403;
+      return res.end(JSON.stringify({ ok: false, error: "forbidden" }));
+    }
     try {
       let body = req.body;
       if (!body || typeof body !== "object") {
@@ -220,6 +216,13 @@ module.exports = async (req, res) => {
       res.statusCode = 502;
       return res.end(JSON.stringify({ ok: false, error: String((e && e.message) || e) }));
     }
+  }
+
+  // Accès aux données business (toutes les autres routes) : nécessite Bootcamp ou Amplify (ou Admin).
+  if (!auth.has(user.perms, "bootcamp") && !auth.has(user.perms, "amplify")) {
+    res.statusCode = 403;
+    res.setHeader("Content-Type", "application/json");
+    return res.end(JSON.stringify({ error: "forbidden" }));
   }
 
   if (only === "progression") {

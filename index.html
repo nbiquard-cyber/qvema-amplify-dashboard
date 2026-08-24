@@ -1178,13 +1178,13 @@ function initials(s){
 }
 // Affiche/masque items & groupes de la sidebar selon les droits ; ouvre une vue autorisée.
 function applyPerms(){
-  const canBoot=hasPerm('bootcamp'), canFeed=hasPerm('feedback'), canAmp=hasPerm('amplify');
+  const canBoot=hasPerm('bootcamp'), canFeed=hasPerm('feedback'), canAmp=hasPerm('amplify'), canAgenda=hasPerm('agenda');
   const show=(sel,on)=>{ const e=document.querySelector(sel); if(e) e.classList.toggle('hidden',!on); };
   show('.sb-item[data-nav="pilotage"]', canBoot);
   show('.sb-item[data-nav="demo"]', canBoot);
   show('.sb-item[data-nav="acquisition"]', canBoot);
   show('.sb-item[data-nav="feedback"]', canFeed);
-  show('.sb-item[data-nav="agenda"]', canBoot);
+  show('.sb-item[data-nav="agenda"]', canBoot||canAgenda);
   show('.sb-item[data-nav="amplify"]', canAmp);
   show('.sb-item[data-nav="amplify-crm"]', canAmp);
   show('.sb-item[data-nav="amplify-retro"]', canAmp);
@@ -1195,7 +1195,7 @@ function applyPerms(){
   show('.sb-item[data-nav="rs-monthly"]', canRs);
   show('.sb-item[data-nav="crm"]', canBoot||canAmp);
   show('#sb-board', hasPerm('board'));
-  show('#sbg-bootcamp', canBoot||canFeed);
+  show('#sbg-bootcamp', canBoot||canFeed||canAgenda);
   show('#sbg-amplify', canAmp);
   show('#sbg-seo', canSeo);
   show('#sbg-rs', canRs);
@@ -1256,7 +1256,7 @@ if(AUTH && AUTH.token){
     {key:'seo',label:'Site & SEO',ic:'🔍',perm:'seo'},
     {key:'crm',label:'CRM',ic:'🗂️',perm:'crm'},
   ];
-  function navAllowed(n){ return n.perm==='crm' ? (hasPerm('bootcamp')||hasPerm('amplify')) : hasPerm(n.perm); }
+  function navAllowed(n){ return n.perm==='crm' ? (hasPerm('bootcamp')||hasPerm('amplify')) : n.key==='agenda' ? (hasPerm('bootcamp')||hasPerm('agenda')) : hasPerm(n.perm); }
   function openK(){ if(!AUTH||!AUTH.token) return; el('cmdk').classList.remove('hidden'); el('cmdk-input').value=''; el('cmdk-input').focus(); build(''); ensureContacts(); }
   function closeK(){ el('cmdk').classList.add('hidden'); }
   async function ensureContacts(){ if(contactsReady) return; try{ if(window.CRM&&window.CRM.ensure){ await window.CRM.ensure(); contactsReady=true; build(el('cmdk-input').value); } }catch(e){} }

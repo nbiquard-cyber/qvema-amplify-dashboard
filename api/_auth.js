@@ -17,7 +17,7 @@ const CONFIG = {
 };
 
 // Vues métier connues. "admin" = accès total.
-const PERMS = ["bootcamp", "feedback", "amplify", "board", "seo", "rs"];
+const PERMS = ["bootcamp", "feedback", "amplify", "board", "seo", "rs", "agenda"];
 
 function labelToPerm(label) {
   const s = String(label || "").trim().toLowerCase();
@@ -28,6 +28,7 @@ function labelToPerm(label) {
   if (s.startsWith("board")) return "board";
   if (s.startsWith("seo") || s.startsWith("site")) return "seo";
   if (s.startsWith("réseau") || s.startsWith("reseau") || s.startsWith("rs") || s.startsWith("social")) return "rs";
+  if (s.startsWith("agenda")) return "agenda";
   return null;
 }
 function expandPerms(list) {
