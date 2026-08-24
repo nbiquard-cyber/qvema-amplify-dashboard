@@ -35,7 +35,7 @@ main{max-width:1180px;margin:0 auto;padding:20px 24px 60px}
 .month{margin-bottom:34px}
 .month h2{font-size:16px;margin:0 0 10px;font-weight:650;display:flex;align-items:baseline;gap:10px}
 .month h2 .mc{font-size:12px;font-weight:500;color:var(--mut)}
-.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .wdrow{display:contents}
 .wd{background:#FBFCFD;text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);font-weight:600;padding:8px 0}
 .cell{background:#fff;min-height:128px;padding:5px 5px 7px;display:flex;flex-direction:column;gap:4px;cursor:default}
@@ -94,7 +94,7 @@ footer{max-width:1180px;margin:0 auto;padding:0 24px 40px;font-size:11px;color:v
 .mclose{position:absolute;top:13px;right:15px;background:rgba(255,255,255,.25);border:none;color:#fff;width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;line-height:1;z-index:2}
 .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;z-index:60;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;text-align:center}
 .toast.on{opacity:1}
-@media(max-width:820px){main{padding:16px 12px 50px}.calscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}.grid{min-width:720px}}
+@media(max-width:820px){main{padding:16px 12px 50px}.calscroll{overflow-x:auto;-webkit-overflow-scrolling:touch}.grid{min-width:540px}}
 </style></head><body>
 <header><div class="wrap">
 <h1>Agenda des lives — Amplify by QVEMA</h1>
@@ -224,7 +224,7 @@ function render(){
    b.className='chip p'+e.promo+(past?' past':'')+(isEdited(e.id)?' edited':'');
    b.dataset.id=e.id;b.dataset.promo=String(e.promo);b.dataset.pres=e.pres;
    b.innerHTML='<span class="crow"><span class="ct">'+esc(e.deb)+'–'+esc(e.fin)+'</span><span class="cb">Promo '+e.promo+'</span></span>'
-     +'<span class="cl">'+esc(labelOf(e))+'</span><span class="cp">'+esc(e.pres)+'</span>';
+     +'<span class="cl">'+esc(e.titre||labelOf(e))+'</span><span class="cp">'+esc(e.pres)+'</span>';
    cell.appendChild(b);
  });
  apply();updateStats();buildPresFilter();
@@ -271,6 +271,27 @@ document.getElementById('pall').addEventListener('click',function(){pres.clear()
 
 var ov=document.getElementById('ov'),cur=null,draft=null,creating=false,pendingDel=false;
 function V(id){return document.getElementById(id);}
+// Reconstruit chaque grille en semaine (Lun→Ven), sans samedi ni dimanche.
+function rebuildCalendar(){
+ var months=document.querySelectorAll('#cal .month'), WD=['Lun','Mar','Mer','Jeu','Ven'];
+ var p2=function(n){return (n<10?'0':'')+n;};
+ for(var i=0;i<months.length;i++){
+   var sec=months[i], y=+sec.getAttribute('data-y'), m=+sec.getAttribute('data-m');
+   var grid=sec.querySelector('.grid'); if(!grid) continue;
+   var cells=[], dim=new Date(y,m,0).getDate(), started=false;
+   for(var d=1;d<=dim;d++){
+     var wd=new Date(y,m-1,d).getDay();
+     if(wd===0||wd===6) continue;
+     if(!started){ for(var b=0;b<wd-1;b++) cells.push('<div class="cell out"></div>'); started=true; }
+     var iso=y+'-'+p2(m)+'-'+p2(d), tc=(iso===TD)?' today':'';
+     cells.push('<div class="cell'+tc+'" data-date="'+iso+'" data-in="1"><div class="dn">'+d+'</div><div class="evs"></div></div>');
+   }
+   while(cells.length%5!==0) cells.push('<div class="cell out"></div>');
+   var head='<div class="wdrow">'; for(var w=0;w<5;w++) head+='<div class="wd">'+WD[w]+'</div>'; head+='</div>';
+   grid.innerHTML=head+cells.join('');
+ }
+}
+rebuildCalendar();
 var DATES=Array.prototype.slice.call(document.querySelectorAll('.cell[data-in="1"]')).map(function(c){return c.dataset.date;}).sort();
 V('f_date').min=DATES[0];V('f_date').max=DATES[DATES.length-1];
 
