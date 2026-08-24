@@ -212,6 +212,31 @@ module.exports = async (req, res) => {
     }
   }
 
+  // Diagnostic : tous les paiements Stripe d'un email. ?only=charges&email=...
+  if (only === "charges") {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const norm = (s) => (s || "").toString().trim();
+      const lower = (s) => norm(s).toLowerCase();
+      const q = lower((req.query && req.query.email) || require("url").parse(req.url, true).query.email);
+      if (!q) { res.statusCode = 400; return res.end(JSON.stringify({ ok: false, error: "email requis" })); }
+      const charges = await stripeList("charges");
+      const chargeEmail = (c) => lower((c.billing_details && c.billing_details.email) || c.receipt_email || "");
+      const mine = charges.filter((c) => chargeEmail(c) === q).map((c) => ({
+        date: new Date((c.created || 0) * 1000).toISOString().slice(0, 10),
+        montant: c.amount / 100, status: c.status, paid: !!c.paid,
+        rembourse: (c.amount_refunded || 0) / 100, desc: c.description || "",
+      })).sort((a, b) => (a.date < b.date ? -1 : 1));
+      const net = mine.filter((c) => c.status === "succeeded" && c.paid).reduce((s, c) => s + (c.montant - c.rembourse), 0);
+      res.statusCode = 200;
+      return res.end(JSON.stringify({ ok: true, email: q, count: mine.length, totalNetPaye: Math.round(net * 100) / 100, charges: mine }));
+    } catch (e) {
+      res.statusCode = 502;
+      return res.end(JSON.stringify({ ok: false, error: String((e && e.message) || e) }));
+    }
+  }
+
   // Diagnostic mensualités : croise la liste Airtable d'une promo (payés) avec Stripe,
   // échéance par échéance, pour vérifier la 2e mensualité des payeurs 4x. ?only=mensualites&promo=PROMO%202
   if (only === "mensualites") {
