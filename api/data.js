@@ -212,6 +212,64 @@ module.exports = async (req, res) => {
     }
   }
 
+  // Diagnostic mensualités : croise la liste Airtable d'une promo (payés) avec Stripe,
+  // échéance par échéance, pour vérifier la 2e mensualité des payeurs 4x. ?only=mensualites&promo=PROMO%202
+  if (only === "mensualites") {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const norm = (s) => (s || "").toString().trim();
+      const lower = (s) => norm(s).toLowerCase();
+      const promoWanted = ((req.query && req.query.promo) || require("url").parse(req.url, true).query.promo || "PROMO 2").toUpperCase();
+      const [clients, charges] = await Promise.all([
+        airtableAll(T.clients, ["Promo", "Statut Paiement", "Email", "Prénom", "Nom"]),
+        stripeList("charges"),
+      ]);
+      const wanted = clients.filter((c) => norm(c.fields["Promo"]).toUpperCase() === promoWanted && norm(c.fields["Statut Paiement"]) === "Payé");
+      const chargeEmail = (c) => lower((c.billing_details && c.billing_details.email) || c.receipt_email || "");
+      const INST = 37250, FULL = [149000, 129000, 99000]; // mensualité 4x Promo 2 / paiement 1x
+      const byEmail = {};
+      for (const c of charges) {
+        const em = chargeEmail(c); if (!em) continue;
+        const b = byEmail[em] || (byEmail[em] = { paid: [], failed: [], oneShot: false });
+        const ok = c.status === "succeeded" && c.paid;
+        if (c.amount === INST) { if (ok) b.paid.push((c.created || 0) * 1000); else if (c.status === "failed") b.failed.push((c.created || 0) * 1000); }
+        else if (FULL.includes(c.amount) && ok) b.oneShot = true;
+      }
+      const NOW = Date.now(), DAY = 86400000, MONTH = 30.44 * DAY, GRACE = 7 * DAY;
+      const d = (ts) => (ts ? new Date(ts).toISOString().slice(0, 10) : null);
+      const rows = wanted.map((c) => {
+        const em = lower(c.fields["Email"]);
+        const b = byEmail[em] || { paid: [], failed: [], oneShot: false };
+        const inst = b.paid.slice().sort((a, z) => a - z);
+        const n = inst.length, first = inst[0] || null;
+        return {
+          nom: (norm(c.fields["Prénom"]) + " " + norm(c.fields["Nom"])).trim(), email: em,
+          mode: b.oneShot ? "1x" : (n ? "4x" : "?"),
+          installmentsPaid: n, firstPaid: d(first), secondPaid: n >= 2, secondDate: d(inst[1] || null),
+          secondDue: first ? first + MONTH + GRACE <= NOW : false,
+          failedAttempts: b.failed.length, lastFailed: d(b.failed.sort((a, z) => z - a)[0] || null),
+        };
+      });
+      const four = rows.filter((r) => r.mode === "4x");
+      const out = {
+        ok: true, promo: promoWanted, totalPayes: wanted.length,
+        quatreFois: four.length, unFois: rows.filter((r) => r.mode === "1x").length,
+        sansMatchStripe: rows.filter((r) => r.mode === "?"),
+        secondPaidCount: four.filter((r) => r.secondPaid).length,
+        secondUnpaidDue: four.filter((r) => !r.secondPaid && r.secondDue),
+        secondNotDueYet: four.filter((r) => !r.secondPaid && !r.secondDue),
+        withFailedAttempts: four.filter((r) => r.failedAttempts > 0),
+        rows: four,
+      };
+      res.statusCode = 200;
+      return res.end(JSON.stringify(out));
+    } catch (e) {
+      res.statusCode = 502;
+      return res.end(JSON.stringify({ ok: false, error: String((e && e.message) || e) }));
+    }
+  }
+
   try {
     // Cache chaud : réponse quasi instantanée si les données ont < 60 s.
     if (_cache.data && Date.now() - _cache.at < _CACHE_TTL) {
