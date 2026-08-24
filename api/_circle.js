@@ -99,4 +99,52 @@ async function debugRaw() {
   return { tokenPresent: !!TOKEN, tokenLen: TOKEN.length, tries };
 }
 
-module.exports = { progression, debugRaw };
+// --- Création d'un live en BROUILLON dans l'espace événement Circle de la promo ---
+const EVENT_SPACES = { 1: 2646532, 2: 2646536, 3: 2646539, 4: 2646541 }; // Lives Promo 1..4
+function parisOffset(dateStr) {
+  try {
+    const d = new Date(dateStr + "T12:00:00Z");
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone: "Europe/Paris", timeZoneName: "shortOffset" }).formatToParts(d);
+    const tz = ((parts.find((p) => p.type === "timeZoneName") || {}).value) || "GMT+1";
+    const m = tz.match(/GMT([+-]?\d+)/);
+    const h = m ? parseInt(m[1], 10) : 1;
+    return (h >= 0 ? "+" : "-") + String(Math.abs(h)).padStart(2, "0") + ":00";
+  } catch (e) { return "+01:00"; }
+}
+async function createLiveDraft(ev) {
+  if (!TOKEN) throw new Error("CIRCLE_API_TOKEN manquant");
+  const promo = Number(ev && ev.promo) || 1;
+  const spaceId = EVENT_SPACES[promo] || EVENT_SPACES[1];
+  const date = (ev && ev.date) || "";
+  if (!date) throw new Error("date manquante");
+  const deb = (ev && ev.deb) || "18:30";
+  const startsAt = date + "T" + deb + ":00" + parisOffset(date);
+  let dur = 3600;
+  if (ev && ev.deb && ev.fin) {
+    const a = ev.deb.split(":").map(Number), b = ev.fin.split(":").map(Number);
+    const s = ((b[0] * 60 + b[1]) - (a[0] * 60 + a[1])) * 60;
+    if (s > 0) dur = s;
+  }
+  const payload = {
+    space_id: spaceId,
+    event: {
+      space_id: spaceId,
+      name: (ev && ev.name) || "Live",
+      status: "draft",
+      event_type: "single",
+      body: (ev && ev.body) || "",
+      event_setting_attributes: { starts_at: startsAt, duration_in_seconds: dur, location_type: "tbd" },
+    },
+  };
+  const r = await fetch(BASE + "/events", {
+    method: "POST",
+    headers: { Authorization: "Bearer " + TOKEN, "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const t = await r.text();
+  if (!r.ok) throw new Error("Circle HTTP " + r.status + " : " + t.slice(0, 220));
+  let j = {}; try { j = JSON.parse(t); } catch (e) {}
+  return { ok: true, promo, spaceId, id: j.id || null, url: j.url || j.public_url || null, name: payload.event.name };
+}
+
+module.exports = { progression, debugRaw, createLiveDraft };

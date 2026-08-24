@@ -199,6 +199,29 @@ module.exports = async (req, res) => {
   // Sous-route "progression" (répartition par module via tags Circle) hébergée sur
   // /api/data pour ne pas ajouter une fonction serverless (limite Hobby atteinte).
   const only = (req.query && req.query.only) || require("url").parse(req.url, true).query.only;
+
+  // POST : crée un live en BROUILLON dans Circle (depuis l'agenda). Hébergé sur /api/data.
+  if (req.method === "POST" && only === "create-live-draft") {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      let body = req.body;
+      if (!body || typeof body !== "object") {
+        body = await new Promise((resolve) => {
+          let d = ""; req.on("data", (c) => (d += c));
+          req.on("end", () => { try { resolve(JSON.parse(d || "{}")); } catch (e) { resolve({}); } });
+          req.on("error", () => resolve({}));
+        });
+      }
+      const r = await require("./_circle.js").createLiveDraft(body);
+      res.statusCode = 200;
+      return res.end(JSON.stringify(r));
+    } catch (e) {
+      res.statusCode = 502;
+      return res.end(JSON.stringify({ ok: false, error: String((e && e.message) || e) }));
+    }
+  }
+
   if (only === "progression") {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.setHeader("Cache-Control", "no-store");

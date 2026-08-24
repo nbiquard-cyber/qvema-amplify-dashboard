@@ -309,14 +309,25 @@ function readInto(e){
  e.tel=V('f_tel').value.trim();e.lien=V('f_lien').value.trim();e.note=V('f_note').value.trim();
  e.datefr=e.date?datefrOf(e.date):'';
 }
+var CKTOKEN=(location.hash.match(/[#&]t=([^&]+)/)||[])[1];CKTOKEN=CKTOKEN?decodeURIComponent(CKTOKEN):'';
+function createCircleDraft(e){
+ if(!CKTOKEN){toast('Enregistré. (Ouvre l\'agenda depuis le dashboard pour créer le brouillon Circle.)');return;}
+ toast('Création du brouillon dans Circle…');
+ fetch('/api/data?only=create-live-draft',{method:'POST',headers:{'Authorization':'Bearer '+CKTOKEN,'Content-Type':'application/json'},body:JSON.stringify({promo:e.promo,name:e.titre||labelOf(e),date:e.date,deb:e.deb,fin:e.fin,body:e.note})})
+  .then(function(r){return r.json();})
+  .then(function(j){toast(j&&j.ok?('✓ Brouillon créé dans Circle — Lives Promo '+e.promo+'.'):('Enregistré localement. Échec Circle : '+((j&&j.error)||'?')));})
+  .catch(function(){toast('Enregistré localement. Circle injoignable.');});
+}
 function save(){
  var e=creating?draft:EV[cur];
  readInto(e);
  if(!e.date||DATES.indexOf(e.date)<0){toast('Date hors du calendrier affiché (juin 2026 → janvier 2027).');return;}
+ var wasCreating=creating;
  if(creating)EV[e.id]=e;
  var ok=persist();
  render();closeM();
- toast(ok?'Enregistré. Pour partager, cliquez « Télécharger la page à jour ».':'Enregistré pour cette session (stockage indisponible).');
+ if(wasCreating){createCircleDraft(e);}
+ else{toast(ok?'Enregistré. Pour partager, cliquez « Télécharger la page à jour ».':'Enregistré pour cette session (stockage indisponible).');}
 }
 function del(){
  if(creating||cur==null)return;
