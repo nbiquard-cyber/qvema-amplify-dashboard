@@ -248,7 +248,9 @@ document.querySelectorAll('button.f[data-p]').forEach(function(b){b.addEventList
 document.getElementById('all').addEventListener('click',function(){promos.clear();document.querySelectorAll('button.f[data-p]').forEach(function(b){b.setAttribute('aria-pressed','false');});apply();});
 
 function buildPresFilter(){
- var names={};Object.keys(EV).forEach(function(k){var p=EV[k].pres;if(p)names[p]=1;});
+ var names={};
+ Array.prototype.slice.call(document.querySelectorAll('#f_pres option')).forEach(function(o){if(o.value)names[o.value]=1;});
+ Object.keys(EV).forEach(function(k){var p=EV[k].pres;if(p)names[p]=1;});
  Array.from(pres).forEach(function(p){if(!names[p])pres.delete(p);});
  var row=document.getElementById('prow');
  Array.prototype.slice.call(row.querySelectorAll('.pf')).forEach(function(b){b.remove();});
