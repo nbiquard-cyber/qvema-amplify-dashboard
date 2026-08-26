@@ -347,8 +347,21 @@ function createCircleDraft(e){
  if(!liveTok())return;
  apiFetch('/api/data?only=create-live-draft',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({promo:e.promo,name:e.titre||labelOf(e),date:e.date,deb:e.deb,fin:e.fin,body:e.note})})
   .then(function(r){return r.json();})
-  .then(function(j){toast(j&&j.ok?'✓ Live enregistré (partagé) + brouillon créé dans Circle.':('Live enregistré. Brouillon Circle en échec : '+((j&&j.error)||'?')));})
+  .then(function(j){
+    if(j&&j.ok){
+      // mémorise l'id Circle sur le live et le re-sauve, pour pouvoir le mettre à jour aux éditions
+      if(j.id){ e.circleId=j.id; apiFetch('/api/data?only=agenda-save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event:e})}); }
+      toast('✓ Live enregistré (partagé) + brouillon créé dans Circle.');
+    } else { toast('Live enregistré. Brouillon Circle en échec : '+((j&&j.error)||'?')); }
+  })
   .catch(function(){toast('Live enregistré. Circle injoignable pour le brouillon.');});
+}
+function updateCircleDraft(e){
+ if(!liveTok())return;
+ apiFetch('/api/data?only=update-live-draft',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({circleId:e.circleId,promo:e.promo,name:e.titre||labelOf(e),date:e.date,deb:e.deb,fin:e.fin,body:e.note})})
+  .then(function(r){return r.json();})
+  .then(function(j){toast(j&&j.ok?'✓ Modifications enregistrées + mises à jour dans Circle.':('Modif enregistrée. MAJ Circle en échec : '+((j&&j.error)||'?')));})
+  .catch(function(){toast('Modif enregistrée. Circle injoignable pour la mise à jour.');});
 }
 function save(){
  var e=creating?draft:EV[cur];
@@ -362,7 +375,7 @@ function save(){
   .then(function(r){return r.json();})
   .then(function(j){
     if(!(j&&j.ok)){var m=(j&&j.error)||'?';toast(/unauth/i.test(m)?'Session expirée — recharge la page (Cmd+R) et reconnecte-toi.':'Échec de l\'enregistrement partagé : '+m);return;}
-    if(wasCreating){createCircleDraft(e);}else{toast('✓ Modifications enregistrées (visibles par tous).');}
+    if(wasCreating){createCircleDraft(e);}else if(e.circleId){updateCircleDraft(e);}else{toast('✓ Modifications enregistrées (visibles par tous).');}
   })
   .catch(function(){toast('Serveur injoignable : modification non enregistrée.');});
 }

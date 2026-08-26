@@ -147,4 +147,45 @@ async function createLiveDraft(ev) {
   return { ok: true, promo, spaceId, id: j.id || null, url: j.url || j.public_url || null, name: payload.event.name };
 }
 
-module.exports = { progression, debugRaw, createLiveDraft };
+// Met à jour un événement Circle existant (par son id) — préserve son statut (brouillon/publié)
+// et son espace. Sert quand on édite un live déjà poussé dans Circle depuis l'agenda.
+async function updateLiveDraft(ev) {
+  if (!TOKEN) throw new Error("CIRCLE_API_TOKEN manquant");
+  const id = ev && ev.circleId;
+  if (!id) throw new Error("circleId manquant");
+  const promo = Number(ev.promo) || 1;
+  let spaceId = EVENT_SPACES[promo] || EVENT_SPACES[1];
+  let status = "draft";
+  // Lire l'état actuel : préserve le statut (ne pas repasser un live publié en brouillon) + l'espace.
+  try {
+    const g = await fetch(BASE + "/events/" + id, { headers: { Authorization: "Bearer " + TOKEN } });
+    if (g.ok) {
+      const gj = await g.json();
+      if (gj.status) status = gj.status; else if (gj.published_at) status = "published";
+      if (gj.space && gj.space.id) spaceId = gj.space.id;
+    }
+  } catch (e) {}
+  const date = (ev.date || "");
+  const deb = (ev.deb || "18:30");
+  const setting = { duration_in_seconds: 3600 };
+  if (ev.deb && ev.fin) {
+    const a = ev.deb.split(":").map(Number), b = ev.fin.split(":").map(Number);
+    const s = ((b[0] * 60 + b[1]) - (a[0] * 60 + a[1])) * 60; if (s > 0) setting.duration_in_seconds = s;
+  }
+  if (date) setting.starts_at = date + "T" + deb + ":00" + parisOffset(date);
+  const payload = {
+    space_id: spaceId,
+    event: { space_id: spaceId, name: ev.name || "Live", status, event_type: "single", body: ev.body || "", event_setting_attributes: setting },
+  };
+  const r = await fetch(BASE + "/events/" + id, {
+    method: "PUT",
+    headers: { Authorization: "Bearer " + TOKEN, "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const t = await r.text();
+  if (!r.ok) throw new Error("Circle update HTTP " + r.status + " : " + t.slice(0, 200));
+  let j = {}; try { j = JSON.parse(t); } catch (e) {}
+  return { ok: true, id, status, url: j.url || null };
+}
+
+module.exports = { progression, debugRaw, createLiveDraft, updateLiveDraft };

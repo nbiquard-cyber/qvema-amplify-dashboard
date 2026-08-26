@@ -222,8 +222,8 @@ module.exports = async (req, res) => {
   // Sous-routes hébergées sur /api/data (limite Hobby : pas de nouvelle fonction serverless).
   const only = (req.query && req.query.only) || require("url").parse(req.url, true).query.only;
 
-  // POST : crée un live en BROUILLON dans Circle (depuis l'agenda). Accès : agenda, bootcamp ou amplify.
-  if (req.method === "POST" && only === "create-live-draft") {
+  // POST : crée/MET À JOUR un live (brouillon) dans Circle depuis l'agenda. Accès agenda/bootcamp/amplify.
+  if (req.method === "POST" && (only === "create-live-draft" || only === "update-live-draft")) {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.setHeader("Cache-Control", "no-store");
     if (!auth.has(user.perms, "agenda") && !auth.has(user.perms, "bootcamp") && !auth.has(user.perms, "amplify")) {
@@ -231,15 +231,9 @@ module.exports = async (req, res) => {
       return res.end(JSON.stringify({ ok: false, error: "forbidden" }));
     }
     try {
-      let body = req.body;
-      if (!body || typeof body !== "object") {
-        body = await new Promise((resolve) => {
-          let d = ""; req.on("data", (c) => (d += c));
-          req.on("end", () => { try { resolve(JSON.parse(d || "{}")); } catch (e) { resolve({}); } });
-          req.on("error", () => resolve({}));
-        });
-      }
-      const r = await require("./_circle.js").createLiveDraft(body);
+      const body = await readBody(req);
+      const circle = require("./_circle.js");
+      const r = only === "update-live-draft" ? await circle.updateLiveDraft(body) : await circle.createLiveDraft(body);
       res.statusCode = 200;
       return res.end(JSON.stringify(r));
     } catch (e) {
