@@ -186,10 +186,16 @@ function saveStore(o){try{localStorage.setItem(KEY,JSON.stringify(o));return tru
 
 var EV=JSON.parse(JSON.stringify(EV0));
 var CKTOKEN=(location.hash.match(/[#&]t=([^&]+)/)||[])[1];CKTOKEN=CKTOKEN?decodeURIComponent(CKTOKEN):'';
-function apiFetch(path,opts){opts=opts||{};opts.headers=opts.headers||{};if(CKTOKEN)opts.headers['Authorization']='Bearer '+CKTOKEN;return fetch(path,opts);}
+// Token VIVANT : on lit celui de la fenêtre parente (dashboard) à chaque appel — évite
+// d'envoyer un token périmé capté une seule fois dans l'URL de l'iframe. Fallback = fragment.
+function liveTok(){
+ try{ var p=window.parent; if(p&&p!==window&&typeof p.getToken==='function'){ var t=p.getToken(); if(t) return t; } }catch(e){}
+ return CKTOKEN;
+}
+function apiFetch(path,opts){opts=opts||{};opts.headers=opts.headers||{};var t=liveTok();if(t)opts.headers['Authorization']='Bearer '+t;return fetch(path,opts);}
 // Chargement PARTAGÉ : lit le store serveur ; si vide, l'initialise une fois avec les données de base.
 function loadFromServer(){
- if(!CKTOKEN)return Promise.resolve();
+ if(!liveTok())return Promise.resolve();
  return apiFetch('/api/data?only=agenda-events').then(function(r){return r.json();}).then(function(j){
    if(j&&j.ok&&j.events&&Object.keys(j.events).length){EV=j.events;return;}
    return apiFetch('/api/data?only=agenda-set-all',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({events:EV0})})
@@ -338,7 +344,7 @@ function readInto(e){
  e.datefr=e.date?datefrOf(e.date):'';
 }
 function createCircleDraft(e){
- if(!CKTOKEN)return;
+ if(!liveTok())return;
  apiFetch('/api/data?only=create-live-draft',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({promo:e.promo,name:e.titre||labelOf(e),date:e.date,deb:e.deb,fin:e.fin,body:e.note})})
   .then(function(r){return r.json();})
   .then(function(j){toast(j&&j.ok?'✓ Live enregistré (partagé) + brouillon créé dans Circle.':('Live enregistré. Brouillon Circle en échec : '+((j&&j.error)||'?')));})
@@ -351,11 +357,11 @@ function save(){
  var wasCreating=creating;
  if(wasCreating)EV[e.id]=e;
  render();closeM();
- if(!CKTOKEN){toast('Ouvre l\'agenda depuis le dashboard pour enregistrer (partagé).');return;}
+ if(!liveTok()){toast('Ouvre l\'agenda depuis le dashboard pour enregistrer (partagé).');return;}
  apiFetch('/api/data?only=agenda-save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event:e})})
   .then(function(r){return r.json();})
   .then(function(j){
-    if(!(j&&j.ok)){toast('Échec de l\'enregistrement partagé : '+((j&&j.error)||'?'));return;}
+    if(!(j&&j.ok)){var m=(j&&j.error)||'?';toast(/unauth/i.test(m)?'Session expirée — recharge la page (Cmd+R) et reconnecte-toi.':'Échec de l\'enregistrement partagé : '+m);return;}
     if(wasCreating){createCircleDraft(e);}else{toast('✓ Modifications enregistrées (visibles par tous).');}
   })
   .catch(function(){toast('Serveur injoignable : modification non enregistrée.');});
@@ -364,10 +370,10 @@ function del(){
  if(creating||cur==null)return;
  if(!pendingDel){pendingDel=true;V('mdelete').textContent='Confirmer la suppression';V('mdelete').classList.add('armed');return;}
  var id=cur;delete EV[id];render();closeM();
- if(!CKTOKEN){toast('Live supprimé (local).');return;}
+ if(!liveTok()){toast('Live supprimé (local).');return;}
  apiFetch('/api/data?only=agenda-delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id})})
   .then(function(r){return r.json();})
-  .then(function(j){toast(j&&j.ok?'✓ Live supprimé (pour tous).':'Échec de la suppression partagée.');})
+  .then(function(j){if(j&&j.ok){toast('✓ Live supprimé (pour tous).');return;}var m=(j&&j.error)||'?';toast(/unauth/i.test(m)?'Session expirée — recharge la page (Cmd+R).':'Échec de la suppression partagée.');})
   .catch(function(){toast('Serveur injoignable : suppression non enregistrée.');});
 }
 V('msave').addEventListener('click',save);
