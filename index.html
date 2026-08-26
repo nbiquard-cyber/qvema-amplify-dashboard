@@ -600,7 +600,7 @@
   <!-- RÉTROPLANNING PLAN DE COM (Amplify Connect) -->
   <section id="view-retro" class="hidden">
     <div style="margin-bottom:14px">
-      <div style="color:var(--muted);font-size:13px">Rétroplanning du plan de communication — Amplify Connect · deux entreprises mises en avant par semaine.</div>
+      <div style="color:var(--muted);font-size:13px">Rétroplanning du plan de communication — Amplify Connect · jusqu'à 2 entreprises par semaine.</div>
     </div>
     <div id="retro-body"></div>
   </section>
@@ -2790,32 +2790,56 @@ if(AUTH && AUTH.token){
   const el=(id)=>document.getElementById(id);
   const escH=(s)=>{const d=document.createElement('div');d.textContent=(s==null?'':s);return d.innerHTML;};
   const RETRO=[
-    ["31/08","SuperJetCar (imposé)","Odivale"],
-    ["07/09","Hekatech (sept.)","Les Petits Prodiges (sept.)"],
-    ["14/09","Evena (sept.)","Bonbecshow (sept.)"],
-    ["21/09","Kivala Système (imposé)","Sister Feel (27/09)"],
-    ["28/09","Palomano (imposé)","Araw (sept.)"],
-    ["05/10","Poudrée Paris","Black-Line"],
-    ["12/10","Agrikolis","Cosmos"],
-    ["19/10","Piano LED","Beezen"],
-    ["26/10","Féroce","Capillum (oct-déc)"],
-    ["02/11","Pimpant","Ma Petite Laine (oct-déc)"],
-    ["09/11","Ethylowheel","Ekkopol"],
-    ["16/11","Abies Lagrimus (imposé)","Tchao Tchao"],
-    ["23/11","SuperBeer","BlinkBook"],
-    ["30/11","Douin","Ops Eco Innovation"],
-    ["07/12","My Cocoon (Stooly) (oct-déc)","Hocoia"],
-    ["14/12","Boarding Ring (oct-déc)","Disgo (SUPE)"],
-    ["04/01","Block'Fire (reprise)","Dentoa"],
-    ["11/01","La Marinette","Pomad Paris"],
-    ["18/01","Kerluna","—"]
-  ];
+    ["31/08",{n:"Bonbecshow"},null],
+    ["07/09",{n:"Poudrée Paris"},null],
+    ["14/09",{n:"SuperJetCar"},{n:"Odivale"}],
+    ["21/09",{n:"Kivala Système"},{n:"Sister Feel"}],
+    ["28/09",{n:"Palomano"},{n:"Hekatech"}],
+    ["05/10",{n:"Les Petits Prodiges"},{n:"Evena"}],
+    ["12/10",{n:"Araw"},{n:"Black-Line"}],
+    ["19/10",{n:"Agrikolis"},{n:"Cosmos"}],
+    ["26/10",{n:"Piano LED"},{n:"Beezen"}],
+    ["02/11",{n:"Féroce"},{n:"Capillum"}],
+    ["09/11",{n:"Pimpant"},{n:"Ma Petite Laine"}],
+    ["16/11",{n:"Abies Lagrimus"},{n:"Ethylowheel"}],
+    ["23/11",{n:"Ekkopol"},{n:"Tchao Tchao"}],
+    ["30/11",{n:"SuperBeer"},{n:"BlinkBook"}],
+    ["07/12",{n:"Douin"},{n:"Hocoia"}],
+    ["14/12",{n:"My Cocoon",sub:"Stooly"},{n:"Boarding Ring"}],
+    ["04/01",{n:"Block'Fire"},{n:"Disgo",sub:"SUPE"}],
+    ["11/01",{n:"Ops Eco Innovation"},{n:"Dentoa"}],
+    ["18/01",{n:"La Marinette"},{n:"Pomad Paris"}],
+    ["25/01",{n:"Kerluna"},null]
+  ]; // 20 semaines de publication (semaines de pause 21/12 et 28/12 masquées)
+  // Badge vert « Confirmé » : date arrêtée et annoncée au membre.
+  const CONFIRMED=new Set(["Bonbecshow","Poudrée Paris","Kivala Système","Palomano","Hocoia"]);
+  // Badge orange « À départager » : une seule place reste en septembre (28/09), au 1er dossier complet.
+  const ADEPARTAGER=new Set(["Hekatech","Les Petits Prodiges","Evena","Araw"]);
+  // Demande du membre, affichée en italique entre parenthèses (à conserver telle quelle).
+  const MENTIONS={
+    "Kivala Système":"imposé",
+    "Palomano":"dernière semaine de septembre, avant leur lancement Halloween du 01/10",
+    "Sister Feel":"27/09",
+    "Abies Lagrimus":"imposé",
+    "Capillum":"oct-déc",
+    "Ma Petite Laine":"oct-déc",
+    "My Cocoon":"oct-déc",
+    "Boarding Ring":"oct-déc",
+    "Block'Fire":"reprise",
+    "Hekatech":"sept.",
+    "Les Petits Prodiges":"sept.",
+    "Evena":"sept.",
+    "Araw":"sept."
+  };
   function weekDate(dm){ const p=dm.split('/').map(Number); const y=p[1]>=8?2026:2027; return new Date(y,p[1]-1,p[0]); }
-  function cell(txt){
-    if(!txt || txt==='—') return '<span style="color:var(--muted)">—</span>';
-    const name=txt.replace(/\([^)]*\)/g,'').replace(/\s+/g,' ').trim();
-    if(!name) return '<span style="color:var(--muted)">—</span>';
-    return '<a class="retro-co" data-co="'+escH(name)+'" title="Voir la fiche" style="cursor:pointer;font-weight:600;color:var(--txt);border-bottom:1px dashed var(--muted)">'+escH(name)+'</a>';
+  function cell(c){
+    if(!c || !c.n) return '<span style="color:var(--muted)">—</span>';
+    const disp=c.n+(c.sub?' ('+c.sub+')':'');
+    let out='<a class="retro-co" data-co="'+escH(c.n)+'" title="Voir la fiche" style="cursor:pointer;font-weight:600;color:var(--txt);border-bottom:1px dashed var(--muted)">'+escH(disp)+'</a>';
+    if(CONFIRMED.has(c.n)) out+=' <span style="font-size:10px;font-weight:700;color:#3ecf8e;background:rgba(62,207,142,.15);border:1px solid rgba(62,207,142,.4);padding:1px 8px;border-radius:999px;white-space:nowrap">✓ Confirmé</span>';
+    if(ADEPARTAGER.has(c.n)) out+=' <span style="font-size:10px;font-weight:700;color:#ff9f1c;background:rgba(255,159,28,.15);border:1px solid rgba(255,159,28,.4);padding:1px 8px;border-radius:999px;white-space:nowrap">À départager</span>';
+    if(MENTIONS[c.n]) out+=' <span style="font-style:italic;color:var(--muted);font-size:12px">('+escH(MENTIONS[c.n])+')</span>';
+    return out;
   }
   function toast(msg){
     let t=document.getElementById('retro-toast');
@@ -2843,11 +2867,11 @@ if(AUTH && AUTH.token){
         +'<td style="'+tdS+'">'+cell(r[1])+'</td><td style="'+tdS+'">'+cell(r[2])+'</td></tr>';
     });
     const thS='text-align:left;padding:10px 13px;border-bottom:1px solid var(--line);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--panel2)';
-    host.innerHTML='<div class="card"><h3><span class="dot"></span>Rétroplanning — plan de communication <span style="color:var(--muted);font-weight:400">· 2 entreprises / semaine</span></h3>'
+    host.innerHTML='<div class="card"><h3><span class="dot"></span>Rétroplanning — plan de communication <span style="color:var(--muted);font-weight:400">· jusqu\'à 2 entreprises par semaine</span></h3>'
       +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:14px">'
       +'<thead><tr><th style="'+thS+'">Semaine</th><th style="'+thS+'">Entreprise 1</th><th style="'+thS+'">Entreprise 2</th></tr></thead>'
       +'<tbody>'+rows+'</tbody></table></div>'
-      +'<div class="note" style="margin-top:12px">'+RETRO.length+' semaines de publication · clique sur une entreprise pour ouvrir sa fiche. Semaines de pause non affichées.</div>'
+      +'<div class="note" style="margin-top:12px">'+RETRO.length+' semaines de publication · Badge vert « Confirmé » = date arrêtée et annoncée au membre. Sans badge = prévisionnelle, non communiquée. Badge orange « À départager » = une seule place reste en septembre, elle va au premier qui livre. Les mentions entre parenthèses sont les demandes des entreprises. Qui livre tôt passe tôt.</div>'
       +'</div>';
     [...host.querySelectorAll('.retro-co')].forEach(a=>a.onclick=()=>openFiche(a.dataset.co));
   }
