@@ -600,7 +600,7 @@
   <!-- RÉTROPLANNING PLAN DE COM (Amplify Connect) -->
   <section id="view-retro" class="hidden">
     <div style="margin-bottom:14px">
-      <div style="color:var(--muted);font-size:13px">Rétroplanning du plan de communication — Amplify Connect · jusqu'à 2 entreprises par semaine.</div>
+      <div style="color:var(--muted);font-size:13px">Rétroplanning du plan de communication — Amplify Connect · une entreprise par semaine.</div>
     </div>
     <div id="retro-body"></div>
   </section>
@@ -2790,47 +2790,68 @@ if(AUTH && AUTH.token){
   const el=(id)=>document.getElementById(id);
   const escH=(s)=>{const d=document.createElement('div');d.textContent=(s==null?'':s);return d.innerHTML;};
   const RETRO=[
-    ["31/08",{n:"Bonbecshow"},null],
-    ["07/09",{n:"Poudrée Paris"},null],
-    ["14/09",{n:"SuperJetCar"},{n:"Odivale"}],
-    ["21/09",{n:"Kivala Système"},{n:"Sister Feel"}],
-    ["28/09",{n:"Palomano"},{n:"Les Petits Prodiges"}],
-    ["05/10",{n:"Evena"},{free:true}],
-    ["12/10",{n:"Araw"},{n:"Black-Line"}],
-    ["19/10",{n:"Agrikolis"},{n:"Cosmos"}],
-    ["26/10",{n:"Piano LED"},{n:"Beezen"}],
-    ["02/11",{n:"Féroce"},{n:"Capillum"}],
-    ["09/11",{n:"Pimpant"},{n:"Ma Petite Laine"}],
-    ["16/11",{n:"Abies Lagrimus"},{n:"Ethylowheel"}],
-    ["23/11",{n:"Ekkopol"},{n:"Tchao Tchao"}],
-    ["30/11",{n:"SuperBeer"},{n:"BlinkBook"}],
-    ["07/12",{n:"Douin"},{n:"Hocoia"}],
-    ["14/12",{n:"My Cocoon",sub:"Stooly"},{n:"Boarding Ring"}],
-    ["04/01",{n:"Block'Fire"},{n:"Disgo",sub:"SUPE"}],
-    ["11/01",{n:"Ops Eco Innovation"},{n:"Dentoa"}],
-    ["18/01",{n:"La Marinette"},{n:"Pomad Paris"}],
-    ["25/01",{n:"Kerluna"},null]
-  ]; // 20 semaines de publication (semaines de pause 21/12 et 28/12 masquées)
+    ["31/08/2026",{n:"Bonbecshow"}],
+    ["07/09/2026",{n:"Poudrée Paris"}],
+    ["14/09/2026",{n:"Odivale"}],
+    ["21/09/2026",{n:"Kivala Système"}],
+    ["28/09/2026",{n:"Palomano"}],
+    ["05/10/2026",{n:"Cosmos"}],
+    ["12/10/2026",{n:"Araw"}],
+    ["19/10/2026",{n:"Evena"}],
+    ["26/10/2026",{n:"Beezen"}],
+    ["02/11/2026",{n:"Sister Feel"}],
+    ["09/11/2026",{n:"Les Petits Prodiges"}],
+    ["16/11/2026",{n:"Abies Lagrimus"}],
+    ["23/11/2026",{n:"Piano LED"}],
+    ["30/11/2026",{n:"SuperJetCar"}],
+    ["07/12/2026",{n:"Hocoia"}],
+    ["14/12/2026",{n:"Agrikolis"}],
+    ["04/01/2027",{n:"Block'Fire"}],
+    ["11/01/2027",{n:"Tchao Tchao"}],
+    ["18/01/2027",{n:"Féroce"}],
+    ["25/01/2027",{n:"Capillum"}],
+    ["01/02/2027",{n:"Pimpant"}],
+    ["08/02/2027",{n:"Ma Petite Laine"}],
+    ["15/02/2027",{n:"Ethylowheel"}],
+    ["22/02/2027",{n:"Black-Line"}],
+    ["01/03/2027",{n:"Ekkopol"}],
+    ["08/03/2027",{n:"SuperBeer"}],
+    ["15/03/2027",{n:"BlinkBook"}],
+    ["22/03/2027",{n:"Douin"}],
+    ["29/03/2027",{n:"My Cocoon",sub:"Stooly"}],
+    ["05/04/2027",{n:"Boarding Ring"}],
+    ["12/04/2027",{n:"Disgo",sub:"SUPE"}],
+    ["19/04/2027",{n:"Ops Eco Innovation"}],
+    ["26/04/2027",{n:"La Marinette"}],
+    ["03/05/2027",{n:"Pomad Paris"}],
+    ["10/05/2027",{n:"Kerluna"}],
+    ["17/05/2027",{n:"Dentoa"}]
+  ]; // 36 semaines, du 31/08/2026 au 17/05/2027 · 1 entreprise/semaine · 21/12 et 28/12 neutralisées (absentes)
   // Badge vert « Confirmé » : date arrêtée et annoncée au membre (elle ne bouge plus).
-  const CONFIRMED=new Set(["Bonbecshow","Poudrée Paris","Kivala Système","Palomano","Les Petits Prodiges","Hocoia"]);
-  // Demande du membre, affichée en italique entre parenthèses (à conserver telle quelle).
+  const CONFIRMED=new Set(["Bonbecshow","Poudrée Paris","Kivala Système","Palomano","Cosmos","Araw","Evena","Beezen","Piano LED","Hocoia","Féroce"]);
+  // Demande / contrainte du membre, affichée en italique entre parenthèses.
   const MENTIONS={
+    "Odivale":"dossier complet reçu le 28/08",
     "Kivala Système":"imposé",
-    "Palomano":"dernière semaine de septembre, avant leur lancement Halloween du 01/10",
-    "Sister Feel":"27/09",
+    "Palomano":"lancement de leur saison Halloween le 01/10",
+    "Cosmos":"a demandé l'une des deux premières semaines d'octobre",
+    "Araw":"mi-octobre",
+    "Evena":"mi-octobre maximum, dossier complet reçu le 31/08",
+    "Beezen":"congrès international d'apiculture du 1er au 4 octobre",
+    "Sister Feel":"fin octobre / début novembre, lancement produit — semaine à confirmer début octobre",
+    "Les Petits Prodiges":"échange en cours avec Beezen, voir point 4",
     "Abies Lagrimus":"imposé",
-    "Capillum":"oct-déc",
-    "Ma Petite Laine":"oct-déc",
-    "My Cocoon":"oct-déc",
-    "Boarding Ring":"oct-déc",
-    "Block'Fire":"reprise",
-    "Les Petits Prodiges":"sept.",
-    "Evena":"sept.",
-    "Araw":"sept."
+    "Piano LED":"semaine du Black Friday, produit cadeau",
+    "Block'Fire":"à la reprise",
+    "Capillum":"avait demandé oct-déc",
+    "Ma Petite Laine":"avait demandé oct-déc",
+    "Black-Line":"fin février, début de sa saison — sa demande",
+    "My Cocoon":"avait demandé oct-déc",
+    "Boarding Ring":"avait demandé oct-déc",
+    "Dentoa":"souhaite expressément être dans les derniers, rebranding 2027"
   };
-  function weekDate(dm){ const p=dm.split('/').map(Number); const y=p[1]>=8?2026:2027; return new Date(y,p[1]-1,p[0]); }
+  function weekDate(dm){ const p=dm.split('/').map(Number); return new Date(p[2],p[1]-1,p[0]); }
   function cell(c){
-    if(c && c.free) return '<span style="color:var(--muted)">— Place libre</span>';
     if(!c || !c.n) return '<span style="color:var(--muted)">—</span>';
     const disp=c.n+(c.sub?' ('+c.sub+')':'');
     let out='<a class="retro-co" data-co="'+escH(c.n)+'" title="Voir la fiche" style="cursor:pointer;font-weight:600;color:var(--txt);border-bottom:1px dashed var(--muted)">'+escH(disp)+'</a>';
@@ -2861,15 +2882,27 @@ if(AUTH && AUTH.token){
       const rowStyle = i===hi ? 'background:rgba(167,121,255,.12)' : (i<hi ? 'opacity:.5' : '');
       const badge = i===hi ? ' <span style="font-size:10px;color:#a779ff;font-weight:700">'+(act>=0?'● en cours':'● à venir')+'</span>' : '';
       rows+='<tr style="'+rowStyle+'"><td style="'+tdS+';white-space:nowrap;font-weight:700">'+escH(r[0])+badge+'</td>'
-        +'<td style="'+tdS+'">'+cell(r[1])+'</td><td style="'+tdS+'">'+cell(r[2])+'</td></tr>';
+        +'<td style="'+tdS+'">'+cell(r[1])+'</td></tr>';
     });
     const thS='text-align:left;padding:10px 13px;border-bottom:1px solid var(--line);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--panel2)';
-    host.innerHTML='<div class="card"><h3><span class="dot"></span>Rétroplanning — plan de communication <span style="color:var(--muted);font-weight:400">· jusqu\'à 2 entreprises par semaine</span></h3>'
+    const legende=[
+      'Hekatech — mise en avant en pause à la demande du membre. Hors calendrier, point à refaire fin novembre, réintégrable si le membre le souhaite.',
+      RETRO.length+' semaines de publication, du 31/08/2026 au 17/05/2027. Une seule entreprise par semaine depuis le 01/09/2026 : la semaine de publication est entièrement dédiée à un membre, sans partage d\'attention. Les semaines du 21/12 et du 28/12 sont neutralisées.',
+      'Badge vert « Confirmé » = date arrêtée et annoncée au membre, elle ne bouge plus. Sans badge = date prévisionnelle, jamais communiquée. Les mentions entre parenthèses sont les demandes ou contraintes des entreprises, respectées quand c\'est possible.',
+      'Les éléments de chaque membre sont attendus deux semaines avant sa semaine de publication.',
+      'Aucune place n\'est libre : les '+RETRO.length+' semaines sont attribuées.'
+    ].map(function(p){return '<div class="note" style="margin-top:10px">'+p+'</div>';}).join('');
+    const surveiller=[
+      'Échange en cours : Manuel Augusto (Beezen) a été sollicité le 02/09 pour céder la semaine du 26/10 et prendre celle du 09/11. S\'il accepte, Les Petits Prodiges passent au 26/10 et Beezen au 09/11. En attente de sa réponse.',
+      'Quatre membres avaient demandé une diffusion entre octobre et décembre et se retrouvent en janvier ou plus tard du fait du passage à une entreprise par semaine : Capillum, Ma Petite Laine, My Cocoon et Boarding Ring. Aucun n\'a encore été prévenu.',
+      'Trois membres ont un engagement écrit qui a changé : Les Petits Prodiges (28/09 → 09/11, annoncé le 02/09), Tchao Tchao (26/10 → 11/01, à rectifier auprès de Julien Boucault) et Dentoa (11/01 → 17/05, changement favorable, il voulait être dans les derniers).'
+    ].map(function(p){return '<div class="note" style="margin:8px 0 0">'+p+'</div>';}).join('');
+    host.innerHTML='<div class="card"><h3><span class="dot"></span>Rétroplanning — plan de communication <span style="color:var(--muted);font-weight:400">· une entreprise par semaine</span></h3>'
       +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:14px">'
-      +'<thead><tr><th style="'+thS+'">Semaine</th><th style="'+thS+'">Entreprise 1</th><th style="'+thS+'">Entreprise 2</th></tr></thead>'
+      +'<thead><tr><th style="'+thS+'">Semaine</th><th style="'+thS+'">Entreprise</th></tr></thead>'
       +'<tbody>'+rows+'</tbody></table></div>'
-      +'<div class="note" style="margin-top:10px;font-style:italic">Hekatech — mise en avant en pause à la demande du membre. Hors calendrier, réintégrable en janvier ou février.</div>'
-      +'<div class="note" style="margin-top:12px">'+RETRO.length+' semaines de publication · Badge vert « Confirmé » = date arrêtée et annoncée au membre, elle ne bouge plus. Sans badge = date prévisionnelle, jamais communiquée : elle se cale quand le dossier est complet. Les mentions entre parenthèses sont les demandes des entreprises : (imposé) et les dates précises sont respectées ; (sept.) et (oct-déc) sont des préférences de période. Septembre étant complet, Evena et Araw, qui avaient demandé septembre, passent début octobre — les deux ont été informées. Une place reste libre le 05/10, elle ira au premier membre qui livre son dossier complet. Qui livre tôt passe tôt.</div>'
+      +legende
+      +'<div style="margin-top:16px;border:1px solid var(--line);border-left:3px solid #ff9f1c;border-radius:10px;padding:12px 14px;background:var(--panel2)"><div style="font-weight:700;font-size:13px;margin-bottom:2px">⚠️ À surveiller</div>'+surveiller+'</div>'
       +'</div>';
     [...host.querySelectorAll('.retro-co')].forEach(a=>a.onclick=()=>openFiche(a.dataset.co));
   }
