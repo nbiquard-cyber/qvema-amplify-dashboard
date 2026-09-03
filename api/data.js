@@ -329,38 +329,44 @@ module.exports = async (req, res) => {
       ]);
       const wanted = clients.filter((c) => norm(c.fields["Promo"]).toUpperCase() === promoWanted && norm(c.fields["Statut Paiement"]) === "Payé");
       const chargeEmail = (c) => lower((c.billing_details && c.billing_details.email) || c.receipt_email || "");
-      const INST = 37250, FULL = [149000, 129000, 99000]; // mensualité 4x Promo 2 / paiement 1x
+      const INST = [32250, 46666, 37250], FULL = [149000, 129000, 99000]; // mensualités 4x (toutes promos) / paiements 1x
       const byEmail = {};
       for (const c of charges) {
         const em = chargeEmail(c); if (!em) continue;
         const b = byEmail[em] || (byEmail[em] = { paid: [], failed: [], oneShot: false });
         const ok = c.status === "succeeded" && c.paid;
-        if (c.amount === INST) { if (ok) b.paid.push((c.created || 0) * 1000); else if (c.status === "failed") b.failed.push((c.created || 0) * 1000); }
+        if (INST.includes(c.amount)) { if (ok) b.paid.push((c.created || 0) * 1000); else if (c.status === "failed") b.failed.push((c.created || 0) * 1000); }
         else if (FULL.includes(c.amount) && ok) b.oneShot = true;
       }
       const NOW = Date.now(), DAY = 86400000, MONTH = 30.44 * DAY, GRACE = 7 * DAY;
       const d = (ts) => (ts ? new Date(ts).toISOString().slice(0, 10) : null);
+      const echuesOf = (first) => { let e = 0; for (let k = 0; k < 4; k++) if (first + k * MONTH + GRACE <= NOW) e++; return e; };
       const rows = wanted.map((c) => {
         const em = lower(c.fields["Email"]);
         const b = byEmail[em] || { paid: [], failed: [], oneShot: false };
         const inst = b.paid.slice().sort((a, z) => a - z);
         const n = inst.length, first = inst[0] || null;
+        const echues = first ? echuesOf(first) : 0;
         return {
           nom: (norm(c.fields["Prénom"]) + " " + norm(c.fields["Nom"])).trim(), email: em,
           mode: b.oneShot ? "1x" : (n ? "4x" : "?"),
-          installmentsPaid: n, firstPaid: d(first), secondPaid: n >= 2, secondDate: d(inst[1] || null),
-          secondDue: first ? first + MONTH + GRACE <= NOW : false,
-          failedAttempts: b.failed.length, lastFailed: d(b.failed.sort((a, z) => z - a)[0] || null),
+          paye: n, dates: inst.map(d), echues, retard: Math.max(0, echues - n),
+          troisiemePayee: n >= 3, troisiemeDate: d(inst[2] || null),
+          troisiemeDue: first ? first + 2 * MONTH + GRACE <= NOW : false,
+          failedAttempts: b.failed.length, lastFailed: d(b.failed.slice().sort((a, z) => z - a)[0] || null),
         };
       });
       const four = rows.filter((r) => r.mode === "4x");
+      const cnt = { 1: 0, 2: 0, 3: 0, 4: 0 };
+      four.forEach((r) => { const k = Math.min(4, r.paye) || 1; cnt[k] = (cnt[k] || 0) + 1; });
       const out = {
         ok: true, promo: promoWanted, totalPayes: wanted.length,
         quatreFois: four.length, unFois: rows.filter((r) => r.mode === "1x").length,
-        sansMatchStripe: rows.filter((r) => r.mode === "?"),
-        secondPaidCount: four.filter((r) => r.secondPaid).length,
-        secondUnpaidDue: four.filter((r) => !r.secondPaid && r.secondDue),
-        secondNotDueYet: four.filter((r) => !r.secondPaid && !r.secondDue),
+        sansMatchStripe: rows.filter((r) => r.mode === "?").map((r) => ({ nom: r.nom, email: r.email })),
+        repartitionMensualitesPayees: cnt,
+        troisiemePayeeCount: four.filter((r) => r.troisiemePayee).length,
+        troisiemeDueNonPayee: four.filter((r) => !r.troisiemePayee && r.troisiemeDue),
+        enRetardCalendaire: four.filter((r) => r.retard > 0),
         withFailedAttempts: four.filter((r) => r.failedAttempts > 0),
         rows: four,
       };
