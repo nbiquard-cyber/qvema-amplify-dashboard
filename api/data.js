@@ -392,7 +392,7 @@ module.exports = async (req, res) => {
 
     // ---------- AIRTABLE ----------
     const [clientsRaw, connect, candidatures, accueilRaw] = await Promise.all([
-      airtableAll(T.clients, ["Promo", "Montant", "Statut Paiement", "Produit", "Date Paiement", "Email", "Sexe", "Age", "Code postal", "Pays", "Mode de paiement", "Prénom", "Nom"]),
+      airtableAll(T.clients, ["Promo", "Montant", "Statut Paiement", "Produit", "Date Paiement", "Email", "Email paiement", "Mensualités hors Stripe", "Sexe", "Age", "Code postal", "Pays", "Mode de paiement", "Prénom", "Nom"]),
       airtableAll(T.connect, ["Email", "Nom complet", "Montant", "Statut Paiement", "Date Paiement", "Mode Paiement", "Saison QVEMA", "Statut Membre", "Code postal", "Ville", "Pays"]),
       airtableAll(T.candidatures, ["Statut Candidature", "Statut Membre", "Mode de paiement", "Date Candidature", "Sous-cercle d'intérêt", "Saison"]),
       airtableAll(T.accueil, ["Promo", "Secteur d'activité", "Stade d'avancement", "Région", "Adresse mail", "Horodatage"]),
@@ -444,18 +444,15 @@ module.exports = async (req, res) => {
       statutByPromo[p][s] = (statutByPromo[p][s] || 0) + 1;
     }
 
+    // Emails d'un client : l'email d'inscription + l'éventuel "Email paiement" (alias Stripe).
+    // Permet de rattacher un paiement Stripe fait avec un email différent (nom, promo, impayés).
+    const emailsOf = (c) => [lower(c.fields["Email"]), lower(c.fields["Email paiement"])].filter(Boolean);
     // email -> promo (parmi les inscrits payés) pour attribuer les paiements Stripe
     const emailToPromo = {};
-    for (const c of bcPaid) {
-      const em = lower(c.fields["Email"]);
-      if (em) emailToPromo[em] = promoOf(c);
-    }
+    for (const c of bcPaid) { for (const em of emailsOf(c)) emailToPromo[em] = promoOf(c); }
     // email -> promo pour TOUS les clients (dont remboursés) : attribution des refunds Stripe
     const emailToPromoAll = {};
-    for (const c of clients) {
-      const em = lower(c.fields["Email"]);
-      if (em) emailToPromoAll[em] = promoOf(c);
-    }
+    for (const c of clients) { for (const em of emailsOf(c)) emailToPromoAll[em] = promoOf(c); }
 
     // ----- Amplify Connect (payeurs Airtable) -----
     const acMembers = connect;
@@ -561,34 +558,41 @@ module.exports = async (req, res) => {
     // mensualité a échoué dans Stripe (tentative échouée après le dernier paiement réussi).
     // Les remboursés sont exclus. Montant impayé = échéances non réglées x montant mensuel.
     const nameByEmail = {};
-    for (const c of clients) { const e = lower(c.fields["Email"]); if (e) nameByEmail[e] = (norm(c.fields["Prénom"]) + " " + norm(c.fields["Nom"])).trim(); }
-    const refundedSet = new Set(refunds.map((c) => lower(c.fields["Email"])).filter(Boolean));
+    for (const c of clients) { const nm = (norm(c.fields["Prénom"]) + " " + norm(c.fields["Nom"])).trim(); for (const e of emailsOf(c)) nameByEmail[e] = nm; }
+    const refundedSet = new Set();
+    for (const c of refunds) { for (const e of emailsOf(c)) refundedSet.add(e); }
+    // Mensualités payées HORS Stripe (virement…) — ajoutées au décompte Stripe pour les impayés.
+    const manualByEmail = {};
+    for (const c of clients) { const n = Number(c.fields["Mensualités hors Stripe"]) || 0; if (n > 0) for (const e of emailsOf(c)) manualByEmail[e] = n; }
     const NOW = Date.now(), DAY = 86400000, MONTH = 30.44 * DAY, GRACE = 7 * DAY;
     const impayesByPromo = {}, impayesAll = [];
     for (const e in instByEmail) {
       const info = instByEmail[e];
       if (refundedSet.has(e) || info.refunded) continue; // remboursé => pas un impayé
-      if (info.count >= 4) continue; // plan 4x soldé (4 mensualités)
-      // Solde payé en une fois : total net encaissé >= mensualité × 4 (tolérance 1€) => à jour.
+      const manual = manualByEmail[e] || 0; // mensualités réglées HORS Stripe (virement)
+      const paye = info.count + manual;      // décompte effectif = Stripe + hors Stripe
+      if (paye >= 4) continue; // plan 4x soldé (4 mensualités)
+      // Solde payé en une fois (Stripe) : total net encaissé >= mensualité × 4 (tolérance 1€) => à jour.
       if ((bcNetByEmail[e] || 0) >= (info.amount / 100) * 4 - 1) continue;
       const first = isFinite(info.first) ? info.first : info.last;
       // Mensualités DÉJÀ ÉCHUES à ce jour (1 à la souscription puis 1/mois), tolérance 7j.
       let echues = 0;
       for (let k = 0; k < 4; k++) { if (first + k * MONTH + GRACE <= NOW) echues++; }
-      let retard = Math.max(0, echues - info.count); // échéances passées non payées (calendrier)
-      // Échec Stripe : une tentative échouée APRÈS le dernier paiement réussi = mensualité en
-      // échec non rattrapée (même si la tolérance calendaire de 7 j n'est pas encore dépassée).
+      let retard = Math.max(0, echues - paye); // échéances passées non réglées (calendrier)
+      // Échec Stripe : tentative échouée APRÈS le dernier paiement réussi. On ne le force
+      // QUE si rien n'a été réglé hors Stripe depuis (sinon le virement a résolu l'échec).
       const lf = lastFailedByEmail[e] || 0;
       const echecStripe = lf > (info.last || 0);
-      if (echecStripe) retard = Math.max(retard, 1);
-      if (retard < 1) continue; // à jour : aucune échéance due non réglée, aucun échec Stripe
+      const flagEchec = echecStripe && manual === 0;
+      if (flagEchec) retard = Math.max(retard, 1);
+      if (retard < 1) continue; // à jour : aucune échéance due non réglée, aucun échec non résolu
       const perso = {
         email: e, nom: nameByEmail[e] || "", promo: emailToPromoAll[e] || "Sans promo",
-        paye: info.count, echues: Math.max(echues, info.count + (echecStripe ? 1 : 0)), retard,
+        paye, echues: Math.max(echues, paye + (flagEchec ? 1 : 0)), retard,
         mensualite: Math.round((info.amount / 100) * 100) / 100,
         montant: Math.round(retard * (info.amount / 100) * 100) / 100,
         dernierPaiement: info.last ? new Date(info.last).toISOString().slice(0, 10) : null,
-        echecStripe, dernierEchec: echecStripe ? new Date(lf).toISOString().slice(0, 10) : null,
+        echecStripe: flagEchec, dernierEchec: flagEchec ? new Date(lf).toISOString().slice(0, 10) : null,
       };
       (impayesByPromo[perso.promo] = impayesByPromo[perso.promo] || []).push(perso);
       impayesAll.push(perso);
