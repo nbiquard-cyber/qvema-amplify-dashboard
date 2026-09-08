@@ -2156,11 +2156,11 @@ if(AUTH && AUTH.token){
     document.getElementById('acq-spend-sub').textContent='dont RTG '+EUR(s.spend.rtg)+' · '+s.fenetre;
     document.getElementById('acq-ins').textContent=NUM(s.inscrits);
     const meta=s.channels.find(c=>c.name==='Paid Meta (ads)')||{ins:0};
-    document.getElementById('acq-ins-sub').textContent=Math.round(meta.ins/s.inscrits*100)+' % via ads · live '+s.liveDate;
+    document.getElementById('acq-ins-sub').textContent=(s.inscrits? Math.round(meta.ins/s.inscrits*100):0)+' % via ads · live '+s.liveDate;
     document.getElementById('acq-cpl').textContent=K.cpl!=null? K.cpl.toLocaleString('fr-FR',{maximumFractionDigits:2})+' €':'—';
-    document.getElementById('acq-roas-ads').textContent=K.roasMeta.toLocaleString('fr-FR',{maximumFractionDigits:2})+'×';
+    document.getElementById('acq-roas-ads').textContent=K.roasMeta!=null? K.roasMeta.toLocaleString('fr-FR',{maximumFractionDigits:2})+'×':'—';
     document.getElementById('acq-roas-ads-sub').textContent='CA Meta '+EUR(meta.fac||0)+' / dépense '+EUR(s.spend.total);
-    document.getElementById('acq-roas').textContent=K.roasBlended.toLocaleString('fr-FR',{maximumFractionDigits:2})+'×';
+    document.getElementById('acq-roas').textContent=K.roasBlended!=null? K.roasBlended.toLocaleString('fr-FR',{maximumFractionDigits:2})+'×':'—';
     document.getElementById('acq-roas-sub').textContent='CA total '+EUR(K.caFac)+' (toutes sources) / dépense ads';
     document.getElementById('acq-cac').textContent=K.cac!=null? EUR(Math.round(K.cac)):'—';
     document.getElementById('acq-conv').textContent=K.conv!=null? K.conv.toLocaleString('fr-FR',{maximumFractionDigits:2})+' %':'—';

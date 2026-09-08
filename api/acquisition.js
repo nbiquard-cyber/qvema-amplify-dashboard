@@ -211,6 +211,67 @@ async function buildPromo2() {
   };
 }
 
+// PROMO 3 : même chemin que P2 (vue Airtable "Inscrits Webi 3" + clients {Promo}='PROMO 3'),
+// mais SANS dépense ads pour l'instant (inscriptions pas encore ouvertes → conv/CPL/ROAS à 0/—).
+async function buildPromo3() {
+  const OPTIN_FIELDS = ["Email", "Created", "UTM Source", "UTM Campaign"];
+  const optinsP = airtableAll(T.optin, OPTIN_FIELDS, null, "Inscrits Webi 3").catch(() => []);
+  const [optins, clients] = await Promise.all([
+    optinsP,
+    airtableAll(T.clients, ["Email", "UTM Source", "Montant", "Mode de paiement", "Statut Paiement", "Promo", "Date Paiement"],
+      `{Promo} = 'PROMO 3'`),
+  ]);
+
+  const seen = new Map();
+  for (const r of optins) { const em = lower(r.fields["Email"]); const key = em || r.id; if (!seen.has(key)) seen.set(key, r); }
+  const uniq = [...seen.values()];
+
+  const channels = {}, byDayMap = {}, emailChan = {};
+  for (const r of uniq) {
+    const chan = chanFromSrc(r.fields["UTM Source"]);
+    channels[chan] = channels[chan] || { ins: 0, ventes: 0, fac: 0, enc: 0 };
+    channels[chan].ins++;
+    const em = lower(r.fields["Email"]); if (em) emailChan[em] = chan;
+    const created = norm(r.fields["Created"]).slice(0, 10);
+    if (created) { const d = created.slice(8, 10) + "/" + created.slice(5, 7); byDayMap[d] = byDayMap[d] || {}; byDayMap[d][chan] = (byDayMap[d][chan] || 0) + 1; }
+  }
+
+  let ventes = 0, caFac = 0, caEnc = 0, refunds = 0;
+  for (const c of clients) {
+    const st = norm(c.fields["Statut Paiement"]);
+    if (st === "En attente" || st === "Échec") continue;
+    const m = Number(c.fields["Montant"]) || 0;
+    const mode = lower(c.fields["Mode de paiement"]);
+    const src = norm(c.fields["UTM Source"]);
+    const em = lower(c.fields["Email"]);
+    const chan = src ? chanFromSrc(src) : (em && emailChan[em]) || "Direct / Site";
+    channels[chan] = channels[chan] || { ins: 0, ventes: 0, fac: 0, enc: 0 };
+    channels[chan].ventes++; channels[chan].fac += m; channels[chan].enc += mode === "4x" ? m / 4 : m;
+    ventes++; caFac += m; caEnc += mode === "4x" ? m / 4 : m;
+    if (st === "Remboursé") refunds++;
+  }
+
+  const channelList = Object.entries(channels).map(([name, v]) => ({ name, ...v })).sort((a, b) => b.ins - a.ins);
+  const inscrits = channelList.reduce((a, c) => a + c.ins, 0);
+  const days = Object.keys(byDayMap).sort((a, b) => (a.slice(3) + a.slice(0, 2)).localeCompare(b.slice(3) + b.slice(0, 2)));
+  return {
+    fenetre: "inscriptions non ouvertes", liveDate: "à venir",
+    spend: { total: 0, rtg: 0, acquisition: 0, note: "" },
+    inscrits, channels: channelList,
+    byDay: days.map((d) => ({ d, ch: byDayMap[d] })),
+    campaigns: [], utmCasses: 0,
+    kpis: {
+      ventes, caFac, caEnc, refunds,
+      cpl: null, roasMeta: null, roasBlended: null, cac: null,
+      conv: inscrits ? (ventes / inscrits) * 100 : null,
+    },
+    notes: [
+      "Promo 3 : inscriptions pas encore ouvertes — le funnel se remplira à l'ouverture. Les inscrits Webinaire 3 sont déjà suivis (vue Airtable « Inscrits Webi 3 »).",
+      "Aucune dépense ads pour l'instant : CPL, ROAS, CAC et taux de conversion s'afficheront dès l'ouverture des inscriptions.",
+    ],
+  };
+}
+
 function promo1Scope() {
   const inscrits = PROMO1.inscrits;
   const caFac = PROMO1.channels.reduce((a, c) => a + c.fac, 0);
@@ -243,12 +304,12 @@ module.exports = async (req, res) => {
   if (!auth.has(user.perms, "bootcamp")) { res.statusCode = 403; res.setHeader("Content-Type", "application/json"); return res.end(JSON.stringify({ error: "forbidden" })); }
   try {
     if (!_cache.data || Date.now() - _cache.at > _TTL) {
-      const p2 = await buildPromo2();
+      const [p2, p3] = await Promise.all([buildPromo2(), buildPromo3()]);
       _cache = { at: Date.now(), data: {
         generatedAt: new Date().toISOString(),
         colors: COLORS,
-        promoOrder: ["PROMO 2", "PROMO 1"],
-        scopes: { "PROMO 1": promo1Scope(), "PROMO 2": p2 },
+        promoOrder: ["PROMO 1", "PROMO 2", "PROMO 3"],
+        scopes: { "PROMO 1": promo1Scope(), "PROMO 2": p2, "PROMO 3": p3 },
       } };
     }
     res.statusCode = 200;
