@@ -2187,10 +2187,11 @@ if(AUTH && AUTH.token){
     });
     // Table campagnes
     const tb=document.querySelector('#acq-camp-table tbody'); tb.innerHTML='';
-    s.campaigns.slice().sort((a,b)=>b.spend-a.spend).forEach(c=>{
-      const cpl=c.ins? c.spend/c.ins:null;
+    s.campaigns.slice().sort((a,b)=>((b.spend||0)-(a.spend||0))||(b.ins-a.ins)).forEach(c=>{
+      const cpl=(c.spend!=null&&c.ins)? c.spend/c.ins:null;
+      const dep=c.spend!=null? EUR(Math.round(c.spend)):'—';
       const tr=document.createElement('tr');
-      tr.innerHTML='<td>'+c.name+'</td><td class="num">'+NUM(c.ins)+'</td><td class="num">'+EUR(Math.round(c.spend))+'</td>'+
+      tr.innerHTML='<td>'+c.name+'</td><td class="num">'+NUM(c.ins)+'</td><td class="num">'+dep+'</td>'+
         '<td class="num" style="font-weight:700;color:'+(cpl!=null&&cpl<=8?'var(--green)':'var(--txt)')+'">'+(cpl!=null? cpl.toLocaleString('fr-FR',{maximumFractionDigits:2})+' €':'—')+'</td>';
       tb.appendChild(tr);
     });

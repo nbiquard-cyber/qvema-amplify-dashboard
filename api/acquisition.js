@@ -226,7 +226,7 @@ async function buildPromo3() {
   for (const r of optins) { const em = lower(r.fields["Email"]); const key = em || r.id; if (!seen.has(key)) seen.set(key, r); }
   const uniq = [...seen.values()];
 
-  const channels = {}, byDayMap = {}, emailChan = {};
+  const channels = {}, byDayMap = {}, emailChan = {}, campIns = {};
   for (const r of uniq) {
     const chan = chanFromSrc(r.fields["UTM Source"]);
     channels[chan] = channels[chan] || { ins: 0, ventes: 0, fac: 0, enc: 0 };
@@ -234,6 +234,8 @@ async function buildPromo3() {
     const em = lower(r.fields["Email"]); if (em) emailChan[em] = chan;
     const created = norm(r.fields["Created"]).slice(0, 10);
     if (created) { const d = created.slice(8, 10) + "/" + created.slice(5, 7); byDayMap[d] = byDayMap[d] || {}; byDayMap[d][chan] = (byDayMap[d][chan] || 0) + 1; }
+    // On connaît la campagne via l'UTM (pas la dépense) → on compte les inscrits par campagne.
+    if (chan === "Paid Meta (ads)") { const camp = decode(r.fields["UTM Campaign"]).trim() || "(sans campagne)"; campIns[camp] = (campIns[camp] || 0) + 1; }
   }
 
   let ventes = 0, caFac = 0, caEnc = 0, refunds = 0;
@@ -259,7 +261,9 @@ async function buildPromo3() {
     spend: { total: 0, rtg: 0, acquisition: 0, note: "" },
     inscrits, channels: channelList,
     byDay: days.map((d) => ({ d, ch: byDayMap[d] })),
-    campaigns: [], utmCasses: 0,
+    // Campagnes connues via UTM ; dépense inconnue pour l'instant → spend null (colonnes Dépense/CPL vides).
+    campaigns: Object.entries(campIns).map(([name, ins]) => ({ name, ins, spend: null })).sort((a, b) => b.ins - a.ins),
+    utmCasses: 0,
     kpis: {
       ventes, caFac, caEnc, refunds,
       cpl: null, roasMeta: null, roasBlended: null, cac: null,
