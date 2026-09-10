@@ -2158,7 +2158,7 @@ if(AUTH && AUTH.token){
     if(!DATAQ.scopes[acqPromo]) return;
     const s=DATAQ.scopes[acqPromo], C=DATAQ.colors, K=s.kpis;
     document.getElementById('acq-spend').textContent=EUR(s.spend.total);
-    document.getElementById('acq-spend-sub').textContent='dont RTG '+EUR(s.spend.rtg)+' · '+s.fenetre;
+    document.getElementById('acq-spend-sub').textContent=(s.spend.partial?'⚠ partiel · ':'')+'dont RTG '+EUR(s.spend.rtg)+' · '+s.fenetre;
     document.getElementById('acq-ins').textContent=NUM(s.inscrits);
     const meta=s.channels.find(c=>c.name==='Paid Meta (ads)')||{ins:0};
     document.getElementById('acq-ins-sub').textContent=(s.inscrits? Math.round(meta.ins/s.inscrits*100):0)+' % via ads · live '+s.liveDate;
@@ -2196,7 +2196,7 @@ if(AUTH && AUTH.token){
       const cpl=(c.spend!=null&&c.ins)? c.spend/c.ins:null;
       const dep=c.spend!=null? EUR(Math.round(c.spend)):'—';
       const tr=document.createElement('tr');
-      tr.innerHTML='<td>'+c.name+'</td><td class="num">'+NUM(c.ins)+'</td><td class="num">'+dep+'</td>'+
+      tr.innerHTML='<td>'+escHtml(c.name)+'</td><td class="num">'+NUM(c.ins)+'</td><td class="num">'+dep+'</td>'+
         '<td class="num" style="font-weight:700;color:'+(cpl!=null&&cpl<=8?'var(--green)':'var(--txt)')+'">'+(cpl!=null? cpl.toLocaleString('fr-FR',{maximumFractionDigits:2})+' €':'—')+'</td>';
       tb.appendChild(tr);
     });
@@ -2221,7 +2221,7 @@ if(AUTH && AUTH.token){
       const tot=org.reduce((a,o)=>a+o.ins,0);
       document.getElementById('acq-organique-note').textContent=org.length+' UTM organiques actifs · '+NUM(tot)+' inscrits au total · les UTM à 0 inscrit ne sont pas affichés.';
     }
-    document.getElementById('acq-notes').innerHTML=(s.notes||[]).map(n=>'• '+n).join('<br>');
+    document.getElementById('acq-notes').innerHTML=(s.notes||[]).map(n=>'• '+escHtml(n)).join('<br>');
   }
   function kpiCard(label,val,sub,cls){ return '<div class="card kpi"><div class="label">'+label+'</div><div class="value '+(cls||'')+'">'+val+'</div><div class="sub">'+(sub||'')+'</div></div>'; }
   function renderGlobal(){
@@ -2250,7 +2250,7 @@ if(AUTH && AUTH.token){
     html+='<div class="card" style="margin-top:16px"><h3><span class="dot"></span>Comparatif par promo</h3>'
       +'<table><thead><tr><th>Promo</th><th class="num">Inscrits</th><th class="num">Dépense</th><th class="num">CPL</th><th class="num">ROAS ads</th><th class="num">ROAS blended</th><th class="num">CAC</th><th class="num">Conv.</th><th class="num">CA généré</th></tr></thead><tbody>';
     list.forEach(p=>{ const s=DATAQ.scopes[p], K=s.kpis;
-      html+='<tr><td><b>'+p+'</b></td>'
+      html+='<tr><td><b>'+p+'</b>'+(s.spend.partial?' ⚠':'')+'</td>'
         +'<td class="num">'+NUM(s.inscrits)+'</td>'
         +'<td class="num">'+EUR(Math.round(s.spend.total))+'</td>'
         +'<td class="num">'+(K.cpl!=null?num2(K.cpl)+' €':'—')+'</td>'

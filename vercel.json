@@ -26,6 +26,9 @@
     },
     "api/rs.js": {
       "maxDuration": 60
+    },
+    "api/acquisition.js": {
+      "maxDuration": 60
     }
   },
   "crons": [
