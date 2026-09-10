@@ -118,6 +118,15 @@ function chanFromSrc(src) {
   return "Direct / Site"; // partenaires isolés etc. fondus dans Direct
 }
 
+// Canaux ORGANIQUES (plan organique conférence) : utm_source -> libellé. Le reste (meta/fb = ads,
+// btn-site/"" = direct) n'est pas de l'organique par intervenant.
+const ORGANIC_CHAN = {
+  linkedin: "LinkedIn", instagram: "Instagram", insta: "Instagram",
+  facebook: "Facebook", short: "YouTube Short", youtube: "YouTube", yt: "YouTube",
+  newsletter: "Newsletter", tiktok: "TikTok", snapchat: "Snapchat", snap: "Snapchat",
+  x: "X (Twitter)", twitter: "X (Twitter)", threads: "Threads",
+};
+
 function decode(c) {
   try { return decodeURIComponent((c || "").replace(/\+/g, " ")); } catch (_) { return c || ""; }
 }
@@ -214,7 +223,7 @@ async function buildPromo2() {
 // PROMO 3 : même chemin que P2 (vue Airtable "Inscrits Webi 3" + clients {Promo}='PROMO 3'),
 // mais SANS dépense ads pour l'instant (inscriptions pas encore ouvertes → conv/CPL/ROAS à 0/—).
 async function buildPromo3() {
-  const OPTIN_FIELDS = ["Email", "Created", "UTM Source", "UTM Campaign"];
+  const OPTIN_FIELDS = ["Email", "Created", "UTM Source", "UTM Medium", "UTM Campaign"];
   const optinsP = airtableAll(T.optin, OPTIN_FIELDS, null, "Inscrits Webi 3").catch(() => []);
   const [optins, clients] = await Promise.all([
     optinsP,
@@ -226,7 +235,7 @@ async function buildPromo3() {
   for (const r of optins) { const em = lower(r.fields["Email"]); const key = em || r.id; if (!seen.has(key)) seen.set(key, r); }
   const uniq = [...seen.values()];
 
-  const channels = {}, byDayMap = {}, emailChan = {}, campIns = {};
+  const channels = {}, byDayMap = {}, emailChan = {}, campIns = {}, orgMap = {};
   for (const r of uniq) {
     const chan = chanFromSrc(r.fields["UTM Source"]);
     channels[chan] = channels[chan] || { ins: 0, ventes: 0, fac: 0, enc: 0 };
@@ -236,6 +245,13 @@ async function buildPromo3() {
     if (created) { const d = created.slice(8, 10) + "/" + created.slice(5, 7); byDayMap[d] = byDayMap[d] || {}; byDayMap[d][chan] = (byDayMap[d][chan] || 0) + 1; }
     // On connaît la campagne via l'UTM (pas la dépense) → on compte les inscrits par campagne.
     if (chan === "Paid Meta (ads)") { const camp = decode(r.fields["UTM Campaign"]).trim() || "(sans campagne)"; campIns[camp] = (campIns[camp] || 0) + 1; }
+    // Organique par intervenant × canal (utm_source organique + utm_medium = la personne qui poste).
+    const orgLabel = ORGANIC_CHAN[lower(r.fields["UTM Source"])];
+    if (orgLabel) {
+      const med = decode(r.fields["UTM Medium"]).trim() || "(sans intervenant)";
+      const key = med + " | " + orgLabel;
+      (orgMap[key] = orgMap[key] || { intervenant: med, canal: orgLabel, ins: 0 }).ins++;
+    }
   }
 
   let ventes = 0, caFac = 0, caEnc = 0, refunds = 0;
@@ -263,6 +279,8 @@ async function buildPromo3() {
     byDay: days.map((d) => ({ d, ch: byDayMap[d] })),
     // Campagnes connues via UTM ; dépense inconnue pour l'instant → spend null (colonnes Dépense/CPL vides).
     campaigns: Object.entries(campIns).map(([name, ins]) => ({ name, ins, spend: null })).sort((a, b) => b.ins - a.ins),
+    // Organique : inscrits par intervenant × canal (UTM medium × source), 0 masqué (construit depuis les inscrits réels).
+    organique: Object.values(orgMap).sort((a, b) => b.ins - a.ins || a.canal.localeCompare(b.canal) || a.intervenant.localeCompare(b.intervenant)),
     utmCasses: 0,
     kpis: {
       ventes, caFac, caEnc, refunds,
