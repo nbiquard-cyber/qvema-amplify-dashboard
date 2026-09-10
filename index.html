@@ -575,9 +575,11 @@
       <div class="card"><h3>Ventes & CA par canal (attribution UTM)</h3>
         <table id="acq-chan-table"><thead><tr><th>Canal</th><th class="num">Inscrits</th><th class="num">Ventes</th><th class="num">Conv.</th><th class="num">CA généré</th><th class="num">Encaissé conv.</th></tr></thead><tbody></tbody></table></div>
     </div>
-    <div class="card" id="acq-organique-card" style="margin-top:16px"><h3>Organique — inscrits par intervenant &amp; canal (UTM)</h3>
-      <table id="acq-organique-table"><thead><tr><th>Intervenant</th><th>Canal</th><th class="num">Inscrits</th></tr></thead><tbody></tbody></table>
-      <div class="note" id="acq-organique-note"></div></div>
+    <div class="row2" id="acq-organique-row">
+      <div class="card" id="acq-organique-card"><h3>Organique — inscrits par intervenant &amp; canal (UTM)</h3>
+        <table id="acq-organique-table"><thead><tr><th>Intervenant</th><th>Canal</th><th class="num">Inscrits</th></tr></thead><tbody></tbody></table>
+        <div class="note" id="acq-organique-note"></div></div>
+    </div>
     <div class="card" style="margin-top:16px"><h3>Notes méthodologiques</h3><div class="note" id="acq-notes"></div></div>
     </div><!-- /acq-single -->
     <div id="acq-global" class="hidden"></div>
@@ -2210,7 +2212,7 @@ if(AUTH && AUTH.token){
       tb2.appendChild(tr);
     });
     // Organique — inscrits par intervenant × canal (UTM). Masqué si aucune donnée (ex. promos sans plan organique).
-    const org=s.organique||[], oc=document.getElementById('acq-organique-card');
+    const org=s.organique||[], oc=document.getElementById('acq-organique-row');
     if(!org.length){ oc.classList.add('hidden'); }
     else {
       oc.classList.remove('hidden');
