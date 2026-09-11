@@ -1,16 +1,24 @@
 // QVEMA Amplify — Acquisition data API (bilan ads & funnel par promo)
 // Même pattern que data.js : auth cockpit + Airtable live, cache court.
-// - Dépense Meta / campagnes = CONSTANTES validées (exports Ads Manager consolidés,
+// - Dépense Meta / campagnes P1 & P2 = CONSTANTES validées (exports Ads Manager consolidés,
 //   comptes bloqués → pas d'API fiable). Sources : CSV 24/06→23/07 (3 comptes P2),
 //   exports Le Cab + MON ASSOCIE FACTORY (P1). Attribution = UTM (source de vérité).
 // - PROMO 1 : bilan FIGÉ (post-mortem validé, cascade premier-contact incl. lead form).
 // - PROMO 2 : inscrits & ventes par canal recalculés LIVE depuis Airtable
 //   (cascade : ① UTM checkout → ② match e-mail opt-in → ③ Direct).
+// - PROMO 3 : funnel LIVE Airtable + dépense Meta LIVE (Marketing API via api/_meta.js, 2 comptes :
+//   MON ASSOCIE FACTORY principal + Bootcamp QVEMA back-up). Périmètre = campagnes « Septembre 2026 ».
 const auth = require("./_auth.js");
+const { fetchCampaignSpend, scrub, DEFAULT_VERSION } = require("./_meta.js");
 
 const CONFIG = {
   airtableToken: process.env.AIRTABLE_TOKEN || "",
   airtableBase: process.env.AIRTABLE_BASE || "appUjhN2jh25MBAAl",
+  // Meta Marketing API (dépense P3). Comptes : MON ASSOCIE FACTORY 3220696111443286 (principal) + Bootcamp QVEMA 854328590746337 (back-up).
+  metaToken: process.env.META_ACCESS_TOKEN || "",
+  metaAccounts: [...new Set((process.env.META_AD_ACCOUNTS || "3220696111443286,854328590746337").split(",").map((s) => s.trim().replace(/^act_/, "")).filter(Boolean))],
+  p3Since: process.env.P3_META_SINCE || "2026-08-01", // début de la fenêtre dépense P3 (until = aujourd'hui, Europe/Paris) ; le périmètre par nom évite toute fuite P2
+  apiVersion: process.env.META_API_VERSION || DEFAULT_VERSION,
 };
 const T = { optin: "tblLFSHiUudhDSvM9", clients: "tblalRhenwmZZgenq" };
 
@@ -85,6 +93,35 @@ const P2_META = {
   ],
 };
 
+// ---------- PROMO 3 — dépense LIVE (Meta Marketing API via api/_meta.js), funnel live Airtable ----------
+// Env : META_ACCESS_TOKEN (sans lui : dépense 0 + note), META_AD_ACCOUNTS, P3_META_SINCE, META_API_VERSION (cf. CONFIG),
+//       P3_LIVE_DATE, P3_META_MATCH, P3_META_INCLUDE_IDS, P3_META_ALIASES (ci-dessous). Rien ne touche P1 / P2.
+// Règle de périmètre : texte littéral (espaces/insécables tolérants, insensible à la casse) ou /regex/ explicite.
+const envRe = (v, d) => {
+  try {
+    const m = /^\/(.+)\/([a-z]*)$/.exec(v || "");
+    if (m) return new RegExp(m[1], m[2].includes("i") ? m[2] : m[2] + "i");
+    return new RegExp((v || d).replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s*"), "i");
+  } catch (_) { return new RegExp(d.replace(/\s+/g, "\\s*"), "i"); }
+};
+const envJson = (v) => { try { return JSON.parse(v || "{}") || {}; } catch (_) { return {}; } };
+const P3_META = {
+  liveDate: process.env.P3_LIVE_DATE || "à venir",
+  // PÉRIMÈTRE (règle opérateur) : une campagne Meta appartient à la P3 ssi son nom contient « Septembre 2026 »…
+  match: envRe(process.env.P3_META_MATCH, "Septembre 2026"),
+  matchLabel: process.env.P3_META_MATCH || "Septembre 2026", // libellé humain de la règle (notes)
+  // …ou si son id est forcé (ex. 52607628596514 = « ACQ - Instit - Compte back up » sur Bootcamp QVEMA, nom sans « Septembre 2026 »).
+  includeIds: (process.env.P3_META_INCLUDE_IDS || "").split(",").map((s) => s.trim()).filter(Boolean),
+  rtgMatch: /RTG|retarget|remarketing/i,
+  // Nom de campagne Meta -> valeur UTM campaign quand ils diffèrent, ex. {"ACQ - Instit - Septembre 2026":"ACQ - Instit"}.
+  aliases: envJson(process.env.P3_META_ALIASES),
+  accountNames: { "3220696111443286": "MON ASSOCIE FACTORY", "854328590746337": "Bootcamp QVEMA" }, // libellés dans les notes
+};
+const accLabel = (id) => P3_META.accountNames[id] || (id === "*" ? "tous comptes" : "act_" + id);
+// Dernière lecture Meta réussie par compte (par instance) : si un compte tombe (P1/P2 : compte principal bloqué en cours
+// de campagne), on réutilise ses dernières lignes plutôt que d'afficher une dépense fausse ; sans repli => dépense PARTIELLE.
+let _lastMeta = {};
+
 async function airtableAll(table, fields, filterByFormula, view) {
   const out = [];
   let offset = null;
@@ -130,6 +167,12 @@ const ORGANIC_CHAN = {
 function decode(c) {
   try { return decodeURIComponent((c || "").replace(/\+/g, " ")); } catch (_) { return c || ""; }
 }
+// Aujourd'hui à Paris en YYYY-MM-DD (fr-CA = format ISO) : borne « until » de la fenêtre Meta P3.
+const todayParis = () => new Intl.DateTimeFormat("fr-CA", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+const ddmm = (iso) => norm(iso).slice(8, 10) + "/" + norm(iso).slice(5, 7);
+const hhmm = (t) => new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit" }).format(new Date(t));
+const r2 = (v) => Math.round(v * 100) / 100;
+const EUR0 = (v) => Math.round(v).toLocaleString("fr-FR") + " €";
 
 async function buildPromo2() {
   // Inscrits P2 : SOURCE DE VÉRITÉ = vue Airtable "Inscrits Webi 2" (liste canonique,
@@ -221,15 +264,34 @@ async function buildPromo2() {
 }
 
 // PROMO 3 : même chemin que P2 (vue Airtable "Inscrits Webi 3" + clients {Promo}='PROMO 3'),
-// mais SANS dépense ads pour l'instant (inscriptions pas encore ouvertes → conv/CPL/ROAS à 0/—).
+// mais dépense Meta LIVE (Marketing API, 2 comptes, périmètre « Septembre 2026 ») au lieu de CSV figés.
+// Sans META_ACCESS_TOKEN : comportement d'avant (dépense 0, CPL/ROAS/CAC null) + note explicite.
 async function buildPromo3() {
   const OPTIN_FIELDS = ["Email", "Created", "UTM Source", "UTM Medium", "UTM Campaign"];
+  const since = CONFIG.p3Since, until = todayParis();
   const optinsP = airtableAll(T.optin, OPTIN_FIELDS, null, "Inscrits Webi 3").catch(() => []);
-  const [optins, clients] = await Promise.all([
+  // Dépense Meta en parallèle des 2 appels Airtable ; null si pas de token (fallback = comme avant).
+  const metaP = CONFIG.metaToken
+    ? fetchCampaignSpend({ token: CONFIG.metaToken, accounts: CONFIG.metaAccounts, since, until, apiVersion: CONFIG.apiVersion })
+        .catch((e) => ({ rows: [], errors: [{ account: "*", error: scrub(e, CONFIG.metaToken) }] }))
+    : Promise.resolve(null);
+  const [optins, clients, meta] = await Promise.all([
     optinsP,
     airtableAll(T.clients, ["Email", "UTM Source", "Montant", "Mode de paiement", "Statut Paiement", "Promo", "Date Paiement"],
       `{Promo} = 'PROMO 3'`),
+    metaP,
   ]);
+  // Repli par compte : compte en erreur => dernières lignes connues (stale) si on en a, sinon dépense PARTIELLE (KPIs masqués).
+  const stale = [], missing = [];
+  if (meta) {
+    const failed = new Set(meta.errors.map((e) => e.account));
+    for (const a of CONFIG.metaAccounts) {
+      if (!failed.has(a) && !failed.has("*")) { _lastMeta[a] = { rows: meta.rows.filter((r) => r.account === a), at: Date.now() }; continue; }
+      const lg = _lastMeta[a];
+      if (lg) { meta.rows.push(...lg.rows); stale.push(accLabel(a) + " (figé à " + hhmm(lg.at) + ")"); } else missing.push(a);
+    }
+  }
+  const partial = !!meta && missing.length > 0;
 
   const seen = new Map();
   for (const r of optins) { const em = lower(r.fields["Email"]); const key = em || r.id; if (!seen.has(key)) seen.set(key, r); }
@@ -243,8 +305,9 @@ async function buildPromo3() {
     const em = lower(r.fields["Email"]); if (em) emailChan[em] = chan;
     const created = norm(r.fields["Created"]).slice(0, 10);
     if (created) { const d = created.slice(8, 10) + "/" + created.slice(5, 7); byDayMap[d] = byDayMap[d] || {}; byDayMap[d][chan] = (byDayMap[d][chan] || 0) + 1; }
-    // On connaît la campagne via l'UTM (pas la dépense) → on compte les inscrits par campagne.
-    if (chan === "Paid Meta (ads)") { const camp = decode(r.fields["UTM Campaign"]).trim() || "(sans campagne)"; campIns[camp] = (campIns[camp] || 0) + 1; }
+    // Campagne via l'UTM : nom Meta encodé ({{campaign.name}} → « ACQ+-+Marc+-+Septembre+2026 ») OU id numérique ({{campaign.id}}).
+    // Vide / « {{campaign.name}} » non résolu = UTM cassé (compté à part, comme en P2).
+    if (chan === "Paid Meta (ads)") { const c = decode(r.fields["UTM Campaign"]).trim(); const key = !c || /\{\{|\}\}/.test(c) ? "(UTM cassé)" : c; campIns[key] = (campIns[key] || 0) + 1; }
     // Organique par intervenant × canal (utm_source organique + utm_medium = la personne qui poste).
     const orgLabel = ORGANIC_CHAN[lower(r.fields["UTM Source"])];
     if (orgLabel) {
@@ -271,26 +334,90 @@ async function buildPromo3() {
 
   const channelList = Object.entries(channels).map(([name, v]) => ({ name, ...v })).sort((a, b) => b.ins - a.ins);
   const inscrits = channelList.reduce((a, c) => a + c.ins, 0);
+  const metaIns = (channels["Paid Meta (ads)"] || {}).ins || 0;
+  const metaFac = (channels["Paid Meta (ads)"] || {}).fac || 0;
+  const metaVentes = (channels["Paid Meta (ads)"] || {}).ventes || 0;
   const days = Object.keys(byDayMap).sort((a, b) => (a.slice(3) + a.slice(0, 2)).localeCompare(b.slice(3) + b.slice(0, 2)));
+
+  // ---- Dépense Meta : périmètre P3 (nom « Septembre 2026 » ou id forcé), fusion par nom normalisé
+  //      (même campagne sur 2 comptes = 1 ligne). Hors périmètre avec dépense > 0 => signalé dans la note.
+  const norm2 = (s) => decode(s).replace(/[\u00a0\u202f]/g, " ").replace(/[\u2010-\u2015\u2212]/g, "-").replace(/\s+/g, " ").trim().toLowerCase();
+  const clean = (s) => String(s || "").replace(/[\u00a0\u202f]/g, " ").replace(/\s+/g, " ").trim(); // nom affiché
+  const rows = {}, excl = {}, badCur = [];
+  for (const m of (meta && meta.rows) || []) {
+    if (m.currency && m.currency !== "EUR") { if (m.spend > 0) badCur.push(clean(m.name) + " (" + m.currency + ")"); continue; } // devise non gérée : jamais sommée
+    const ok = P3_META.match.test(norm2(m.name)) || P3_META.includeIds.includes(String(m.campaignId));
+    if (!ok && !(m.spend > 0)) continue;
+    const bucket = ok ? rows : excl, k = norm2(m.name);
+    const row = bucket[k] || (bucket[k] = { name: clean(m.name), spend: 0, ids: [], ins: 0 });
+    row.spend += m.spend;
+    if (m.campaignId && !row.ids.includes(m.campaignId)) row.ids.push(m.campaignId);
+  }
+  // ---- Rattachement UTM → campagne Meta : clé numérique = campaign_id, sinon nom exact normalisé (alias possible).
+  //      Plusieurs clés UTM (id + nom) résolues vers la même campagne = 1 ligne, nommée comme dans Meta.
+  const byId = {}, byName = {}, aliasByNorm = {};
+  for (const [k, v] of Object.entries(P3_META.aliases)) aliasByNorm[norm2(k)] = v;
+  for (const row of Object.values(rows)) {
+    row.ids.forEach((id) => { byId[id] = row; });
+    byName[norm2(row.name)] = row;
+    const al = aliasByNorm[norm2(row.name)]; if (al) byName[norm2(al)] = row;
+  }
+  const campaigns = [];
+  for (const [key, ins] of Object.entries(campIns)) {
+    if (key === "(UTM cassé)") continue;
+    const row = /^\d+$/.test(key) ? byId[key] : byName[norm2(key)];
+    if (row) row.ins += ins; else campaigns.push({ name: clean(key).replace(/[<>]/g, "").slice(0, 80), ins, spend: null }); // UTM non rattaché : dépense inconnue (—), balises retirées
+  }
+  for (const row of Object.values(rows)) campaigns.push({ name: row.name, ins: row.ins, spend: r2(row.spend) }); // ins 0 possible : la dépense compte quand même
+  campaigns.sort((a, b) => ((b.spend || 0) - (a.spend || 0)) || (b.ins - a.ins));
+
+  const scope = Object.values(rows);
+  const total = r2(scope.reduce((a, c) => a + c.spend, 0));
+  const rtg = r2(scope.filter((c) => P3_META.rtgMatch.test(c.name)).reduce((a, c) => a + c.spend, 0));
+  const spend = { total, rtg, acquisition: r2(total - rtg), note: "", partial };
+  const fenetre = ddmm(since) + " → " + ddmm(until);
+  const notes = [
+    "Attribution UTM (source de vérité) : ① UTM checkout → ② match e-mail opt-in (1ᵉʳ contact) → ③ Direct. Inscrits = vue Airtable « Inscrits Webi 3 » (inscriptions ouvertes le 05/09).",
+  ];
+  if (!meta) {
+    spend.note = "Dépense Meta non branchée (META_ACCESS_TOKEN manquant)";
+    notes.push("Dépense Meta non branchée (META_ACCESS_TOKEN manquant) : CPL, ROAS et CAC s'afficheront dès que le token Marketing API sera configuré dans Vercel.");
+  } else {
+    const errs = meta.errors.map((e) => "compte " + accLabel(e.account) + " indisponible : " + e.error);
+    const dropped = Object.values(excl).sort((a, b) => b.spend - a.spend).map((c) => c.name + " " + EUR0(c.spend));
+    const perim = "nom sans « " + P3_META.matchLabel + " »";
+    spend.note = (partial ? "⚠ DÉPENSE PARTIELLE · " : "") + "Live Meta API · " + CONFIG.metaAccounts.length + " compte(s) · fenêtre " + fenetre
+      + (stale.length ? " · dernière valeur connue : " + stale.join(", ") : "")
+      + (errs.length ? " · " + errs.join(" · ") : "")
+      + (dropped.length ? " · Hors périmètre P3 (" + perim + ") : " + dropped.join(", ") : "")
+      + (badCur.length ? " · devise non gérée (exclu) : " + badCur.join(", ") : "");
+    notes.push("Dépense Meta LIVE (Marketing API) : " + CONFIG.metaAccounts.map(accLabel).join(" + ") + " · périmètre P3 = campagnes dont le nom contient « " + P3_META.matchLabel + " »"
+      + (P3_META.includeIds.length ? " + ids forcés " + P3_META.includeIds.join(", ") : "") + " · fenêtre " + fenetre + " · rafraîchi toutes les 60 s.");
+    notes.push("Campagnes rattachées par UTM campaign (nom Meta encodé ou id numérique) ; UTM vides ou « {{campaign.name}} » non résolus comptés en UTM cassé ; une campagne Meta sans inscrit reste affichée (0) pour que la dépense totale soit juste.");
+    if (stale.length) notes.push("Compte(s) Meta indisponible(s), dépense figée à la dernière lecture réussie : " + stale.join(", ") + ".");
+    if (partial) notes.push("⚠ " + errs.join(" · ") + " — dépense PARTIELLE : CPL, ROAS et CAC masqués (ils seraient faux) ; la dépense affichée ne couvre pas tous les comptes.");
+    else if (errs.length) notes.push("⚠ " + errs.join(" · "));
+    if (badCur.length) notes.push("Campagne(s) dans une devise autre que EUR, exclue(s) du total : " + badCur.join(", ") + ".");
+    if (dropped.length) notes.push("Hors périmètre P3 (" + perim + "), dépense ignorée : " + dropped.join(", ") + ". Pour l'inclure : P3_META_INCLUDE_IDS=id de campagne.");
+  }
   return {
-    fenetre: "inscriptions non ouvertes", liveDate: "à venir",
-    spend: { total: 0, rtg: 0, acquisition: 0, note: "" },
+    fenetre, liveDate: P3_META.liveDate, spend,
     inscrits, channels: channelList,
     byDay: days.map((d) => ({ d, ch: byDayMap[d] })),
-    // Campagnes connues via UTM ; dépense inconnue pour l'instant → spend null (colonnes Dépense/CPL vides).
-    campaigns: Object.entries(campIns).map(([name, ins]) => ({ name, ins, spend: null })).sort((a, b) => b.ins - a.ins),
+    // Campagnes : dépense Meta live (périmètre P3) + inscrits via UTM ; spend null = UTM non rattaché (colonnes Dépense/CPL vides).
+    campaigns,
     // Organique : inscrits par intervenant × canal (UTM medium × source), 0 masqué (construit depuis les inscrits réels).
     organique: Object.values(orgMap).sort((a, b) => b.ins - a.ins || a.canal.localeCompare(b.canal) || a.intervenant.localeCompare(b.intervenant)),
-    utmCasses: 0,
+    utmCasses: campIns["(UTM cassé)"] || 0,
     kpis: {
       ventes, caFac, caEnc, refunds,
-      cpl: null, roasMeta: null, roasBlended: null, cac: null,
+      cpl: !partial && metaIns && spend.acquisition > 0 ? spend.acquisition / metaIns : null,
+      roasMeta: !partial && spend.total > 0 ? metaFac / spend.total : null,
+      roasBlended: !partial && spend.total > 0 ? caFac / spend.total : null,
+      cac: !partial && metaVentes && spend.total > 0 ? spend.total / metaVentes : null,
       conv: inscrits ? (ventes / inscrits) * 100 : null,
     },
-    notes: [
-      "Promo 3 : inscriptions pas encore ouvertes — le funnel se remplira à l'ouverture. Les inscrits Webinaire 3 sont déjà suivis (vue Airtable « Inscrits Webi 3 »).",
-      "Aucune dépense ads pour l'instant : CPL, ROAS, CAC et taux de conversion s'afficheront dès l'ouverture des inscriptions.",
-    ],
+    notes,
   };
 }
 
@@ -318,6 +445,7 @@ function promo1Scope() {
 }
 
 let _cache = { at: 0, data: null };
+let _inflight = null; // reconstruction en cours (les requêtes concurrentes la partagent)
 const _TTL = 60000;
 
 module.exports = async (req, res) => {
@@ -326,13 +454,17 @@ module.exports = async (req, res) => {
   if (!auth.has(user.perms, "bootcamp")) { res.statusCode = 403; res.setHeader("Content-Type", "application/json"); return res.end(JSON.stringify({ error: "forbidden" })); }
   try {
     if (!_cache.data || Date.now() - _cache.at > _TTL) {
-      const [p2, p3] = await Promise.all([buildPromo2(), buildPromo3()]);
-      _cache = { at: Date.now(), data: {
-        generatedAt: new Date().toISOString(),
-        colors: COLORS,
-        promoOrder: ["PROMO 1", "PROMO 2", "PROMO 3"],
-        scopes: { "PROMO 1": promo1Scope(), "PROMO 2": p2, "PROMO 3": p3 },
-      } };
+      if (!_inflight) _inflight = (async () => {
+        const [p2, p3] = await Promise.all([buildPromo2(), buildPromo3()]);
+        return {
+          generatedAt: new Date().toISOString(),
+          colors: COLORS,
+          promoOrder: ["PROMO 1", "PROMO 2", "PROMO 3"],
+          scopes: { "PROMO 1": promo1Scope(), "PROMO 2": p2, "PROMO 3": p3 },
+        };
+      })().finally(() => { _inflight = null; });
+      const data = await _inflight;
+      _cache = { at: Date.now(), data };
     }
     res.statusCode = 200;
     res.setHeader("Content-Type", "application/json");
@@ -344,3 +476,6 @@ module.exports = async (req, res) => {
     return res.end(JSON.stringify({ error: e.message }));
   }
 };
+
+// Export pour tests hors-ligne (p3-selftest) : n'altère pas le handler Vercel.
+module.exports._test = { buildPromo3, buildPromo2, promo1Scope };
