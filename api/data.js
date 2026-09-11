@@ -618,9 +618,15 @@ module.exports = async (req, res) => {
       // Solde payé en une fois (Stripe) : total net encaissé >= mensualité × 4 (tolérance 1€) => à jour.
       if ((bcNetByEmail[e] || 0) >= (info.amount / 100) * 4 - 1) continue;
       const first = isFinite(info.first) ? info.first : info.last;
-      // Mensualités DÉJÀ ÉCHUES à ce jour (1 à la souscription puis 1/mois), tolérance 7j.
+      // Mensualités DÉJÀ ÉCHUES : 1 à la souscription puis 1 par mois CALENDAIRE (dates réelles,
+      // pas d'approximation 30,44j). Une échéance compte comme due dès que sa date est dépassée
+      // de plus d'1 jour (tolérance courte : on ne flague pas le jour même du prélèvement, mais
+      // une échéance passée non prélevée n'est plus masquée par une tolérance de 7j).
       let echues = 0;
-      for (let k = 0; k < 4; k++) { if (first + k * MONTH + GRACE <= NOW) echues++; }
+      for (let k = 0; k < 4; k++) {
+        const due = new Date(first); due.setMonth(due.getMonth() + k);
+        if (due.getTime() + DAY <= NOW) echues++;
+      }
       let retard = Math.max(0, echues - paye); // échéances passées non réglées (calendrier)
       // Échec Stripe : tentative échouée APRÈS le dernier paiement réussi. On ne le force
       // QUE si rien n'a été réglé hors Stripe depuis (sinon le virement a résolu l'échec).
