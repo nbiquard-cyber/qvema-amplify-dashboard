@@ -619,13 +619,15 @@ module.exports = async (req, res) => {
       if ((bcNetByEmail[e] || 0) >= (info.amount / 100) * 4 - 1) continue;
       const first = isFinite(info.first) ? info.first : info.last;
       // Mensualités DÉJÀ ÉCHUES : 1 à la souscription puis 1 par mois CALENDAIRE (dates réelles,
-      // pas d'approximation 30,44j). Une échéance compte comme due dès que sa date est dépassée
-      // de plus d'1 jour (tolérance courte : on ne flague pas le jour même du prélèvement, mais
-      // une échéance passée non prélevée n'est plus masquée par une tolérance de 7j).
+      // pas d'approximation 30,44j). Comparaison au niveau du JOUR (indépendante de l'heure) :
+      // une échéance compte comme due dès que son jour est passé (hier ou avant). On ne flague
+      // donc pas le jour même du prélèvement, mais une échéance passée non réglée n'est plus
+      // masquée par une tolérance de 7j.
+      const today0 = new Date(NOW); today0.setHours(0, 0, 0, 0); const todayMs = today0.getTime();
       let echues = 0;
       for (let k = 0; k < 4; k++) {
-        const due = new Date(first); due.setMonth(due.getMonth() + k);
-        if (due.getTime() + DAY <= NOW) echues++;
+        const due = new Date(first); due.setMonth(due.getMonth() + k); due.setHours(0, 0, 0, 0);
+        if (due.getTime() < todayMs) echues++;
       }
       let retard = Math.max(0, echues - paye); // échéances passées non réglées (calendrier)
       // Échec Stripe : tentative échouée APRÈS le dernier paiement réussi. On ne le force
