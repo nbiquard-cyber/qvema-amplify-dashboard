@@ -99,6 +99,27 @@ async function agendaWrite(events, rec) {
   if (!r.ok) throw new Error("agenda write " + r.status + ": " + (await r.text()).slice(0, 150));
 }
 
+// --- Stockage du Rétroplanning de diffusion (table "Rétroplanning Amplify", 1 enreg. Clé=store) ---
+const RETRO_TABLE = "tbl7sw24uJoCJp1N4";
+async function retroRecord() {
+  const url = "https://api.airtable.com/v0/" + CONFIG.airtableBase + "/" + RETRO_TABLE +
+    "?maxRecords=1&filterByFormula=" + encodeURIComponent("{Clé}='store'");
+  const r = await fetch(url, { headers: { Authorization: "Bearer " + AGENDA_WRITE_TOKEN } });
+  if (!r.ok) throw new Error("retro read " + r.status);
+  const j = await r.json();
+  return (j.records && j.records[0]) || null;
+}
+function retroData(rec) { try { return rec ? (JSON.parse(rec.fields.Data || "{}") || {}) : {}; } catch (e) { return {}; } }
+async function retroWrite(data, rec) {
+  const fields = { "Clé": "store", Data: JSON.stringify(data), Updated: new Date().toISOString() };
+  const base = "https://api.airtable.com/v0/" + CONFIG.airtableBase + "/" + RETRO_TABLE;
+  const opt = rec
+    ? { url: base + "/" + rec.id, method: "PATCH", body: JSON.stringify({ fields }) }
+    : { url: base, method: "POST", body: JSON.stringify({ records: [{ fields }] }) };
+  const r = await fetch(opt.url, { method: opt.method, headers: { Authorization: "Bearer " + AGENDA_WRITE_TOKEN, "Content-Type": "application/json" }, body: opt.body });
+  if (!r.ok) throw new Error("retro write " + r.status + ": " + (await r.text()).slice(0, 150));
+}
+
 // --- Démographie : département (code postal) -> région française ---
 // La feuille Clients n'a pas de champ Région : on le déduit du code postal.
 const REGION_BY_DEPT = (() => {
@@ -274,6 +295,28 @@ module.exports = async (req, res) => {
     res.statusCode = 403;
     res.setHeader("Content-Type", "application/json");
     return res.end(JSON.stringify({ error: "forbidden" }));
+  }
+
+  // Rétroplanning de diffusion — stockage éditable depuis le dashboard (lecture + écriture).
+  if (only === "retro" || only === "retro-save") {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const rec = await retroRecord();
+      if (req.method !== "POST" && only === "retro") {
+        const d = retroData(rec);
+        res.statusCode = 200;
+        return res.end(JSON.stringify({ ok: true, rows: d.rows || null, textes: d.textes || null, seeded: !!rec }));
+      }
+      const body = await readBody(req);
+      const data = { rows: Array.isArray(body.rows) ? body.rows : [], textes: (body.textes && typeof body.textes === "object") ? body.textes : {} };
+      await retroWrite(data, rec);
+      res.statusCode = 200;
+      return res.end(JSON.stringify({ ok: true, count: data.rows.length }));
+    } catch (e) {
+      res.statusCode = 502;
+      return res.end(JSON.stringify({ ok: false, error: String((e && e.message) || e) }));
+    }
   }
 
   if (only === "progression") {

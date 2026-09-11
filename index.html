@@ -2805,127 +2805,191 @@ if(AUTH && AUTH.token){
 (function(){
   const el=(id)=>document.getElementById(id);
   const escH=(s)=>{const d=document.createElement('div');d.textContent=(s==null?'':s);return d.innerHTML;};
-  const RETRO=[
-    { w:"31/08/2026", co:[{n:"Bonbecshow"}], st:"✅ Confirmé", av:"🟢 PUBLIÉ" },
-    { w:"07/09/2026", co:[{n:"Poudrée Paris"}], st:"✅ Confirmé", av:"🟢 PUBLIÉ" },
-    { w:"14/09/2026", co:[{n:"Odivale"}], st:"✅ Confirmé", av:"✅ Dossier complet, prêt pour montage" },
-    { w:"21/09/2026", co:[{n:"Kivala Système"}], st:"✅ Confirmé (imposé)", av:"✅ Dossier complet, prêt pour montage" },
-    { w:"28/09/2026", co:[{n:"Palomano"},{n:"Les Petits Prodiges"}], dbl:true, st:"✅ Confirmé pour les deux", av:"Palomano 🟠 partiel, manquent les rushs vidéo · Les Petits Prodiges ✅ Dossier complet" },
-    { w:"05/10/2026", co:[{n:"Cosmos Entreprise"},{n:"SuperJetCar"}], dbl:true, st:"✅ Confirmé pour les deux", av:"⚪ Rien reçu pour les deux" },
-    { w:"12/10/2026", libre:true, av:"Non attribuée" },
-    { w:"19/10/2026", co:[{n:"Evena"}], st:"✅ Confirmé", av:"✅ Dossier complet, prêt pour montage" },
-    { w:"26/10/2026", co:[{n:"Beezen"}], st:"✅ Confirmé", av:"🟠 Manquent le document d'informations et les rushs vidéo" },
-    { w:"02/11/2026", co:[{n:"Sister Feel"},{n:"Araw"}], dbl:true, st:"🔵 Prévisionnelles toutes les deux", av:"⚪ Rien reçu pour les deux" },
-    { w:"09/11/2026", co:[{n:"Ethylowheel"}], st:"✅ Confirmé (premières livraisons clients en octobre)", av:"⚪ Rien reçu" },
-    { w:"16/11/2026", co:[{n:"Abies Lagrimus"}], st:"✅ Confirmé (imposé)", av:"✅ Dossier complet, prêt pour montage" },
-    { w:"23/11/2026", co:[{n:"Piano LED"}], st:"✅ Confirmé (semaine du Black Friday)", av:"⚪ Rien reçu" },
-    { w:"30/11/2026", co:[{n:"Agrikolis"}], st:"✅ Confirmé", av:"⚪ Rien reçu" },
-    { w:"07/12/2026", co:[{n:"Hocoia"}], st:"✅ Confirmé", av:"⚪ Rien reçu" },
-    { w:"14/12/2026", libre:true, av:"Non attribuée" },
-    { w:"04/01/2027", co:[{n:"Block'Fire"}], st:"🔵 Prévisionnelle (à la reprise, sa demande)", av:"⚪ Rien reçu" },
-    { w:"11/01/2027", co:[{n:"Tchao Tchao"}], st:"🔵 Prévisionnelle", av:"⚪ Rien reçu" },
-    { w:"18/01/2027", co:[{n:"Féroce"}], st:"✅ Confirmé", av:"⚪ Rien reçu" },
-    { w:"25/01/2027", co:[{n:"Capillum"}], st:"🔵 Prévisionnelle", av:"⚪ Rien reçu" },
-    { w:"01/02/2027", co:[{n:"Pimpant"}], st:"🔵 Prévisionnelle", av:"⚪ Rien reçu" },
-    { w:"08/02/2027", co:[{n:"Ma Petite Laine"}], st:"🔵 Prévisionnelle", av:"⚪ Rien reçu" },
-    { w:"15/02/2027", co:[{n:"Dentoa",sub:"Dentapass"}], st:"🔵 Prévisionnelle (fin janvier ou février, sa demande)", av:"⚪ Rien reçu" },
-    { w:"22/02/2027", co:[{n:"Black-Line"}], st:"🔵 Prévisionnelle (fin février, début de sa saison, sa demande)", av:"⚪ Rien reçu" },
-    { w:"01/03/2027", co:[{n:"Ekkopol"}], st:"🔵 Prévisionnelle", av:"⚪ Rien reçu" },
-    { w:"08/03/2027", co:[{n:"SuperBeer"}], st:"🔵 Prévisionnelle", av:"⚪ Rien reçu" },
-    { w:"15/03/2027", co:[{n:"BlinkBook"}], st:"🔵 Prévisionnelle", av:"⚪ Rien reçu" },
-    { w:"22/03/2027", co:[{n:"Douin"}], st:"🔵 Prévisionnelle", av:"⚪ Rien reçu" },
-    { w:"29/03/2027", co:[{n:"My Cocoon",sub:"Stooly"}], st:"🔵 Prévisionnelle", av:"⚪ Rien reçu" },
-    { w:"05/04/2027", co:[{n:"Boarding Ring"}], st:"🔵 Prévisionnelle", av:"⚪ Rien reçu" },
-    { w:"12/04/2027", co:[{n:"Disgo",sub:"SUPE"}], st:"🔵 Prévisionnelle", av:"⚪ Rien reçu" },
-    { w:"19/04/2027", co:[{n:"Ops Eco Innovation"}], st:"🔵 Prévisionnelle", av:"⚪ Rien reçu" },
-    { w:"26/04/2027", co:[{n:"La Marinette"}], st:"🔵 Prévisionnelle", av:"⚪ Rien reçu" },
-    { w:"03/05/2027", co:[{n:"Pomad Paris"}], st:"🔵 Prévisionnelle", av:"⚪ Rien reçu" },
-    { w:"10/05/2027", co:[{n:"Kerluna"}], st:"🔵 Prévisionnelle", av:"⚪ Rien reçu" },
-    { w:"17/05/2027", co:[{n:"Macopro.ai"}], st:"🔵 Prévisionnelle", av:"⚪ Rien reçu" },
-    { w:"24/05/2027", co:[{n:"Hekatech"}], st:"🔵 Prévisionnelle, SOUS RÉSERVE", av:"Mise en avant en pause à la demande du membre. Point à refaire fin novembre." }
+  const SEED_ROWS=[
+    {w:"31/08/2026",e1:"Bonbecshow",statut:"Confirmé",av:"🟢 PUBLIÉ"},
+    {w:"07/09/2026",e1:"Poudrée Paris",statut:"Confirmé",av:"🟢 PUBLIÉ"},
+    {w:"14/09/2026",e1:"Odivale",statut:"Confirmé",av:"✅ Dossier complet, prêt pour montage"},
+    {w:"21/09/2026",e1:"Kivala Système",statut:"Confirmé",mention:"imposé",av:"✅ Dossier complet, prêt pour montage"},
+    {w:"28/09/2026",e1:"Palomano",e2:"Les Petits Prodiges",statut:"Confirmé",mention:"pour les deux",av:"Palomano 🟠 partiel, manquent les rushs vidéo · Les Petits Prodiges ✅ Dossier complet"},
+    {w:"05/10/2026",e1:"Cosmos Entreprise",e2:"SuperJetCar",statut:"Confirmé",mention:"pour les deux",av:"⚪ Rien reçu pour les deux"},
+    {w:"12/10/2026",libre:true,av:"Non attribuée"},
+    {w:"19/10/2026",e1:"Evena",statut:"Confirmé",av:"✅ Dossier complet, prêt pour montage"},
+    {w:"26/10/2026",e1:"Beezen",statut:"Confirmé",av:"🟠 Manquent le document d'informations et les rushs vidéo"},
+    {w:"02/11/2026",e1:"Sister Feel",e2:"Araw",statut:"Prévisionnelle",mention:"toutes les deux",av:"⚪ Rien reçu pour les deux"},
+    {w:"09/11/2026",e1:"Ethylowheel",statut:"Confirmé",mention:"premières livraisons clients en octobre",av:"⚪ Rien reçu"},
+    {w:"16/11/2026",e1:"Abies Lagrimus",statut:"Confirmé",mention:"imposé",av:"✅ Dossier complet, prêt pour montage"},
+    {w:"23/11/2026",e1:"Piano LED",statut:"Confirmé",mention:"semaine du Black Friday",av:"⚪ Rien reçu"},
+    {w:"30/11/2026",e1:"Agrikolis",statut:"Confirmé",av:"⚪ Rien reçu"},
+    {w:"07/12/2026",e1:"Hocoia",statut:"Confirmé",av:"⚪ Rien reçu"},
+    {w:"14/12/2026",libre:true,av:"Non attribuée"},
+    {w:"04/01/2027",e1:"Block'Fire",statut:"Prévisionnelle",mention:"à la reprise, sa demande",av:"⚪ Rien reçu"},
+    {w:"11/01/2027",e1:"Tchao Tchao",statut:"Prévisionnelle",av:"⚪ Rien reçu"},
+    {w:"18/01/2027",e1:"Féroce",statut:"Confirmé",av:"⚪ Rien reçu"},
+    {w:"25/01/2027",e1:"Capillum",statut:"Prévisionnelle",av:"⚪ Rien reçu"},
+    {w:"01/02/2027",e1:"Pimpant",statut:"Prévisionnelle",av:"⚪ Rien reçu"},
+    {w:"08/02/2027",e1:"Ma Petite Laine",statut:"Prévisionnelle",av:"⚪ Rien reçu"},
+    {w:"15/02/2027",e1:"Dentoa",s1:"Dentapass",statut:"Prévisionnelle",mention:"fin janvier ou février, sa demande",av:"⚪ Rien reçu"},
+    {w:"22/02/2027",e1:"Black-Line",statut:"Prévisionnelle",mention:"fin février, début de sa saison, sa demande",av:"⚪ Rien reçu"},
+    {w:"01/03/2027",e1:"Ekkopol",statut:"Prévisionnelle",av:"⚪ Rien reçu"},
+    {w:"08/03/2027",e1:"SuperBeer",statut:"Prévisionnelle",av:"⚪ Rien reçu"},
+    {w:"15/03/2027",e1:"BlinkBook",statut:"Prévisionnelle",av:"⚪ Rien reçu"},
+    {w:"22/03/2027",e1:"Douin",statut:"Prévisionnelle",av:"⚪ Rien reçu"},
+    {w:"29/03/2027",e1:"My Cocoon",s1:"Stooly",statut:"Prévisionnelle",av:"⚪ Rien reçu"},
+    {w:"05/04/2027",e1:"Boarding Ring",statut:"Prévisionnelle",av:"⚪ Rien reçu"},
+    {w:"12/04/2027",e1:"Disgo",s1:"SUPE",statut:"Prévisionnelle",av:"⚪ Rien reçu"},
+    {w:"19/04/2027",e1:"Ops Eco Innovation",statut:"Prévisionnelle",av:"⚪ Rien reçu"},
+    {w:"26/04/2027",e1:"La Marinette",statut:"Prévisionnelle",av:"⚪ Rien reçu"},
+    {w:"03/05/2027",e1:"Pomad Paris",statut:"Prévisionnelle",av:"⚪ Rien reçu"},
+    {w:"10/05/2027",e1:"Kerluna",statut:"Prévisionnelle",av:"⚪ Rien reçu"},
+    {w:"17/05/2027",e1:"Macopro.ai",statut:"Prévisionnelle",av:"⚪ Rien reçu"},
+    {w:"24/05/2027",e1:"Hekatech",statut:"Prévisionnelle",mention:"SOUS RÉSERVE",av:"Mise en avant en pause à la demande du membre. Point à refaire fin novembre."}
   ];
-  function weekDate(dm){ const p=String(dm).split('/').map(Number); return new Date(p[2],p[1]-1,p[0]); }
-  function toast(msg){
-    let t=document.getElementById('retro-toast');
-    if(!t){ t=document.createElement('div'); t.id='retro-toast'; t.style.cssText='position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--panel2);color:var(--txt);border:1px solid var(--line);padding:9px 16px;border-radius:10px;font-size:13px;z-index:100000;box-shadow:0 8px 24px rgba(0,0,0,.35)'; document.body.appendChild(t); }
-    t.textContent=msg; t.style.display='block'; clearTimeout(t._h); t._h=setTimeout(()=>{ t.style.display='none'; },2600);
-  }
-  function openFiche(co){
-    Promise.resolve(window.CRM&&window.CRM.ensure&&window.CRM.ensure()).then(()=>{
-      const rec=(window.CRM&&window.CRM.findAmplify)?window.CRM.findAmplify(co):null;
-      if(rec && window.CRM.open){ window.CRM.open('amplify', rec.id); }
-      else { toast('Fiche introuvable pour « '+co+' »'); }
-    });
-  }
-  function coLink(c){
-    const disp=c.n+(c.sub?' ('+c.sub+')':'');
-    return '<a class="retro-co" data-co="'+escH(c.n)+'" title="Voir la fiche" style="cursor:pointer;font-weight:600;color:var(--txt);border-bottom:1px dashed var(--muted)">'+escH(disp)+'</a>';
-  }
-  function entrepriseCell(r){
-    if(r.libre) return '<span style="color:#e0b53a;font-weight:700">🟡 Semaine libre</span>';
-    if(r.dbl) return '<span style="color:#ff9f1c;font-weight:700;font-size:11px;display:block;margin-bottom:3px">⚠️ 2 entreprises</span>'+r.co.map(coLink).join(' <span style="color:var(--muted)">+</span> ');
-    return r.co.map(coLink).join('');
-  }
-  function statutCell(r){
-    if(!r.st) return '';
-    const col=/Confirmé/.test(r.st)?'#3ecf8e':'#5b8def';
-    return '<span style="color:'+col+';font-weight:600">'+escH(r.st)+'</span>';
-  }
+  const SEED_TEXTES={
+    maj:"Mis à jour le 11/09/2026",
+    cadre:"**38 membres.** Publications du 31/08/2026 au 24/05/2027. Les semaines du 21/12 et du 28/12 sont neutralisées.\n\n⚠️ **Depuis le 07/09/2026** : on diffuse **une ou deux entreprises par semaine**, selon les besoins des membres. La règle n'est plus le calendrier, c'est le besoin. On **ajoute**, on ne déplace jamais quelqu'un dont la date a été annoncée. Chaque semaine doublée est signalée à l'équipe prod avant.\n\nTrois semaines doublées : **28/09, 05/10 et 02/11**. Deux semaines libres : **12/10 et 14/12**.\n\n✅ **Confirmé** = date arrêtée et annoncée au membre, elle ne bouge plus. 🔵 **Prévisionnelle** = jamais communiquée au membre.",
+    rythme:"• **Carrousel LinkedIn** : mercredi 8h00\n• **Success Story vidéo** : jeudi ou vendredi 17h00\n• Version 1 prête le **vendredi matin de la semaine d'avant**. Ça laisse le lundi à Liz pour faire valider par le membre, récupérer les comptes à taguer et vérifier si un juré est au capital. Tout repart à la prod le lundi.\n• Les éléments de chaque membre sont attendus **deux semaines avant** sa semaine de publication.",
+    verifs:"**1.** Un juré a-t-il investi dans l'entreprise ? Si oui il est associé et doit être **annoncé et tagué** sur les posts Instagram et LinkedIn.\n**2.** Quels comptes taguer ? Demander la liste au membre et la transmettre à la prod.\n**3.** Qui est **administrateur** des pages LinkedIn et Instagram du membre ? Cette personne doit accepter l'invitation en collaboration le jour J, sinon le post n'apparaît pas sur la page de l'entreprise.",
+    dossiersLien:"https://docs.google.com/spreadsheets/d/1Ee_gtN8OSc0wHypVm8t0wlqvJyUl4pHbpanx3fWo2Wg/edit?gid=1141845375#gid=1141845375",
+    dossiersNote:"Lien Drive, site et tous les comptes sociaux de chaque entreprise.",
+    surveiller:"🔴 **Validation obligatoire avant publication**, exigée par écrit : Kivala, Evena, Abies Lagrimus, Les Petits Prodiges.\n🔴 **Dossiers à risque** : Cosmos et SuperJetCar diffusent le 05/10 avec une deadline au 21/09 et n'ont rien envoyé. Beezen diffuse le 26/10 et il lui manque le document d'informations et les rushs.\n🔴 **Trois membres** avaient demandé octobre-décembre et sont en janvier ou plus tard sans le savoir : Capillum (25/01), Ma Petite Laine (08/02) et Boarding Ring (05/04).\n🔴 **Tchao Tchao** est passé du 26/10 au 11/01 sans que Julien Boucault en soit informé.\n🔴 **Macopro.ai** est au 17/05 alors qu'on lui a écrit le 01/09 qu'il arrivait « au bon moment pour profiter du démarrage »."
+  };
+
+  let DATA={rows:[],textes:{}}, editing=false, loaded=false;
+  const authH=()=> (typeof authHeaders==='function'? authHeaders(): {});
+  const fmt=(s)=>{ let t=escH(s==null?'':s); t=t.replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>'); return t.replace(/\n/g,'<br>'); };
+  function weekDate(dm){ const p=String(dm||'').split('/').map(Number); return new Date(p[2]||2100,(p[1]||1)-1,p[0]||1); }
+  function sortRows(){ DATA.rows.sort((a,b)=>weekDate(a.w)-weekDate(b.w)); }
+  function toast(msg){ let t=document.getElementById('retro-toast'); if(!t){ t=document.createElement('div'); t.id='retro-toast'; t.style.cssText='position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--panel2);color:var(--txt);border:1px solid var(--line);padding:9px 16px;border-radius:10px;font-size:13px;z-index:100000;box-shadow:0 8px 24px rgba(0,0,0,.35)'; document.body.appendChild(t); } t.textContent=msg; t.style.display='block'; clearTimeout(t._h); t._h=setTimeout(()=>{t.style.display='none';},2800); }
+  function openFiche(co){ Promise.resolve(window.CRM&&window.CRM.ensure&&window.CRM.ensure()).then(()=>{ const rec=(window.CRM&&window.CRM.findAmplify)?window.CRM.findAmplify(co):null; if(rec&&window.CRM.open){ window.CRM.open('amplify',rec.id); } else { toast('Fiche introuvable pour « '+co+' »'); } }); }
+  function coLink(name,sub){ const disp=name+(sub?' ('+sub+')':''); return '<a class="retro-co" data-co="'+escH(name)+'" title="Voir la fiche" style="cursor:pointer;font-weight:600;color:var(--txt);border-bottom:1px dashed var(--muted)">'+escH(disp)+'</a>'; }
+  function entrepriseCell(r){ if(r.libre) return '<span style="color:#e0b53a;font-weight:700">🟡 Semaine libre</span>'; if(r.e2) return '<span style="color:#ff9f1c;font-weight:700;font-size:11px;display:block;margin-bottom:3px">⚠️ 2 entreprises</span>'+coLink(r.e1,r.s1)+' <span style="color:var(--muted)">+</span> '+coLink(r.e2,r.s2); return coLink(r.e1,r.s1); }
+  function statutCell(r){ if(r.libre||!r.statut) return ''; const conf=/Confirm/i.test(r.statut); const col=conf?'#3ecf8e':'#5b8def'; const emo=conf?'✅':'🔵'; return '<span style="color:'+col+';font-weight:600">'+emo+' '+escH(r.statut)+'</span>'+(r.mention?' <span style="font-style:italic;color:var(--muted);font-size:12px">('+escH(r.mention)+')</span>':''); }
   function block(title,inner){ return '<div style="margin-top:18px"><div style="font-weight:700;font-size:13px;margin-bottom:6px">'+title+'</div>'+inner+'</div>'; }
-  function render(){
+  const BTN='border:1px solid var(--line);background:var(--panel2);color:var(--txt);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit';
+
+  function draw(){
     const host=el('retro-body'); if(!host) return;
+    sortRows();
     const now=new Date(); now.setHours(0,0,0,0);
-    let act=-1; for(let i=0;i<RETRO.length;i++){ if(weekDate(RETRO[i].w)<=now) act=i; }
+    let act=-1; for(let i=0;i<DATA.rows.length;i++){ if(weekDate(DATA.rows[i].w)<=now) act=i; }
+    const tx=DATA.textes||{};
     const tdS='padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;font-size:13px';
-    let rows='';
-    RETRO.forEach((r,i)=>{
-      const cur=i===act;
-      const rowStyle=cur?'background:rgba(167,121,255,.12)':'';
-      const tag=cur?' <span style="font-size:10px;color:#a779ff;font-weight:700">● en cours</span>':'';
-      rows+='<tr style="'+rowStyle+'">'
-        +'<td style="'+tdS+';white-space:nowrap;font-weight:700">'+escH(r.w)+tag+'</td>'
-        +'<td style="'+tdS+'">'+entrepriseCell(r)+'</td>'
-        +'<td style="'+tdS+'">'+statutCell(r)+'</td>'
-        +'<td style="'+tdS+';color:var(--muted)">'+escH(r.av||'')+'</td></tr>';
-    });
     const thS='text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);background:var(--panel2)';
-    const cadre='<div class="note" style="line-height:1.6">'
-      +'<b>38 membres.</b> Publications du 31/08/2026 au 24/05/2027. Les semaines du 21/12 et du 28/12 sont neutralisées.<br><br>'
-      +'⚠️ <b>Depuis le 07/09/2026</b> : on diffuse <b>une ou deux entreprises par semaine</b>, selon les besoins des membres. La règle n\'est plus le calendrier, c\'est le besoin. On <b>ajoute</b>, on ne déplace jamais quelqu\'un dont la date a été annoncée. Chaque semaine doublée est signalée à l\'équipe prod avant.<br><br>'
-      +'Trois semaines doublées : <b>28/09, 05/10 et 02/11</b>. Deux semaines libres : <b>12/10 et 14/12</b>.<br><br>'
-      +'<span style="color:#3ecf8e;font-weight:700">✅ Confirmé</span> = date arrêtée et annoncée au membre, elle ne bouge plus. &nbsp; <span style="color:#5b8def;font-weight:700">🔵 Prévisionnelle</span> = jamais communiquée au membre.</div>';
-    const rythme='<div class="note" style="line-height:1.6">'
-      +'• <b>Carrousel LinkedIn</b> : mercredi 8h00<br>'
-      +'• <b>Success Story vidéo</b> : jeudi ou vendredi 17h00<br>'
-      +'• Version 1 prête le <b>vendredi matin de la semaine d\'avant</b>. Ça laisse le lundi à Liz pour faire valider par le membre, récupérer les comptes à taguer et vérifier si un juré est au capital. Tout repart à la prod le lundi.<br>'
-      +'• Les éléments de chaque membre sont attendus <b>deux semaines avant</b> sa semaine de publication.</div>';
-    const verif='<div class="note" style="line-height:1.6">'
-      +'<b>1.</b> Un juré a-t-il investi dans l\'entreprise ? Si oui il est associé et doit être <b>annoncé et tagué</b> sur les posts Instagram et LinkedIn.<br>'
-      +'<b>2.</b> Quels comptes taguer ? Demander la liste au membre et la transmettre à la prod.<br>'
-      +'<b>3.</b> Qui est <b>administrateur</b> des pages LinkedIn et Instagram du membre ? Cette personne doit accepter l\'invitation en collaboration le jour J, sinon le post n\'apparaît pas sur la page de l\'entreprise.</div>';
-    const dossiers='<div class="note" style="line-height:1.6"><a href="https://docs.google.com/spreadsheets/d/1Ee_gtN8OSc0wHypVm8t0wlqvJyUl4pHbpanx3fWo2Wg/edit?gid=1141845375#gid=1141845375" target="_blank" rel="noopener" style="color:#5b8def;font-weight:600">📄 Feuille de suivi des dossiers (Google Sheets)</a><br>Lien Drive, site et tous les comptes sociaux de chaque entreprise.</div>';
-    const surv=[
-      '🔴 <b>Validation obligatoire avant publication</b>, exigée par écrit : Kivala, Evena, Abies Lagrimus, Les Petits Prodiges.',
-      '🔴 <b>Dossiers à risque</b> : Cosmos et SuperJetCar diffusent le 05/10 avec une deadline au 21/09 et n\'ont rien envoyé. Beezen diffuse le 26/10 et il lui manque le document d\'informations et les rushs.',
-      '🔴 <b>Trois membres</b> avaient demandé octobre-décembre et sont en janvier ou plus tard sans le savoir : Capillum (25/01), Ma Petite Laine (08/02) et Boarding Ring (05/04).',
-      '🔴 <b>Tchao Tchao</b> est passé du 26/10 au 11/01 sans que Julien Boucault en soit informé.',
-      '🔴 <b>Macopro.ai</b> est au 17/05 alors qu\'on lui a écrit le 01/09 qu\'il arrivait « au bon moment pour profiter du démarrage ».'
-    ].map(function(p){return '<div class="note" style="margin:8px 0 0;line-height:1.55">'+p+'</div>';}).join('');
+    let rows='';
+    DATA.rows.forEach((r,i)=>{
+      const cur=i===act; const rowStyle=cur?'background:rgba(167,121,255,.12)':'';
+      const tag=cur?' <span style="font-size:10px;color:#a779ff;font-weight:700">● en cours</span>':'';
+      const actCol=editing?('<td style="'+tdS+';white-space:nowrap"><span class="retro-edit" data-i="'+i+'" title="Modifier" style="cursor:pointer;margin-right:8px">✏️</span><span class="retro-del" data-i="'+i+'" title="Supprimer" style="cursor:pointer">🗑️</span></td>'):'';
+      rows+='<tr style="'+rowStyle+'"><td style="'+tdS+';white-space:nowrap;font-weight:700">'+escH(r.w)+tag+'</td><td style="'+tdS+'">'+entrepriseCell(r)+'</td><td style="'+tdS+'">'+statutCell(r)+'</td><td style="'+tdS+';color:var(--muted)">'+escH(r.av||'')+'</td>'+actCol+'</tr>';
+    });
+    const surv=String(tx.surveiller||'').split('\n').filter(x=>x.trim()).map(p=>'<div class="note" style="margin:8px 0 0;line-height:1.55">'+fmt(p)+'</div>').join('');
+    const dossiers='<div class="note" style="line-height:1.6">'+(tx.dossiersLien?'<a href="'+escH(tx.dossiersLien)+'" target="_blank" rel="noopener" style="color:#5b8def;font-weight:600">📄 Feuille de suivi des dossiers (Google Sheets)</a><br>':'')+fmt(tx.dossiersNote||'')+'</div>';
+    const toolbar=editing
+      ? '<div style="display:flex;gap:8px;flex-wrap:wrap"><button id="retro-add-btn" style="'+BTN+';border-color:#3ecf8e;color:#3ecf8e">＋ Ajouter une semaine</button><button id="retro-textes-btn" style="'+BTN+'">✏️ Textes & légendes</button><button id="retro-done-btn" style="'+BTN+';background:#3ecf8e;color:#11151d;border-color:#3ecf8e">✓ Terminer l\'édition</button></div>'
+      : '<button id="retro-edit-btn" style="'+BTN+'">✏️ Éditer</button>';
     host.innerHTML='<div class="card">'
-      +'<h3><span class="dot"></span>Rétroplanning de diffusion <span style="color:var(--muted);font-weight:400">· une ou deux entreprises par semaine</span></h3>'
-      +'<div class="note" style="margin:-4px 0 12px">Mis à jour le 11/09/2026</div>'
-      +'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">'
-      +'<thead><tr><th style="'+thS+'">Semaine</th><th style="'+thS+'">Entreprise</th><th style="'+thS+'">Statut</th><th style="'+thS+'">Avancement dossier</th></tr></thead>'
+      +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">'
+        +'<div><h3 style="margin:0"><span class="dot"></span>Rétroplanning de diffusion <span style="color:var(--muted);font-weight:400">· une ou deux entreprises par semaine</span></h3>'
+        +'<div class="note" style="margin:4px 0 0">'+fmt(tx.maj||'')+(editing?' <span style="color:#a779ff">· mode édition — les changements sont enregistrés et visibles par tous</span>':'')+'</div></div>'
+        +toolbar+'</div>'
+      +'<div style="overflow-x:auto;margin-top:12px"><table style="width:100%;border-collapse:collapse">'
+      +'<thead><tr><th style="'+thS+'">Semaine</th><th style="'+thS+'">Entreprise</th><th style="'+thS+'">Statut</th><th style="'+thS+'">Avancement dossier</th>'+(editing?'<th style="'+thS+'"></th>':'')+'</tr></thead>'
       +'<tbody>'+rows+'</tbody></table></div>'
-      +block('Le cadre',cadre)
-      +block('Rythme de publication (fixé le 11/09/2026)',rythme)
-      +block('Avant chaque diffusion — 3 vérifications obligatoires',verif)
+      +block('Le cadre','<div class="note" style="line-height:1.6">'+fmt(tx.cadre||'')+'</div>')
+      +block('Rythme de publication','<div class="note" style="line-height:1.6">'+fmt(tx.rythme||'')+'</div>')
+      +block('Avant chaque diffusion — 3 vérifications obligatoires','<div class="note" style="line-height:1.6">'+fmt(tx.verifs||'')+'</div>')
       +block('Où arrivent les dossiers',dossiers)
       +'</div>'
       +'<div style="margin-top:16px;border:1px solid var(--line);border-left:3px solid #ef5b6b;border-radius:10px;padding:12px 14px;background:var(--panel2)"><div style="font-weight:700;font-size:13px;margin-bottom:2px">⚠️ À surveiller</div>'+surv+'</div>';
     [...host.querySelectorAll('.retro-co')].forEach(a=>a.onclick=()=>openFiche(a.dataset.co));
+    const eb=el('retro-edit-btn'); if(eb) eb.onclick=()=>{ editing=true; draw(); };
+    const db=el('retro-done-btn'); if(db) db.onclick=()=>{ editing=false; draw(); };
+    const ab=el('retro-add-btn'); if(ab) ab.onclick=()=>rowModal(-1);
+    const tb=el('retro-textes-btn'); if(tb) tb.onclick=textesModal;
+    [...host.querySelectorAll('.retro-edit')].forEach(x=>x.onclick=()=>rowModal(+x.dataset.i));
+    [...host.querySelectorAll('.retro-del')].forEach(x=>x.onclick=()=>{ if(confirm('Supprimer la semaine du '+DATA.rows[+x.dataset.i].w+' ?')){ DATA.rows.splice(+x.dataset.i,1); persist(); draw(); } });
   }
-  window.RETRO={ render };
+
+  // ----- Sauvegarde -----
+  function persist(silent){ return fetch('/api/data?only=retro-save',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},authH()),body:JSON.stringify({rows:DATA.rows,textes:DATA.textes})}).then(r=>r.json()).then(j=>{ if(!silent) toast(j&&j.ok?'✓ Enregistré (visible par tous).':'Échec : '+((j&&j.error)||'?')); return j; }).catch(()=>{ if(!silent) toast('Serveur injoignable : non enregistré.'); }); }
+
+  // ----- Modale générique -----
+  function overlay(html){ let o=el('retro-ov'); if(!o){ o=document.createElement('div'); o.id='retro-ov'; o.style.cssText='position:fixed;inset:0;background:rgba(10,14,20,.55);display:flex;align-items:center;justify-content:center;padding:20px;z-index:99999'; document.body.appendChild(o); o.addEventListener('click',e=>{ if(e.target===o) o.remove(); }); } o.innerHTML='<div style="background:var(--panel,#1a1f28);border:1px solid var(--line);border-radius:14px;max-width:560px;width:100%;max-height:92vh;overflow:auto;padding:18px 20px;color:var(--txt)">'+html+'</div>'; return o; }
+  function closeOv(){ const o=el('retro-ov'); if(o) o.remove(); }
+  const F='width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;color:var(--txt);background:var(--panel2);box-sizing:border-box';
+  const LB='display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:10px 0 3px;font-weight:600';
+
+  function rowModal(idx){
+    const r=idx>=0?DATA.rows[idx]:{w:'',e1:'',statut:'Prévisionnelle',av:'⚪ Rien reçu'};
+    const opt=(v,cur)=>'<option value="'+v+'"'+(v===cur?' selected':'')+'>'+(v||'— aucun')+'</option>';
+    overlay(
+      '<div style="font-weight:700;font-size:15px;margin-bottom:6px">'+(idx>=0?'Modifier la semaine':'Ajouter une semaine')+'</div>'
+      +'<label style="'+LB+'">Semaine (jj/mm/aaaa)</label><input id="rm-w" style="'+F+'" value="'+escH(r.w||'')+'" placeholder="14/09/2026">'
+      +'<label style="'+LB+'"><input type="checkbox" id="rm-libre"'+(r.libre?' checked':'')+'> Semaine libre (aucune entreprise)</label>'
+      +'<div id="rm-co">'
+        +'<label style="'+LB+'">Entreprise</label><input id="rm-e1" style="'+F+'" value="'+escH(r.e1||'')+'">'
+        +'<label style="'+LB+'">Sous-marque (optionnel, ex. Stooly)</label><input id="rm-s1" style="'+F+'" value="'+escH(r.s1||'')+'">'
+        +'<label style="'+LB+'">2ᵉ entreprise (semaine doublée — laisser vide sinon)</label><input id="rm-e2" style="'+F+'" value="'+escH(r.e2||'')+'">'
+        +'<label style="'+LB+'">Sous-marque de la 2ᵉ (optionnel)</label><input id="rm-s2" style="'+F+'" value="'+escH(r.s2||'')+'">'
+        +'<label style="'+LB+'">Statut</label><select id="rm-statut" style="'+F+'">'+opt('',r.statut||'')+opt('Confirmé',r.statut||'')+opt('Prévisionnelle',r.statut||'')+'</select>'
+        +'<label style="'+LB+'">Mention (optionnel, ex. imposé, semaine du Black Friday)</label><input id="rm-mention" style="'+F+'" value="'+escH(r.mention||'')+'">'
+      +'</div>'
+      +'<label style="'+LB+'">Avancement dossier</label><input id="rm-av" style="'+F+'" value="'+escH(r.av||'')+'" placeholder="🟢 PUBLIÉ · ✅ Dossier complet · 🟠 Partiel · ⚪ Rien reçu">'
+      +'<div style="font-size:11px;color:var(--muted);margin-top:3px">Émojis utiles à copier : 🟢 ✅ 🟠 ⚪</div>'
+      +'<div style="display:flex;gap:8px;margin-top:16px;align-items:center">'
+        +'<button id="rm-save" style="'+BTN+';background:#3ecf8e;color:#11151d;border-color:#3ecf8e">Enregistrer</button>'
+        +'<button id="rm-cancel" style="'+BTN+'">Annuler</button>'
+        +(idx>=0?'<button id="rm-del" style="'+BTN+';border-color:#ef5b6b;color:#ef5b6b;margin-left:auto">Supprimer</button>':'')
+      +'</div>'
+    );
+    const toggleCo=()=>{ el('rm-co').style.display=el('rm-libre').checked?'none':''; };
+    el('rm-libre').onchange=toggleCo; toggleCo();
+    el('rm-cancel').onclick=closeOv;
+    if(idx>=0) el('rm-del').onclick=()=>{ if(confirm('Supprimer cette semaine ?')){ DATA.rows.splice(idx,1); persist(); closeOv(); draw(); } };
+    el('rm-save').onclick=()=>{
+      const w=el('rm-w').value.trim();
+      if(!/^\d{2}\/\d{2}\/\d{4}$/.test(w)){ toast('Date au format jj/mm/aaaa attendue.'); return; }
+      const libre=el('rm-libre').checked;
+      const row=libre
+        ? {w:w,libre:true,av:el('rm-av').value.trim()||'Non attribuée'}
+        : {w:w,e1:el('rm-e1').value.trim(),s1:el('rm-s1').value.trim()||undefined,e2:el('rm-e2').value.trim()||undefined,s2:el('rm-s2').value.trim()||undefined,statut:el('rm-statut').value,mention:el('rm-mention').value.trim()||undefined,av:el('rm-av').value.trim()};
+      if(!libre && !row.e1){ toast('Nom de l\'entreprise requis.'); return; }
+      if(idx>=0) DATA.rows[idx]=row; else DATA.rows.push(row);
+      persist(); closeOv(); draw();
+    };
+  }
+
+  function textesModal(){
+    const tx=DATA.textes||{};
+    const TA='width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px;font-family:inherit;color:var(--txt);background:var(--panel2);box-sizing:border-box;min-height:70px;line-height:1.5';
+    overlay(
+      '<div style="font-weight:700;font-size:15px;margin-bottom:2px">Textes & légendes</div>'
+      +'<div style="font-size:11px;color:var(--muted);margin-bottom:8px">Astuce : **texte** = gras · une ligne = un point (pour « À surveiller »).</div>'
+      +'<label style="'+LB+'">Date de mise à jour</label><input id="tx-maj" style="'+F+'" value="'+escH(tx.maj||'')+'">'
+      +'<label style="'+LB+'">Le cadre</label><textarea id="tx-cadre" style="'+TA+';min-height:120px">'+escH(tx.cadre||'')+'</textarea>'
+      +'<label style="'+LB+'">Rythme de publication</label><textarea id="tx-rythme" style="'+TA+'">'+escH(tx.rythme||'')+'</textarea>'
+      +'<label style="'+LB+'">3 vérifications</label><textarea id="tx-verifs" style="'+TA+'">'+escH(tx.verifs||'')+'</textarea>'
+      +'<label style="'+LB+'">Lien dossiers (Google Sheets)</label><input id="tx-lien" style="'+F+'" value="'+escH(tx.dossiersLien||'')+'">'
+      +'<label style="'+LB+'">Note dossiers</label><input id="tx-note" style="'+F+'" value="'+escH(tx.dossiersNote||'')+'">'
+      +'<label style="'+LB+'">À surveiller (un point par ligne)</label><textarea id="tx-surv" style="'+TA+';min-height:120px">'+escH(tx.surveiller||'')+'</textarea>'
+      +'<div style="display:flex;gap:8px;margin-top:16px"><button id="tx-save" style="'+BTN+';background:#3ecf8e;color:#11151d;border-color:#3ecf8e">Enregistrer</button><button id="tx-cancel" style="'+BTN+'">Annuler</button></div>'
+    );
+    el('tx-cancel').onclick=closeOv;
+    el('tx-save').onclick=()=>{
+      DATA.textes={ maj:el('tx-maj').value, cadre:el('tx-cadre').value, rythme:el('tx-rythme').value, verifs:el('tx-verifs').value, dossiersLien:el('tx-lien').value.trim(), dossiersNote:el('tx-note').value, surveiller:el('tx-surv').value };
+      persist(); closeOv(); draw();
+    };
+  }
+
+  // ----- Chargement live + seed -----
+  function open(){
+    el('retro-body').innerHTML='<div class="fb-loading" style="padding:24px;color:var(--muted)">Chargement du rétroplanning…</div>';
+    fetch('/api/data?only=retro',{headers:authH()}).then(r=>r.json()).then(j=>{
+      if(j&&j.ok&&Array.isArray(j.rows)&&j.rows.length){ DATA={rows:j.rows,textes:(j.textes&&Object.keys(j.textes).length)?j.textes:JSON.parse(JSON.stringify(SEED_TEXTES))}; loaded=true; draw(); return; }
+      DATA={rows:JSON.parse(JSON.stringify(SEED_ROWS)),textes:JSON.parse(JSON.stringify(SEED_TEXTES))}; loaded=true; persist(true).finally(draw);
+    }).catch(()=>{ DATA={rows:JSON.parse(JSON.stringify(SEED_ROWS)),textes:JSON.parse(JSON.stringify(SEED_TEXTES))}; draw(); });
+  }
+  window.RETRO={ render: open };
 })();
 </script>
 </body>
