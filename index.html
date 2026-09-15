@@ -2105,7 +2105,7 @@ if(AUTH && AUTH.token){
     open: (o,id)=>{ obj=o; selection.clear(); syncButtons(); renderAll(); openDetail(id); },
     setObj: (o)=>{ obj=o; selection.clear(); syncButtons(); renderAll(); },
     findAmplify: (q)=>{
-      const norm=x=>String(x||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+      const norm=x=>String(x||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
       const nc=norm(q); if(nc.length<3) return null;
       return DATAC.amplify.find(r=>{ const e=norm(r.entreprise); return e && (e===nc || e.indexOf(nc)>=0 || nc.indexOf(e)>=0); }) || null;
     },
