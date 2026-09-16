@@ -183,7 +183,7 @@ async function buildPromo2() {
   const [optins, clients] = await Promise.all([
     optinsP,
     airtableAll(T.clients, ["Email", "UTM Source", "Montant", "Mode de paiement", "Statut Paiement", "Promo", "Date Paiement"],
-      `{Promo} = 'PROMO 2'`),
+      `TRIM(UPPER({Promo})) = 'PROMO 2'`),
   ]);
 
   // Inscrits : dédoublonnés par e-mail (premier opt-in conservé)
@@ -278,7 +278,7 @@ async function buildPromo3() {
   const [optins, clients, meta] = await Promise.all([
     optinsP,
     airtableAll(T.clients, ["Email", "UTM Source", "Montant", "Mode de paiement", "Statut Paiement", "Promo", "Date Paiement"],
-      `{Promo} = 'PROMO 3'`),
+      `TRIM(UPPER({Promo})) = 'PROMO 3'`),
     metaP,
   ]);
   // Repli par compte : compte en erreur => dernières lignes connues (stale) si on en a, sinon dépense PARTIELLE (KPIs masqués).
