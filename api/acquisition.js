@@ -297,7 +297,7 @@ async function buildPromo3() {
   for (const r of optins) { const em = lower(r.fields["Email"]); const key = em || r.id; if (!seen.has(key)) seen.set(key, r); }
   const uniq = [...seen.values()];
 
-  const channels = {}, byDayMap = {}, emailChan = {}, campIns = {}, orgMap = {}, emailOrg = {};
+  const channels = {}, byDayMap = {}, emailChan = {}, campIns = {}, orgMap = {}, emailOrg = {}, emailCamp = {}, campVentes = {};
   for (const r of uniq) {
     const chan = chanFromSrc(r.fields["UTM Source"]);
     channels[chan] = channels[chan] || { ins: 0, ventes: 0, fac: 0, enc: 0 };
@@ -307,7 +307,7 @@ async function buildPromo3() {
     if (created) { const d = created.slice(8, 10) + "/" + created.slice(5, 7); byDayMap[d] = byDayMap[d] || {}; byDayMap[d][chan] = (byDayMap[d][chan] || 0) + 1; }
     // Campagne via l'UTM : nom Meta encodé ({{campaign.name}} → « ACQ+-+Marc+-+Septembre+2026 ») OU id numérique ({{campaign.id}}).
     // Vide / « {{campaign.name}} » non résolu = UTM cassé (compté à part, comme en P2).
-    if (chan === "Paid Meta (ads)") { const c = decode(r.fields["UTM Campaign"]).trim(); const key = !c || /\{\{|\}\}/.test(c) ? "(UTM cassé)" : c; campIns[key] = (campIns[key] || 0) + 1; }
+    if (chan === "Paid Meta (ads)") { const c = decode(r.fields["UTM Campaign"]).trim(); const key = !c || /\{\{|\}\}/.test(c) ? "(UTM cassé)" : c; campIns[key] = (campIns[key] || 0) + 1; if (em) emailCamp[em] = key; }
     // Organique par intervenant × canal (utm_source organique + utm_medium = la personne qui poste).
     const orgLabel = ORGANIC_CHAN[lower(r.fields["UTM Source"])];
     if (orgLabel) {
@@ -334,6 +334,8 @@ async function buildPromo3() {
     // Attribution organique de la vente : même intervenant×canal que l'inscrit (via match e-mail opt-in).
     const oKey = em && emailOrg[em];
     if (oKey && orgMap[oKey]) orgMap[oKey].ventes++;
+    // Attribution de la vente à la campagne Meta (via campagne de l'opt-in, même base que les inscrits).
+    if (chan === "Paid Meta (ads)") { const ck = em && emailCamp[em]; if (ck) campVentes[ck] = (campVentes[ck] || 0) + 1; }
   }
 
   const channelList = Object.entries(channels).map(([name, v]) => ({ name, ...v })).sort((a, b) => b.ins - a.ins);
@@ -353,7 +355,7 @@ async function buildPromo3() {
     const ok = P3_META.match.test(norm2(m.name)) || P3_META.includeIds.includes(String(m.campaignId));
     if (!ok && !(m.spend > 0)) continue;
     const bucket = ok ? rows : excl, k = norm2(m.name);
-    const row = bucket[k] || (bucket[k] = { name: clean(m.name), spend: 0, ids: [], ins: 0 });
+    const row = bucket[k] || (bucket[k] = { name: clean(m.name), spend: 0, ids: [], ins: 0, ventes: 0 });
     row.spend += m.spend;
     if (m.campaignId && !row.ids.includes(m.campaignId)) row.ids.push(m.campaignId);
   }
@@ -369,10 +371,11 @@ async function buildPromo3() {
   const campaigns = [];
   for (const [key, ins] of Object.entries(campIns)) {
     if (key === "(UTM cassé)") continue;
+    const v = campVentes[key] || 0;
     const row = /^\d+$/.test(key) ? byId[key] : byName[norm2(key)];
-    if (row) row.ins += ins; else campaigns.push({ name: clean(key).replace(/[<>]/g, "").slice(0, 80), ins, spend: null }); // UTM non rattaché : dépense inconnue (—), balises retirées
+    if (row) { row.ins += ins; row.ventes += v; } else campaigns.push({ name: clean(key).replace(/[<>]/g, "").slice(0, 80), ins, ventes: v, spend: null }); // UTM non rattaché : dépense inconnue (—), balises retirées
   }
-  for (const row of Object.values(rows)) campaigns.push({ name: row.name, ins: row.ins, spend: r2(row.spend) }); // ins 0 possible : la dépense compte quand même
+  for (const row of Object.values(rows)) campaigns.push({ name: row.name, ins: row.ins, ventes: row.ventes || 0, spend: r2(row.spend) }); // ins 0 possible : la dépense compte quand même
   campaigns.sort((a, b) => ((b.spend || 0) - (a.spend || 0)) || (b.ins - a.ins));
 
   const scope = Object.values(rows);
