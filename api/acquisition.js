@@ -452,6 +452,25 @@ module.exports = async (req, res) => {
   const user = auth.authFromRequest(req);
   if (!user) { res.statusCode = 401; res.setHeader("Content-Type", "application/json"); return res.end(JSON.stringify({ error: "unauthorized" })); }
   if (!auth.has(user.perms, "bootcamp")) { res.statusCode = 403; res.setHeader("Content-Type", "application/json"); return res.end(JSON.stringify({ error: "forbidden" })); }
+  const only = (req.query && req.query.only) || require("url").parse(req.url, true).query.only;
+  if (only === "webi-overlap") {
+    res.setHeader("Content-Type", "application/json"); res.setHeader("Cache-Control", "no-store");
+    try {
+      const [w2, w3] = await Promise.all([
+        airtableAll(T.optin, ["Email"], null, "Inscrits Webi 2"),
+        airtableAll(T.optin, ["Email"], null, "Inscrits Webi 3"),
+      ]);
+      const set2 = new Set(w2.map((r) => lower(r.fields["Email"])).filter(Boolean));
+      const uniq3 = new Set(w3.map((r) => lower(r.fields["Email"])).filter(Boolean));
+      let overlap = 0; for (const e of uniq3) if (set2.has(e)) overlap++;
+      res.statusCode = 200;
+      return res.end(JSON.stringify({
+        webi2_lignes: w2.length, webi2_uniques: set2.size,
+        webi3_lignes: w3.length, webi3_uniques: uniq3.size,
+        deja_inscrits_webi2: overlap, nouveaux_webi3: uniq3.size - overlap,
+      }));
+    } catch (e) { res.statusCode = 502; return res.end(JSON.stringify({ error: String(e.message || e) })); }
+  }
   try {
     if (!_cache.data || Date.now() - _cache.at > _TTL) {
       if (!_inflight) _inflight = (async () => {
