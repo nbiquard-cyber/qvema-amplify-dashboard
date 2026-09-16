@@ -440,7 +440,7 @@ module.exports = async (req, res) => {
       airtableAll(T.clients, ["Promo", "Montant", "Statut Paiement", "Produit", "Date Paiement", "Email", "Email paiement", "Mensualités hors Stripe", "Sexe", "Age", "Code postal", "Pays", "Mode de paiement", "Prénom", "Nom"]),
       airtableAll(T.connect, ["Email", "Nom complet", "Montant", "Statut Paiement", "Date Paiement", "Mode Paiement", "Saison QVEMA", "Statut Membre", "Code postal", "Ville", "Pays"]),
       airtableAll(T.candidatures, ["Statut Candidature", "Statut Membre", "Mode de paiement", "Date Candidature", "Sous-cercle d'intérêt", "Saison"]),
-      airtableAll(T.accueil, ["Promo", "Secteur d'activité", "Stade d'avancement", "Région", "Adresse mail", "Horodatage"]),
+      airtableAll(T.accueil, ["Promo", "Secteur d'activité", "Stade d'avancement", "Région", "Adresse mail", "Horodatage", "Sexe"]),
     ]);
 
     const norm = (s) => (s || "").toString().trim();
@@ -730,6 +730,27 @@ module.exports = async (req, res) => {
     const regionsPromo2 = {};
     for (const v of p2RegionByEmail.values()) regionsPromo2[v.region] = (regionsPromo2[v.region] || 0) + 1;
 
+    // Accueil dédupliqué par e-mail (formulaire le plus récent) : source Sexe + Région par apprenant.
+    const accByEmail = new Map();
+    for (const a of accueil) {
+      const em = lower(a.fields["Adresse mail"]); if (!em) continue;
+      const ts = norm(a.fields["Horodatage"]);
+      const prev = accByEmail.get(em);
+      if (!prev || ts > prev.ts) accByEmail.set(em, { region: norm(a.fields["Région"]), sexe: norm(a.fields["Sexe"]), ts });
+    }
+    // Genre + régions d'une liste d'apprenants via Accueil (repli sur les champs Clients ; défaut "Non renseigné").
+    const demoFromAccueil = (list) => {
+      let Homme = 0, Femme = 0, nonRenseigne = 0; const regions = {};
+      for (const c of list) {
+        const em = lower(c.fields["Email"]); const acc = em && accByEmail.get(em);
+        const sx = (acc && acc.sexe) || norm(c.fields["Sexe"]);
+        if (sx === "Homme") Homme++; else if (sx === "Femme") Femme++; else nonRenseigne++;
+        const rg = (acc && acc.region) || regionFromFields(c.fields) || "Non renseigné";
+        regions[rg] = (regions[rg] || 0) + 1;
+      }
+      return { genre: { Homme, Femme, nonRenseigne }, regions };
+    };
+
     const scopes = {};
     scopes["Toutes"] = buildScope(bcPaid, caEncGlobal, instGlobal, statutGlobal);
     scopes["Toutes"].secteurs = secteurGlobal;
@@ -742,6 +763,12 @@ module.exports = async (req, res) => {
       scopes[p].secteurs = secteurByPromo[p] || {};
       scopes[p].stades = stadeByPromo[p] || {};
       scopes[p].impayes = impayeScope(impayesByPromo[p]);
+      // Promo 3 : genre + régions depuis Accueil Bootcamp (champs Clients non renseignés pour cette promo).
+      if (p === "PROMO 3" && scopes[p].demographics) {
+        const dd = demoFromAccueil(list);
+        scopes[p].demographics.genre = dd.genre;
+        scopes[p].demographics.regions = dd.regions;
+      }
     }
     // Pour la Promo 2, la région vient d'Accueil (dédupliquée par e-mail), pas du code postal Clients.
     if (scopes["PROMO 2"] && scopes["PROMO 2"].demographics) {
