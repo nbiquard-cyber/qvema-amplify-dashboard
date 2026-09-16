@@ -577,7 +577,7 @@
     </div>
     <div class="row2" id="acq-organique-row">
       <div class="card" id="acq-organique-card"><h3>Organique — inscrits par intervenant &amp; canal (UTM)</h3>
-        <table id="acq-organique-table"><thead><tr><th>Intervenant</th><th>Canal</th><th class="num">Inscrits</th></tr></thead><tbody></tbody></table>
+        <table id="acq-organique-table"><thead><tr><th>Intervenant</th><th>Canal</th><th class="num">Inscrits</th><th class="num">Ventes</th><th class="num">Conv.</th></tr></thead><tbody></tbody></table>
         <div class="note" id="acq-organique-note"></div></div>
     </div>
     <div class="card" style="margin-top:16px"><h3>Notes méthodologiques</h3><div class="note" id="acq-notes"></div></div>
@@ -2217,9 +2217,9 @@ if(AUTH && AUTH.token){
     else {
       oc.classList.remove('hidden');
       const otb=document.querySelector('#acq-organique-table tbody'); otb.innerHTML='';
-      org.forEach(o=>{ const tr=document.createElement('tr'); tr.innerHTML='<td>'+escHtml(o.intervenant)+'</td><td>'+escHtml(o.canal)+'</td><td class="num">'+NUM(o.ins)+'</td>'; otb.appendChild(tr); });
-      const tot=org.reduce((a,o)=>a+o.ins,0);
-      document.getElementById('acq-organique-note').textContent=org.length+' UTM organiques actifs · '+NUM(tot)+' inscrits au total · les UTM à 0 inscrit ne sont pas affichés.';
+      org.forEach(o=>{ const tr=document.createElement('tr'); tr.innerHTML='<td>'+escHtml(o.intervenant)+'</td><td>'+escHtml(o.canal)+'</td><td class="num">'+NUM(o.ins)+'</td><td class="num">'+NUM(o.ventes||0)+'</td><td class="num">'+(o.conv!=null?o.conv.toFixed(1)+' %':'—')+'</td>'; otb.appendChild(tr); });
+      const tot=org.reduce((a,o)=>a+o.ins,0), totV=org.reduce((a,o)=>a+(o.ventes||0),0);
+      document.getElementById('acq-organique-note').textContent=org.length+' UTM organiques actifs · '+NUM(tot)+' inscrits · '+NUM(totV)+' ventes ('+(tot?(totV/tot*100).toFixed(1):'0')+' % conv.) · les UTM à 0 inscrit ne sont pas affichés.';
     }
     document.getElementById('acq-notes').innerHTML=(s.notes||[]).map(n=>'• '+escHtml(n)).join('<br>');
   }

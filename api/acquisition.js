@@ -297,7 +297,7 @@ async function buildPromo3() {
   for (const r of optins) { const em = lower(r.fields["Email"]); const key = em || r.id; if (!seen.has(key)) seen.set(key, r); }
   const uniq = [...seen.values()];
 
-  const channels = {}, byDayMap = {}, emailChan = {}, campIns = {}, orgMap = {};
+  const channels = {}, byDayMap = {}, emailChan = {}, campIns = {}, orgMap = {}, emailOrg = {};
   for (const r of uniq) {
     const chan = chanFromSrc(r.fields["UTM Source"]);
     channels[chan] = channels[chan] || { ins: 0, ventes: 0, fac: 0, enc: 0 };
@@ -313,7 +313,8 @@ async function buildPromo3() {
     if (orgLabel) {
       const med = decode(r.fields["UTM Medium"]).trim() || "(sans intervenant)";
       const key = med + " | " + orgLabel;
-      (orgMap[key] = orgMap[key] || { intervenant: med, canal: orgLabel, ins: 0 }).ins++;
+      (orgMap[key] = orgMap[key] || { intervenant: med, canal: orgLabel, ins: 0, ventes: 0 }).ins++;
+      if (em) emailOrg[em] = key; // pour attribuer la vente au même intervenant×canal que l'inscrit
     }
   }
 
@@ -330,6 +331,9 @@ async function buildPromo3() {
     channels[chan].ventes++; channels[chan].fac += m; channels[chan].enc += mode === "4x" ? m / 4 : m;
     ventes++; caFac += m; caEnc += mode === "4x" ? m / 4 : m;
     if (st === "Remboursé") refunds++;
+    // Attribution organique de la vente : même intervenant×canal que l'inscrit (via match e-mail opt-in).
+    const oKey = em && emailOrg[em];
+    if (oKey && orgMap[oKey]) orgMap[oKey].ventes++;
   }
 
   const channelList = Object.entries(channels).map(([name, v]) => ({ name, ...v })).sort((a, b) => b.ins - a.ins);
@@ -407,7 +411,7 @@ async function buildPromo3() {
     // Campagnes : dépense Meta live (périmètre P3) + inscrits via UTM ; spend null = UTM non rattaché (colonnes Dépense/CPL vides).
     campaigns,
     // Organique : inscrits par intervenant × canal (UTM medium × source), 0 masqué (construit depuis les inscrits réels).
-    organique: Object.values(orgMap).sort((a, b) => b.ins - a.ins || a.canal.localeCompare(b.canal) || a.intervenant.localeCompare(b.intervenant)),
+    organique: Object.values(orgMap).map((o) => ({ ...o, conv: o.ins ? (o.ventes / o.ins) * 100 : null })).sort((a, b) => b.ins - a.ins || a.canal.localeCompare(b.canal) || a.intervenant.localeCompare(b.intervenant)),
     utmCasses: campIns["(UTM cassé)"] || 0,
     kpis: {
       ventes, caFac, caEnc, refunds,
