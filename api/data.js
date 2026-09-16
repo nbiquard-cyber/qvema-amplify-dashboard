@@ -312,15 +312,19 @@ module.exports = async (req, res) => {
       };
       const custs = (await sget("customers?email=" + encodeURIComponent(email) + "&limit=10")).data || [];
       const out = [];
+      const pmInfo = (p) => ({ id: p.id, type: p.type, brand: p.card && p.card.brand, last4: p.card && p.card.last4, exp: p.card ? (p.card.exp_month + "/" + p.card.exp_year) : null });
       for (const c of custs) {
-        const pms = (await sget("customers/" + c.id + "/payment_methods?type=card&limit=10")).data || [];
+        const defPmId = (c.invoice_settings && c.invoice_settings.default_payment_method) || null;
+        const pmsAll = (await sget("customers/" + c.id + "/payment_methods?limit=20")).data || [];
+        let defPm = null; if (defPmId) { try { defPm = await sget("payment_methods/" + defPmId); } catch (_) {} }
         const subs = (await sget("subscriptions?customer=" + c.id + "&status=all&limit=25")).data || [];
         out.push({
           id: c.id, email: c.email, name: c.name, created: c.created, currency: c.currency,
-          defaultPaymentMethod: (c.invoice_settings && c.invoice_settings.default_payment_method) || null,
+          defaultPaymentMethod: defPmId,
+          defaultPaymentMethodDetail: defPm ? pmInfo(defPm) : null,
           defaultSource: c.default_source || null,
-          cards: pms.map((p) => ({ id: p.id, brand: p.card && p.card.brand, last4: p.card && p.card.last4, exp: p.card ? (p.card.exp_month + "/" + p.card.exp_year) : null })),
-          subscriptions: subs.map((s) => { let prod = null; try { prod = s.items.data[0].price.product; } catch (_) {} return { id: s.id, status: s.status, product: prod, current_period_end: s.current_period_end }; }),
+          allPaymentMethods: pmsAll.map(pmInfo),
+          subscriptions: subs.map((s) => { let prod = null; try { prod = s.items.data[0].price.product; } catch (_) {} return { id: s.id, status: s.status, product: prod, cancel_at_period_end: s.cancel_at_period_end, current_period_end: s.current_period_end, default_payment_method: s.default_payment_method, latest_invoice: s.latest_invoice }; }),
         });
       }
       res.statusCode = 200;
