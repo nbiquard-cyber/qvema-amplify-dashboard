@@ -775,7 +775,8 @@ module.exports = async (req, res) => {
         caRembourse,
         nbRembourses: refunds.length,
         subsByStatus: bcSubsByStatus,
-        prixUnitaire: 1290,
+        prixUnitaire: 1490, // défaut (Promo 2/3/4)
+        prixByPromo: { "PROMO 1": 1290, "PROMO 2": 1490, "PROMO 3": 1490, "PROMO 4": 1490 },
       },
       amplify: {
         membresPayants: acMembers.length,

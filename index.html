@@ -804,7 +804,8 @@ function renderBcPilotage(s, scopeLabel){
   const bc = DATA.bootcamp;
 
   document.getElementById('bc-inscrits').textContent = NUM(s.totalInscrits);
-  document.getElementById('bc-inscrits-sub').textContent = scopeLabel+' · prix '+EUR(bc.prixUnitaire);
+  const prixP = (bc.prixByPromo && bc.prixByPromo[currentPromo]) || null;
+  document.getElementById('bc-inscrits-sub').textContent = scopeLabel + (prixP ? ' · prix '+EUR(prixP) : '');
   document.getElementById('bc-cagenere').textContent = EUR(s.caGenere);
   document.getElementById('bc-caencaisse').textContent = EUR(s.caEncaisse);
   const pct = s.caEncaisse!=null && s.caGenere ? Math.round(s.caEncaisse/s.caGenere*100) : null;
