@@ -413,7 +413,7 @@ module.exports = async (req, res) => {
         troisiemeDueNonPayee: four.filter((r) => !r.troisiemePayee && r.troisiemeDue),
         enRetardCalendaire: four.filter((r) => r.retard > 0),
         withFailedAttempts: four.filter((r) => r.failedAttempts > 0),
-        rows: four,
+        rows: rows,
       };
       res.statusCode = 200;
       return res.end(JSON.stringify(out));
