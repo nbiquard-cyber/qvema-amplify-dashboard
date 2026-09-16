@@ -475,6 +475,37 @@ module.exports = async (req, res) => {
       }));
     } catch (e) { res.statusCode = 502; return res.end(JSON.stringify({ error: String(e.message || e) })); }
   }
+  if (only === "p3-meta-signups") {
+    res.setHeader("Content-Type", "application/json"); res.setHeader("Cache-Control", "no-store");
+    try {
+      const [optins, clients] = await Promise.all([
+        airtableAll(T.optin, ["Email", "Created", "UTM Source"], null, "Inscrits Webi 3"),
+        airtableAll(T.clients, ["Email", "UTM Source", "Statut Paiement", "Promo"], `TRIM(UPPER({Promo})) = 'PROMO 3'`),
+      ]);
+      const seen = new Map();
+      for (const r of optins) { const em = lower(r.fields["Email"]); const key = em || r.id; if (!seen.has(key)) seen.set(key, r); }
+      const emailChan = {}, emailCreated = {};
+      for (const r of seen.values()) { const em = lower(r.fields["Email"]); if (!em) continue; emailChan[em] = chanFromSrc(r.fields["UTM Source"]); emailCreated[em] = norm(r.fields["Created"]).slice(0, 10); }
+      const rows = [];
+      for (const c of clients) {
+        const st = norm(c.fields["Statut Paiement"]); if (st === "En attente" || st === "Échec") continue;
+        const src = norm(c.fields["UTM Source"]), em = lower(c.fields["Email"]);
+        const chan = src ? chanFromSrc(src) : (em && emailChan[em]) || "Direct / Site";
+        if (chan !== "Paid Meta (ads)") continue;
+        rows.push({ email: em, webiCreated: emailCreated[em] || null, statut: st });
+      }
+      const after = (d) => rows.filter((r) => r.webiCreated && r.webiCreated > d).length;
+      const sansDate = rows.filter((r) => !r.webiCreated).length;
+      res.statusCode = 200;
+      return res.end(JSON.stringify({
+        paid_meta_payes: rows.length,
+        avec_date_webi: rows.length - sansDate, sans_date_webi: sansDate,
+        apres_samedi_12_09: after("2026-09-12"), // inscription webi le 13/09 ou après
+        apres_dimanche_13_09: after("2026-09-13"), // inscription webi le 14/09 ou après
+        detail: rows.slice().sort((a, b) => String(a.webiCreated).localeCompare(String(b.webiCreated))),
+      }));
+    } catch (e) { res.statusCode = 502; return res.end(JSON.stringify({ error: String(e.message || e) })); }
+  }
   try {
     if (!_cache.data || Date.now() - _cache.at > _TTL) {
       if (!_inflight) _inflight = (async () => {
