@@ -297,6 +297,40 @@ module.exports = async (req, res) => {
     return res.end(JSON.stringify({ error: "forbidden" }));
   }
 
+  // DIAGNOSTIC Stripe (lecture seule) : retrouve un client par e-mail, ses cartes et abonnements.
+  if (only === "stripe-customer") {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const email = (req.query && req.query.email) || require("url").parse(req.url, true).query.email;
+      if (!email) throw new Error("email requis");
+      const sget = async (path) => {
+        const r = await fetch("https://api.stripe.com/v1/" + path, { headers: { Authorization: `Bearer ${CONFIG.stripeKey}` } });
+        const j = await r.json();
+        if (!r.ok) throw new Error("Stripe " + path.split("?")[0] + " " + r.status + ": " + JSON.stringify(j.error || j));
+        return j;
+      };
+      const custs = (await sget("customers?email=" + encodeURIComponent(email) + "&limit=10")).data || [];
+      const out = [];
+      for (const c of custs) {
+        const pms = (await sget("customers/" + c.id + "/payment_methods?type=card&limit=10")).data || [];
+        const subs = (await sget("subscriptions?customer=" + c.id + "&status=all&limit=25")).data || [];
+        out.push({
+          id: c.id, email: c.email, name: c.name, created: c.created, currency: c.currency,
+          defaultPaymentMethod: (c.invoice_settings && c.invoice_settings.default_payment_method) || null,
+          defaultSource: c.default_source || null,
+          cards: pms.map((p) => ({ id: p.id, brand: p.card && p.card.brand, last4: p.card && p.card.last4, exp: p.card ? (p.card.exp_month + "/" + p.card.exp_year) : null })),
+          subscriptions: subs.map((s) => { let prod = null; try { prod = s.items.data[0].price.product; } catch (_) {} return { id: s.id, status: s.status, product: prod, current_period_end: s.current_period_end }; }),
+        });
+      }
+      res.statusCode = 200;
+      return res.end(JSON.stringify({ email, count: custs.length, customers: out }, null, 2));
+    } catch (e) {
+      res.statusCode = 502;
+      return res.end(JSON.stringify({ error: String((e && e.message) || e) }));
+    }
+  }
+
   // Rétroplanning de diffusion — stockage éditable depuis le dashboard (lecture + écriture).
   if (only === "retro" || only === "retro-save") {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
