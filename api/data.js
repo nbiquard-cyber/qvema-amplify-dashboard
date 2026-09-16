@@ -378,6 +378,7 @@ module.exports = async (req, res) => {
         const em = chargeEmail(c); if (!em) continue;
         const b = byEmail[em] || (byEmail[em] = { paid: [], failed: [], oneShot: false });
         const ok = c.status === "succeeded" && c.paid;
+        if (ok) b.firstOk = Math.min(b.firstOk == null ? Infinity : b.firstOk, (c.created || 0) * 1000); // 1ère charge réussie (INST ou 1x) = date d'inscription
         if (INST.includes(c.amount)) { if (ok) b.paid.push((c.created || 0) * 1000); else if (c.status === "failed") b.failed.push((c.created || 0) * 1000); }
         else if (FULL.includes(c.amount) && ok) b.oneShot = true;
       }
@@ -397,6 +398,7 @@ module.exports = async (req, res) => {
           troisiemePayee: n >= 3, troisiemeDate: d(inst[2] || null),
           troisiemeDue: first ? first + 2 * MONTH + GRACE <= NOW : false,
           failedAttempts: b.failed.length, lastFailed: d(b.failed.slice().sort((a, z) => z - a)[0] || null),
+          signup: d(b.firstOk != null && isFinite(b.firstOk) ? b.firstOk : null),
         };
       });
       const four = rows.filter((r) => r.mode === "4x");
