@@ -335,6 +335,43 @@ module.exports = async (req, res) => {
     }
   }
 
+  // DIAGNOSTIC (lecture seule) : mode de paiement 1x/4x par client Promo 3 (source Stripe) + plan de MAJ.
+  if (only === "p3-modes") {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const norm = (s) => (s || "").toString().trim();
+      const lower = (s) => norm(s).toLowerCase();
+      const [clients, charges] = await Promise.all([
+        airtableAll(T.clients, ["Email", "Promo", "Mode de paiement", "Prénom", "Nom", "Email paiement"]),
+        stripeList("charges"),
+      ]);
+      const p3 = clients.filter((c) => norm(c.fields["Promo"]).toUpperCase() === "PROMO 3");
+      const INST = [32250, 46666, 37250], FULL = [149000, 129000, 99000];
+      const chargeEmail = (c) => lower((c.billing_details && c.billing_details.email) || c.receipt_email || "");
+      const byEmail = {};
+      for (const c of charges) {
+        const em = chargeEmail(c); if (!em) continue;
+        if (!(c.status === "succeeded" && c.paid)) continue;
+        const b = byEmail[em] || (byEmail[em] = { full: 0, inst: 0 });
+        if (FULL.includes(c.amount)) b.full++; else if (INST.includes(c.amount)) b.inst++;
+      }
+      const plan = p3.map((c) => {
+        const emails = [lower(c.fields["Email"]), lower(c.fields["Email paiement"])].filter(Boolean);
+        let full = 0, inst = 0;
+        for (const e of emails) { const b = byEmail[e]; if (b) { full += b.full; inst += b.inst; } }
+        const computed = full > 0 ? "1x" : (inst > 0 ? "4x" : "?");
+        const cur = norm(c.fields["Mode de paiement"]) || null;
+        return { id: c.id, nom: (norm(c.fields["Prénom"]) + " " + norm(c.fields["Nom"])).trim(), email: emails[0] || "", current: cur, computed, full, inst, conflict: full > 0 && inst > 0, needsUpdate: computed !== "?" && !(full > 0 && inst > 0) && cur !== computed };
+      });
+      res.statusCode = 200;
+      return res.end(JSON.stringify({ count: plan.length, plan }));
+    } catch (e) {
+      res.statusCode = 502;
+      return res.end(JSON.stringify({ error: String((e && e.message) || e) }));
+    }
+  }
+
   // Rétroplanning de diffusion — stockage éditable depuis le dashboard (lecture + écriture).
   if (only === "retro" || only === "retro-save") {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
