@@ -382,6 +382,48 @@ module.exports = async (req, res) => {
     }
   }
 
+  // DIAGNOSTIC (lecture seule) : participants Promo 3 (Payé/OFFERT) n'ayant pas rempli le formulaire Accueil.
+  if (only === "p3-accueil-missing") {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const norm = (s) => (s || "").toString().trim();
+      const lower = (s) => norm(s).toLowerCase();
+      const isP3 = (v) => norm(v).toUpperCase() === "PROMO 3";
+      const nameKey = (p, n) => [p, n].map((x) => String(x || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "")).filter(Boolean).sort().join("|");
+      const [clients, accueil] = await Promise.all([
+        airtableAll(T.clients, ["Email", "Promo", "Statut Paiement", "Prénom", "Nom"]),
+        airtableAll(T.accueil, ["Adresse mail", "Promo", "Prénom", "Nom"]),
+      ]);
+      const accEmails = new Set(), accNames = new Set();
+      for (const a of accueil) {
+        if (!isP3(a.fields["Promo"])) continue;
+        const e = lower(a.fields["Adresse mail"]); if (e) accEmails.add(e);
+        const k = nameKey(a.fields["Prénom"], a.fields["Nom"]); if (k) accNames.add(k);
+      }
+      const participants = clients.filter((c) => isP3(c.fields["Promo"]) && ["Payé", "OFFERT"].includes(norm(c.fields["Statut Paiement"])));
+      const missing = [], nameOnly = [];
+      for (const c of participants) {
+        const e = lower(c.fields["Email"]);
+        const k = nameKey(c.fields["Prénom"], c.fields["Nom"]);
+        const row = { email: norm(c.fields["Email"]), nom: (norm(c.fields["Prénom"]) + " " + norm(c.fields["Nom"])).trim() };
+        if (e && accEmails.has(e)) continue;               // a rempli (match e-mail)
+        if (k && accNames.has(k)) { nameOnly.push(row); continue; } // rempli mais e-mail différent (typo)
+        missing.push(row);
+      }
+      res.statusCode = 200;
+      return res.end(JSON.stringify({
+        participants: participants.length, remplis: participants.length - missing.length - nameOnly.length,
+        manquants: missing.length, missing,
+        remplisAvecEmailDifferent: nameOnly,
+        emailsCCI: missing.map((r) => r.email).join("; "),
+      }, null, 2));
+    } catch (e) {
+      res.statusCode = 502;
+      return res.end(JSON.stringify({ error: String((e && e.message) || e) }));
+    }
+  }
+
   // DIAGNOSTIC (lecture seule) : mode de paiement 1x/4x par client Promo 3 (source Stripe) + plan de MAJ.
   if (only === "p3-modes") {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
