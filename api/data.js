@@ -335,6 +335,48 @@ module.exports = async (req, res) => {
     }
   }
 
+  // DIAGNOSTIC Stripe (lecture seule) : TVA d'un client (factures + taux) + taux de taxe du compte.
+  if (only === "stripe-tax") {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const email = (req.query && req.query.email) || require("url").parse(req.url, true).query.email;
+      if (!email) throw new Error("email requis");
+      const sget = async (path) => {
+        const r = await fetch("https://api.stripe.com/v1/" + path, { headers: { Authorization: `Bearer ${CONFIG.stripeKey}` } });
+        const j = await r.json();
+        if (!r.ok) throw new Error("Stripe " + path.split("?")[0] + " " + r.status + ": " + JSON.stringify(j.error || j));
+        return j;
+      };
+      const custs = (await sget("customers?email=" + encodeURIComponent(email) + "&limit=5")).data || [];
+      const out = [];
+      for (const c of custs) {
+        const invs = (await sget("invoices?customer=" + c.id + "&limit=12")).data || [];
+        let taxIds = []; try { taxIds = ((await sget("customers/" + c.id + "/tax_ids?limit=5")).data || []).map((t) => ({ type: t.type, value: t.value })); } catch (_) {}
+        out.push({
+          id: c.id, email: c.email, name: c.name,
+          address: c.address, taxLocation: c.tax && c.tax.location, tax_ids: taxIds,
+          invoices: invs.map((inv) => ({
+            number: inv.number, created: inv.created, status: inv.status,
+            subtotal: (inv.subtotal || 0) / 100, tax: (inv.tax || 0) / 100, total: (inv.total || 0) / 100,
+            autoTax: inv.automatic_tax && inv.automatic_tax.status,
+            taxAmounts: (inv.total_tax_amounts || []).map((t) => ({ amount: t.amount / 100, inclusive: t.inclusive, rate: t.tax_rate })),
+            defaultTaxRates: (inv.default_tax_rates || []).map((r) => (r && r.id) || r),
+          })),
+        });
+      }
+      const rates = (await sget("tax_rates?limit=100")).data || [];
+      res.statusCode = 200;
+      return res.end(JSON.stringify({
+        email, customers: out,
+        accountTaxRates: rates.map((r) => ({ id: r.id, display_name: r.display_name, percentage: r.percentage, inclusive: r.inclusive, country: r.country, state: r.state, jurisdiction: r.jurisdiction, tax_type: r.tax_type, active: r.active })),
+      }, null, 2));
+    } catch (e) {
+      res.statusCode = 502;
+      return res.end(JSON.stringify({ error: String((e && e.message) || e) }));
+    }
+  }
+
   // DIAGNOSTIC (lecture seule) : mode de paiement 1x/4x par client Promo 3 (source Stripe) + plan de MAJ.
   if (only === "p3-modes") {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
