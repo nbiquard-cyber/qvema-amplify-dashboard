@@ -366,10 +366,15 @@ module.exports = async (req, res) => {
         });
       }
       const rates = (await sget("tax_rates?limit=100")).data || [];
+      let taxSettings = null, taxRegs = [];
+      try { taxSettings = await sget("tax/settings"); } catch (e) { taxSettings = { error: String(e.message || e) }; }
+      try { taxRegs = (await sget("tax/registrations?limit=100&status=all")).data || []; } catch (e) { taxRegs = [{ error: String(e.message || e) }]; }
       res.statusCode = 200;
       return res.end(JSON.stringify({
         email, customers: out,
         accountTaxRates: rates.map((r) => ({ id: r.id, display_name: r.display_name, percentage: r.percentage, inclusive: r.inclusive, country: r.country, state: r.state, jurisdiction: r.jurisdiction, tax_type: r.tax_type, active: r.active })),
+        taxSettings: taxSettings && !taxSettings.error ? { status: taxSettings.status, defaults: taxSettings.defaults, head_office: taxSettings.head_office } : taxSettings,
+        taxRegistrations: taxRegs.map((r) => r.error ? r : ({ id: r.id, country: r.country, status: r.status, active_from: r.active_from, type: (r.country_options && Object.keys(r.country_options)) || null })),
       }, null, 2));
     } catch (e) {
       res.statusCode = 502;
