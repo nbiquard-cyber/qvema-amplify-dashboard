@@ -415,6 +415,7 @@
         <div class="card kpi"><div class="label">CA généré</div><div class="value blue" id="bc-cagenere">—</div><div class="sub">valeur totale des ventes</div></div>
         <div class="card kpi"><div class="label">CA encaissé</div><div class="value green" id="bc-caencaisse">—</div><div class="sub" id="bc-caencaisse-sub"></div></div>
         <div class="card kpi"><div class="label">Reste à encaisser</div><div class="value purple" id="bc-careste">—</div><div class="sub">échéancier 4x à venir</div></div>
+        <div class="card kpi"><div class="label">Coaching individuels</div><div class="value" style="color:#e0a44a" id="bc-coaching">—</div><div class="sub" id="bc-coaching-sub">produit additionnel</div></div>
       </div>
 
       <div style="margin-top:16px;display:flex;gap:16px;flex-wrap:wrap">
@@ -811,6 +812,9 @@ function renderBcPilotage(s, scopeLabel){
   const pct = s.caEncaisse!=null && s.caGenere ? Math.round(s.caEncaisse/s.caGenere*100) : null;
   document.getElementById('bc-caencaisse-sub').textContent = pct!=null ? pct+'% du CA généré' : 'Stripe indispo';
   document.getElementById('bc-careste').textContent = EUR(s.caRestantAEncaisser);
+  const co = s.coaching || {count:0, ca:0};
+  document.getElementById('bc-coaching').textContent = NUM(co.count)+(co.count>1?' pers.':co.count===1?' pers.':'');
+  document.getElementById('bc-coaching-sub').textContent = co.count ? (EUR(co.ca)+' · '+EUR(Math.round(co.ca/co.count))+'/pers') : 'aucun pour l\'instant';
 
   // « Inscrits par promo » et « Détail par promo » : uniquement en vue Toutes promos.
   const showPromoBreakdown = currentPromo==='Toutes';

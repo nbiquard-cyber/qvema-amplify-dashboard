@@ -850,8 +850,29 @@ module.exports = async (req, res) => {
     const bcSubsByStatus = {};
     for (const s of bcSubs) bcSubsByStatus[s.status] = (bcSubsByStatus[s.status] || 0) + 1;
 
+    // --- Coaching individuel (produit additionnel) : paiements Stripe dont la description
+    //     contient "coaching". Compté PAR PERSONNE (e-mail unique), CA = somme nette encaissée.
+    //     Rattaché à la promo de l'acheteur (via e-mail) ; ajouté au CA généré ET encaissé.
+    const coachEmailsG = new Set(), coachEmailsByPromo = {};
+    let coachCaG = 0; const coachCaByPromo = {};
+    for (const c of succeeded) {
+      if (!/coaching/i.test(c.description || "")) continue;
+      const net = (c.amount - (c.amount_refunded || 0)) / 100;
+      const em = chargeEmail(c);
+      const promo = (em && emailToPromoAll[em]) || "Sans promo";
+      coachCaG += net; if (em) coachEmailsG.add(em);
+      coachCaByPromo[promo] = (coachCaByPromo[promo] || 0) + net;
+      (coachEmailsByPromo[promo] = coachEmailsByPromo[promo] || new Set()); if (em) coachEmailsByPromo[promo].add(em);
+    }
+    const coachGlobal = { count: coachEmailsG.size, ca: Math.round(coachCaG * 100) / 100 };
+    const coachByPromo = {};
+    for (const p of Object.keys(coachCaByPromo)) coachByPromo[p] = { count: (coachEmailsByPromo[p] || new Set()).size, ca: Math.round(coachCaByPromo[p] * 100) / 100 };
+    // Cohérence du comparatif « CA généré par promo » : on y ajoute aussi le coaching.
+    for (const p of Object.keys(coachByPromo)) if (byPromo[p]) byPromo[p].montant += coachByPromo[p].ca;
+
     // Construit un objet d'indicateurs pour une liste d'inscrits payés
-    const buildScope = (list, caEnc, installments, statutCounts) => {
+    const buildScope = (list, caEnc, installments, statutCounts, coach) => {
+      coach = coach || { count: 0, ca: 0 };
       let caGenere = 0;
       const byDay = {};
       let nb4x = 0;
@@ -869,11 +890,14 @@ module.exports = async (req, res) => {
         if (is4x) nb4x++;
       }
       const nb1x = Math.max(0, list.length - nb4x);
+      const caGenTot = caGenere + coach.ca;        // coaching ajouté au CA généré
+      const caEncTot = caEnc + coach.ca;           // et au CA encaissé (payé en 1 fois)
       return {
         totalInscrits: list.length,
-        caGenere,
-        caEncaisse: stripeOk ? Math.round(caEnc * 100) / 100 : null,
-        caRestantAEncaisser: stripeOk ? Math.round((caGenere - caEnc) * 100) / 100 : null,
+        caGenere: Math.round(caGenTot * 100) / 100,
+        caEncaisse: stripeOk ? Math.round(caEncTot * 100) / 100 : null,
+        caRestantAEncaisser: stripeOk ? Math.round((caGenTot - caEncTot) * 100) / 100 : null,
+        coaching: coach,                            // { count, ca } — produit Coaching individuel
         paiement: { un_fois: nb1x, quatre_fois: nb4x, installments_collectees: installments },
         statutCounts,
         byDay,
@@ -940,14 +964,14 @@ module.exports = async (req, res) => {
     };
 
     const scopes = {};
-    scopes["Toutes"] = buildScope(bcPaid, caEncGlobal, instGlobal, statutGlobal);
+    scopes["Toutes"] = buildScope(bcPaid, caEncGlobal, instGlobal, statutGlobal, coachGlobal);
     scopes["Toutes"].secteurs = secteurGlobal;
     scopes["Toutes"].stades = stadeGlobal;
     scopes["Toutes"].impayes = impayeScope(impayesAll);
     const promoList = [...new Set(bcPaid.map(promoOf))];
     for (const p of promoList) {
       const list = bcPaid.filter((c) => promoOf(c) === p);
-      scopes[p] = buildScope(list, caEncByPromo[p] || 0, instByPromo[p] || 0, statutByPromo[p] || {});
+      scopes[p] = buildScope(list, caEncByPromo[p] || 0, instByPromo[p] || 0, statutByPromo[p] || {}, coachByPromo[p] || { count: 0, ca: 0 });
       scopes[p].secteurs = secteurByPromo[p] || {};
       scopes[p].stades = stadeByPromo[p] || {};
       scopes[p].impayes = impayeScope(impayesByPromo[p]);
