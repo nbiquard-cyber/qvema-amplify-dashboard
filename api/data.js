@@ -335,6 +335,30 @@ module.exports = async (req, res) => {
     }
   }
 
+  // DIAGNOSTIC (lecture seule) : retrouve les charges d'un montant donné à une date donnée (e-mails).
+  if (only === "find-charge") {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const q = require("url").parse(req.url, true).query;
+      const cents = Math.round(parseFloat(q.amount || "0") * 100);
+      const day = (q.date || "").slice(0, 10);
+      const charges = await stripeList("charges");
+      const out = charges.filter((c) => {
+        const d = new Date((c.created || 0) * 1000).toISOString().slice(0, 10);
+        return (!cents || c.amount === cents) && (!day || d === day);
+      }).map((c) => ({
+        date: new Date((c.created || 0) * 1000).toISOString().slice(0, 16).replace("T", " "),
+        amount: c.amount / 100, status: c.status, paid: !!c.paid,
+        billing_email: (c.billing_details && c.billing_details.email) || null,
+        receipt_email: c.receipt_email || null, customer: c.customer || null,
+        desc: c.description || "",
+      }));
+      res.statusCode = 200;
+      return res.end(JSON.stringify({ count: out.length, charges: out }, null, 2));
+    } catch (e) { res.statusCode = 502; return res.end(JSON.stringify({ error: String((e && e.message) || e) })); }
+  }
+
   // DIAGNOSTIC (lecture seule) : regroupe tous les paiements Stripe réussis par description + montant.
   if (only === "charges-scan") {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
