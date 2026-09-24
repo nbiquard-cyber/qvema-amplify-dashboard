@@ -335,6 +335,30 @@ module.exports = async (req, res) => {
     }
   }
 
+  // DIAGNOSTIC (lecture seule) : regroupe tous les paiements Stripe réussis par description + montant.
+  if (only === "charges-scan") {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const charges = await stripeList("charges");
+      const g = {};
+      for (const c of charges) {
+        if (c.status !== "succeeded" || !c.paid) continue;
+        const desc = ((c.description || "(sans description)")).toString().trim();
+        const amt = Math.round(c.amount) / 100;
+        const key = desc + " @@ " + amt;
+        const e = g[key] || (g[key] = { desc, amount: amt, count: 0, netTotal: 0 });
+        e.count++; e.netTotal += Math.round(c.amount - (c.amount_refunded || 0)) / 100;
+      }
+      const rows = Object.values(g).sort((a, b) => b.netTotal - a.netTotal);
+      res.statusCode = 200;
+      return res.end(JSON.stringify({ groupes: rows.length, rows }, null, 2));
+    } catch (e) {
+      res.statusCode = 502;
+      return res.end(JSON.stringify({ error: String((e && e.message) || e) }));
+    }
+  }
+
   // DIAGNOSTIC Stripe (lecture seule) : TVA d'un client (factures + taux) + taux de taxe du compte.
   if (only === "stripe-tax") {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
