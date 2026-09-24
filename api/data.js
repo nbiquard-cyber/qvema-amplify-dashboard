@@ -821,6 +821,19 @@ module.exports = async (req, res) => {
     // Mensualités payées HORS Stripe (virement…) — ajoutées au décompte Stripe pour les impayés.
     const manualByEmail = {};
     for (const c of clients) { const n = Number(c.fields["Mensualités hors Stripe"]) || 0; if (n > 0) for (const e of emailsOf(c)) manualByEmail[e] = n; }
+    // Fusion des paiements faits sous un "Email paiement" DIFFÉRENT de l'e-mail d'inscription
+    // (ex. carte pro / e-mail de facturation distinct). On rapatrie les mensualités de l'alias
+    // dans l'e-mail principal pour ne pas scinder un même apprenant en deux (impayés faussés).
+    for (const c of clients) {
+      const primary = lower(c.fields["Email"]), alias = lower(c.fields["Email paiement"]);
+      if (!primary || !alias || alias === primary) continue;
+      const a = instByEmail[alias]; if (!a) continue;
+      const p = (instByEmail[primary] = instByEmail[primary] || { count: 0, amount: a.amount, first: Infinity, last: 0, refunded: false });
+      p.count += a.count; p.amount = a.amount || p.amount;
+      p.first = Math.min(p.first, a.first); p.last = Math.max(p.last, a.last);
+      p.refunded = p.refunded || a.refunded;
+      delete instByEmail[alias];
+    }
     const NOW = Date.now(), DAY = 86400000, MONTH = 30.44 * DAY, GRACE = 7 * DAY;
     const impayesByPromo = {}, impayesAll = [];
     for (const e in instByEmail) {
