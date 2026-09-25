@@ -190,6 +190,11 @@ async function updateLiveDraft(ev) {
     body: JSON.stringify(payload),
   });
   const t = await r.text();
+  // Event supprimé côté Circle (404 sur le PUT ou "Missing record") -> on RECRÉE le brouillon.
+  if (r.status === 404 || /missing record/i.test(t)) {
+    const created = await createLiveDraft(ev);
+    return { ok: true, id: created.id, recreated: true, url: created.url || null };
+  }
   if (!r.ok) throw new Error("Circle update HTTP " + r.status + " : " + t.slice(0, 200));
   let j = {}; try { j = JSON.parse(t); } catch (e) {}
   return { ok: true, id, status, url: j.url || null };
