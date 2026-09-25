@@ -360,7 +360,12 @@ function updateCircleDraft(e){
  if(!liveTok())return;
  apiFetch('/api/data?only=update-live-draft',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({circleId:e.circleId,promo:e.promo,name:e.titre||labelOf(e),date:e.date,deb:e.deb,fin:e.fin,body:e.note})})
   .then(function(r){return r.json();})
-  .then(function(j){toast(j&&j.ok?'✓ Modifications enregistrées + mises à jour dans Circle.':('Modif enregistrée. MAJ Circle en échec : '+((j&&j.error)||'?')));})
+  .then(function(j){
+    if(j&&j.ok){
+      if(j.id&&j.id!==e.circleId){ e.circleId=j.id; apiFetch('/api/data?only=agenda-save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event:e})}); }
+      toast(j.recreated?'✓ Modifications enregistrées · brouillon Circle recréé.':'✓ Modifications enregistrées + mises à jour dans Circle.');
+    } else { toast('Modif enregistrée. MAJ Circle en échec : '+((j&&j.error)||'?')); }
+  })
   .catch(function(){toast('Modif enregistrée. Circle injoignable pour la mise à jour.');});
 }
 function save(){

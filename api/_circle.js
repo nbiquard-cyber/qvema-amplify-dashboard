@@ -156,15 +156,22 @@ async function updateLiveDraft(ev) {
   const promo = Number(ev.promo) || 1;
   let spaceId = EVENT_SPACES[promo] || EVENT_SPACES[1];
   let status = "draft";
+  let missing = false;
   // Lire l'état actuel : préserve le statut (ne pas repasser un live publié en brouillon) + l'espace.
   try {
     const g = await fetch(BASE + "/events/" + id, { headers: { Authorization: "Bearer " + TOKEN } });
-    if (g.ok) {
+    if (g.status === 404) missing = true;
+    else if (g.ok) {
       const gj = await g.json();
       if (gj.status) status = gj.status; else if (gj.published_at) status = "published";
       if (gj.space && gj.space.id) spaceId = gj.space.id;
     }
   } catch (e) {}
+  // Le brouillon Circle a été supprimé côté Circle : on le RECRÉE au lieu d'échouer (auto-réparation).
+  if (missing) {
+    const created = await createLiveDraft(ev);
+    return { ok: true, id: created.id, recreated: true, url: created.url || null };
+  }
   const date = (ev.date || "");
   const deb = (ev.deb || "18:30");
   const setting = { duration_in_seconds: 3600 };
