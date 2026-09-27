@@ -1221,7 +1221,7 @@ function applyPerms(){
   show('.sb-item[data-nav="amplify"]', canAmp);
   show('.sb-item[data-nav="amplify-crm"]', canAmp);
   show('.sb-item[data-nav="amplify-retro"]', canAmp);
-  const canPart = canBoot||canAmp;
+  const canPart = hasPerm('partners');
   ['overview','pipeline','companies','contacts','activities','clients'].forEach(k=>show('.sb-item[data-nav="partners-'+k+'"]', canPart));
   show('#sbg-partners', canPart);
   const canSeo=hasPerm('seo');
@@ -1241,7 +1241,7 @@ function applyPerms(){
   document.getElementById('whoami').textContent = nm || '—';
   document.getElementById('sb-role').textContent = AUTH ? labelPerms() : '';
   document.getElementById('sb-ava').textContent = initials(nm);
-  const first = canBoot ? 'pilotage' : (canFeed ? 'feedback' : (canAmp ? 'amplify' : null));
+  const first = canBoot ? 'pilotage' : (canFeed ? 'feedback' : (canAmp ? 'amplify' : (canPart ? 'partners-overview' : null)));
   if(first) navigate(first);
 }
 

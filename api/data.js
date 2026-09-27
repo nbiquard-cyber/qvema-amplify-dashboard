@@ -311,6 +311,45 @@ module.exports = async (req, res) => {
     }
   }
 
+  // CRM Partenariats de marque — stockage JSON partagé (lecture + écriture complète du CRM).
+  // Accès dédié : permission "partners" (ou Admin), indépendant de Bootcamp/Amplify.
+  if (only === "partners" || only === "partners-save") {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    if (!auth.has(user.perms, "partners")) {
+      res.statusCode = 403; return res.end(JSON.stringify({ ok: false, error: "forbidden" }));
+    }
+    try {
+      const rec = await partnersRecord();
+      if (req.method !== "POST" && only === "partners") {
+        const d = partnersData(rec);
+        const arr = (k) => (Array.isArray(d[k]) ? d[k] : []);
+        res.statusCode = 200;
+        return res.end(JSON.stringify({
+          ok: true, seeded: !!rec,
+          companies: arr("companies"), contacts: arr("contacts"), opportunities: arr("opportunities"),
+          activities: arr("activities"), notes: arr("notes"),
+          stages: Array.isArray(d.stages) ? d.stages : null,
+          partnershipTypes: Array.isArray(d.partnershipTypes) ? d.partnershipTypes : null,
+        }));
+      }
+      const body = await readBody(req);
+      const A = (k) => (Array.isArray(body[k]) ? body[k] : []);
+      const data = {
+        companies: A("companies"), contacts: A("contacts"), opportunities: A("opportunities"),
+        activities: A("activities"), notes: A("notes"),
+      };
+      if (Array.isArray(body.stages)) data.stages = body.stages;
+      if (Array.isArray(body.partnershipTypes)) data.partnershipTypes = body.partnershipTypes;
+      await partnersWrite(data, rec);
+      res.statusCode = 200;
+      return res.end(JSON.stringify({ ok: true, counts: { companies: data.companies.length, opportunities: data.opportunities.length } }));
+    } catch (e) {
+      res.statusCode = 502;
+      return res.end(JSON.stringify({ ok: false, error: String((e && e.message) || e) }));
+    }
+  }
+
   // Accès aux données business (toutes les autres routes) : nécessite Bootcamp ou Amplify (ou Admin).
   if (!auth.has(user.perms, "bootcamp") && !auth.has(user.perms, "amplify")) {
     res.statusCode = 403;
@@ -546,41 +585,6 @@ module.exports = async (req, res) => {
       await retroWrite(data, rec);
       res.statusCode = 200;
       return res.end(JSON.stringify({ ok: true, count: data.rows.length }));
-    } catch (e) {
-      res.statusCode = 502;
-      return res.end(JSON.stringify({ ok: false, error: String((e && e.message) || e) }));
-    }
-  }
-
-  // CRM Partenariats de marque — stockage JSON partagé (lecture + écriture complète du CRM).
-  if (only === "partners" || only === "partners-save") {
-    res.setHeader("Content-Type", "application/json; charset=utf-8");
-    res.setHeader("Cache-Control", "no-store");
-    try {
-      const rec = await partnersRecord();
-      if (req.method !== "POST" && only === "partners") {
-        const d = partnersData(rec);
-        const arr = (k) => (Array.isArray(d[k]) ? d[k] : []);
-        res.statusCode = 200;
-        return res.end(JSON.stringify({
-          ok: true, seeded: !!rec,
-          companies: arr("companies"), contacts: arr("contacts"), opportunities: arr("opportunities"),
-          activities: arr("activities"), notes: arr("notes"),
-          stages: Array.isArray(d.stages) ? d.stages : null,
-          partnershipTypes: Array.isArray(d.partnershipTypes) ? d.partnershipTypes : null,
-        }));
-      }
-      const body = await readBody(req);
-      const A = (k) => (Array.isArray(body[k]) ? body[k] : []);
-      const data = {
-        companies: A("companies"), contacts: A("contacts"), opportunities: A("opportunities"),
-        activities: A("activities"), notes: A("notes"),
-      };
-      if (Array.isArray(body.stages)) data.stages = body.stages;
-      if (Array.isArray(body.partnershipTypes)) data.partnershipTypes = body.partnershipTypes;
-      await partnersWrite(data, rec);
-      res.statusCode = 200;
-      return res.end(JSON.stringify({ ok: true, counts: { companies: data.companies.length, opportunities: data.opportunities.length } }));
     } catch (e) {
       res.statusCode = 502;
       return res.end(JSON.stringify({ ok: false, error: String((e && e.message) || e) }));
