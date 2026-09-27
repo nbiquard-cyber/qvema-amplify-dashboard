@@ -120,6 +120,27 @@ async function retroWrite(data, rec) {
   if (!r.ok) throw new Error("retro write " + r.status + ": " + (await r.text()).slice(0, 150));
 }
 
+// --- Stockage du CRM Partenariats (table "Partners CRM", 1 enreg. Clé=store, JSON) ---
+const PARTNERS_TABLE = "tbl6VzJSI0MbLCUdt";
+async function partnersRecord() {
+  const url = "https://api.airtable.com/v0/" + CONFIG.airtableBase + "/" + PARTNERS_TABLE +
+    "?maxRecords=1&filterByFormula=" + encodeURIComponent("{Clé}='store'");
+  const r = await fetch(url, { headers: { Authorization: "Bearer " + AGENDA_WRITE_TOKEN } });
+  if (!r.ok) throw new Error("partners read " + r.status);
+  const j = await r.json();
+  return (j.records && j.records[0]) || null;
+}
+function partnersData(rec) { try { return rec ? (JSON.parse(rec.fields.Data || "{}") || {}) : {}; } catch (e) { return {}; } }
+async function partnersWrite(data, rec) {
+  const fields = { "Clé": "store", Data: JSON.stringify(data), Updated: new Date().toISOString() };
+  const base = "https://api.airtable.com/v0/" + CONFIG.airtableBase + "/" + PARTNERS_TABLE;
+  const opt = rec
+    ? { url: base + "/" + rec.id, method: "PATCH", body: JSON.stringify({ fields }) }
+    : { url: base, method: "POST", body: JSON.stringify({ records: [{ fields }] }) };
+  const r = await fetch(opt.url, { method: opt.method, headers: { Authorization: "Bearer " + AGENDA_WRITE_TOKEN, "Content-Type": "application/json" }, body: opt.body });
+  if (!r.ok) throw new Error("partners write " + r.status + ": " + (await r.text()).slice(0, 150));
+}
+
 // --- Démographie : département (code postal) -> région française ---
 // La feuille Clients n'a pas de champ Région : on le déduit du code postal.
 const REGION_BY_DEPT = (() => {
@@ -525,6 +546,41 @@ module.exports = async (req, res) => {
       await retroWrite(data, rec);
       res.statusCode = 200;
       return res.end(JSON.stringify({ ok: true, count: data.rows.length }));
+    } catch (e) {
+      res.statusCode = 502;
+      return res.end(JSON.stringify({ ok: false, error: String((e && e.message) || e) }));
+    }
+  }
+
+  // CRM Partenariats de marque — stockage JSON partagé (lecture + écriture complète du CRM).
+  if (only === "partners" || only === "partners-save") {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const rec = await partnersRecord();
+      if (req.method !== "POST" && only === "partners") {
+        const d = partnersData(rec);
+        const arr = (k) => (Array.isArray(d[k]) ? d[k] : []);
+        res.statusCode = 200;
+        return res.end(JSON.stringify({
+          ok: true, seeded: !!rec,
+          companies: arr("companies"), contacts: arr("contacts"), opportunities: arr("opportunities"),
+          activities: arr("activities"), notes: arr("notes"),
+          stages: Array.isArray(d.stages) ? d.stages : null,
+          partnershipTypes: Array.isArray(d.partnershipTypes) ? d.partnershipTypes : null,
+        }));
+      }
+      const body = await readBody(req);
+      const A = (k) => (Array.isArray(body[k]) ? body[k] : []);
+      const data = {
+        companies: A("companies"), contacts: A("contacts"), opportunities: A("opportunities"),
+        activities: A("activities"), notes: A("notes"),
+      };
+      if (Array.isArray(body.stages)) data.stages = body.stages;
+      if (Array.isArray(body.partnershipTypes)) data.partnershipTypes = body.partnershipTypes;
+      await partnersWrite(data, rec);
+      res.statusCode = 200;
+      return res.end(JSON.stringify({ ok: true, counts: { companies: data.companies.length, opportunities: data.opportunities.length } }));
     } catch (e) {
       res.statusCode = 502;
       return res.end(JSON.stringify({ ok: false, error: String((e && e.message) || e) }));
