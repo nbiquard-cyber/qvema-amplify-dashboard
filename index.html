@@ -3213,7 +3213,6 @@ if(AUTH && AUTH.token){
       if(j&&j.ok){
         DB.companies=j.companies||[];DB.contacts=j.contacts||[];DB.opportunities=j.opportunities||[];DB.activities=j.activities||[];DB.notes=j.notes||[];
         DB.partnershipTypes=j.partnershipTypes||null;
-        if(!DB.companies.length && !DB.opportunities.length){ seedDemo(); persist(); }
       }
       loaded=true;loading=false;if(cb)cb();
     }).catch(function(){ loaded=true;loading=false; if(cb)cb(); root().innerHTML='<div class="pt-empty">CRM injoignable. Réessaie (Rafraîchir).</div>'; });
