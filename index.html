@@ -3302,15 +3302,15 @@ if(AUTH && AUTH.token){
   // ---- SEARCH ----
   function drawSearch(){
     var q=searchQ.trim().toLowerCase(); if(!q){ drawSub(); return ''; }
-    var co=DB.companies.filter(function(c){return (c.name||'').toLowerCase().indexOf(q)>=0||(c.industry||'').toLowerCase().indexOf(q)>=0;});
-    var ct=DB.contacts.filter(function(c){return ((c.firstName||'')+' '+(c.lastName||'')+' '+(c.email||'')).toLowerCase().indexOf(q)>=0;});
+    var co=DB.companies.filter(function(c){return (c.name||'').toLowerCase().indexOf(q)>=0||(c.industry||'').toLowerCase().indexOf(q)>=0||(c.agency||'').toLowerCase().indexOf(q)>=0;});
+    var ct=DB.contacts.filter(function(c){return ((c.firstName||'')+' '+(c.lastName||'')+' '+(c.email||'')+' '+(c.org||'')).toLowerCase().indexOf(q)>=0;});
     var op=DB.opportunities.filter(function(o){return (o.name||'').toLowerCase().indexOf(q)>=0;});
     var h='<div class="card">';
     h+='<h3><span class="dot"></span>Résultats pour « '+esc(searchQ)+' »</h3>';
     if(!co.length&&!ct.length&&!op.length) h+='<div class="pt-empty">Aucun résultat.</div>';
     if(co.length){ h+='<div class="pt-sec"><div class="h">Entreprises</div>'+co.map(function(c){return rowCompany(c);}).join('')+'</div>'; }
     if(op.length){ h+='<div class="pt-sec"><div class="h">Opportunités</div>'+op.map(function(o){var c=company(o.companyId);return '<div class="pt-row" data-op="'+o.id+'"><div class="pt-avatar sm" style="background:'+colorFor(c?c.name:'')+'">'+initials(c?c.name:'?')+'</div><div class="pt-rmain"><div class="t">'+esc(o.name)+'</div><div class="s">'+esc(c?c.name:'')+' · '+stg(o.stage).label+'</div></div><div class="pt-amt">'+ek(o.amount)+'</div></div>';}).join('')+'</div>'; }
-    if(ct.length){ h+='<div class="pt-sec"><div class="h">Contacts</div>'+ct.map(function(c){var co2=company(c.companyId);return '<div class="pt-row" data-co="'+(co2?co2.id:'')+'"><div class="pt-avatar sm" style="background:'+colorFor(c.lastName)+'">'+initials((c.firstName||'')+' '+(c.lastName||''))+'</div><div class="pt-rmain"><div class="t">'+esc((c.firstName||'')+' '+(c.lastName||''))+'</div><div class="s">'+esc(c.jobTitle||'')+(co2?' · '+esc(co2.name):'')+'</div></div></div>';}).join('')+'</div>'; }
+    if(ct.length){ h+='<div class="pt-sec"><div class="h">Contacts</div>'+ct.map(function(c){var co2=company(c.companyId);return '<div class="pt-row" data-co="'+(co2?co2.id:'')+'"><div class="pt-avatar sm" style="background:'+colorFor(c.lastName)+'">'+initials((c.firstName||'')+' '+(c.lastName||''))+'</div><div class="pt-rmain"><div class="t">'+esc((c.firstName||'')+' '+(c.lastName||''))+(c.org?' <span class="pt-chip" style="font-size:10px">🏢 '+esc(c.org)+'</span>':'')+'</div><div class="s">'+esc(c.jobTitle||'')+(co2?' · '+esc(co2.name):'')+'</div></div></div>';}).join('')+'</div>'; }
     h+='</div>';
     C().innerHTML=h; wireRows();
   }
@@ -3452,7 +3452,7 @@ if(AUTH && AUTH.token){
   function drawContacts(){
     var l=DB.contacts.slice().sort(function(a,b){return (a.lastName||'').localeCompare(b.lastName||'');});
     var h='<div class="card" style="padding:6px 14px"><table class="pt-table"><thead><tr><th>Contact</th><th>Poste</th><th>Entreprise</th><th>Email</th><th>Téléphone</th></tr></thead><tbody>';
-    h+=l.map(function(c){var co=company(c.companyId);return '<tr data-co="'+(co?co.id:'')+'"><td><b>'+esc((c.firstName||'')+' '+(c.lastName||''))+'</b>'+(c.isPrimary?' <span class="pt-chip" style="color:var(--accent)">principal</span>':'')+'</td><td>'+esc(c.jobTitle||'—')+'</td><td>'+esc(co?co.name:'—')+'</td><td>'+esc(c.email||'—')+'</td><td>'+esc(c.phone||'—')+'</td></tr>';}).join('');
+    h+=l.map(function(c){var co=company(c.companyId);return '<tr data-co="'+(co?co.id:'')+'"><td><b>'+esc((c.firstName||'')+' '+(c.lastName||''))+'</b>'+(c.isPrimary?' <span class="pt-chip" style="color:var(--accent)">principal</span>':'')+(c.org?' <span class="pt-chip" style="font-size:10px">🏢 '+esc(c.org)+'</span>':'')+'</td><td>'+esc(c.jobTitle||'—')+'</td><td>'+esc(co?co.name:'—')+(c.org?' <span style="color:var(--muted);font-size:11px">· via '+esc(c.org)+'</span>':'')+'</td><td>'+esc(c.email||'—')+'</td><td>'+esc(c.phone||'—')+'</td></tr>';}).join('');
     h+='</tbody></table>'+(l.length?'':'<div class="pt-empty"><div class="big">👤</div>Aucun contact.</div>')+'</div>';
     C().innerHTML=h; wireRows();
   }
@@ -3531,7 +3531,7 @@ if(AUTH && AUTH.token){
       +'<span class="k">Responsable interne</span><span class="v">'+esc(c.owner||'—')+'</span>'
       +'<span class="k">Créée le</span><span class="v">'+fdate(c.createdAt)+'</span></div>'
       +(c.notes?'<div class="note" style="margin-top:8px">'+esc(c.notes)+'</div>':'')+'</div>';
-    h+='<div class="pt-sec"><div class="h">Contacts <span>'+cts.length+'</span></div>'+(cts.length?cts.map(function(ct){return '<div class="pt-row" data-ct="'+ct.id+'"><div class="pt-avatar sm" style="background:'+colorFor(ct.lastName)+'">'+initials((ct.firstName||'')+' '+(ct.lastName||''))+'</div><div class="pt-rmain"><div class="t">'+esc((ct.firstName||'')+' '+(ct.lastName||''))+(ct.isPrimary?' <span class="pt-chip" style="color:var(--accent);font-size:10px">principal</span>':'')+'</div><div class="s">'+esc(ct.jobTitle||'')+(ct.email?' · '+esc(ct.email):'')+(ct.phone?' · '+esc(ct.phone):'')+'</div></div>'+(ct.linkedin?'<a href="'+esc(ct.linkedin)+'" target="_blank" class="pt-btn sm ghost">in</a>':'')+'</div>';}).join(''):'<div class="pt-empty" style="padding:12px">Aucun contact.</div>')+'</div>';
+    h+='<div class="pt-sec"><div class="h">Contacts <span>'+cts.length+'</span></div>'+(cts.length?cts.map(function(ct){return '<div class="pt-row" data-ct="'+ct.id+'"><div class="pt-avatar sm" style="background:'+colorFor(ct.lastName)+'">'+initials((ct.firstName||'')+' '+(ct.lastName||''))+'</div><div class="pt-rmain"><div class="t">'+esc((ct.firstName||'')+' '+(ct.lastName||''))+(ct.isPrimary?' <span class="pt-chip" style="color:var(--accent);font-size:10px">principal</span>':'')+(ct.org?' <span class="pt-chip" style="font-size:10px">🏢 '+esc(ct.org)+'</span>':'')+'</div><div class="s">'+esc(ct.jobTitle||'')+(ct.email?' · '+esc(ct.email):'')+(ct.phone?' · '+esc(ct.phone):'')+'</div></div>'+(ct.linkedin?'<a href="'+esc(ct.linkedin)+'" target="_blank" class="pt-btn sm ghost">in</a>':'')+'</div>';}).join(''):'<div class="pt-empty" style="padding:12px">Aucun contact.</div>')+'</div>';
     h+='<div class="pt-sec"><div class="h">Opportunités <span>'+ops.length+'</span></div>'+(ops.length?ops.map(oppRow).join(''):'<div class="pt-empty" style="padding:12px">Aucune opportunité.</div>')+'</div>';
     h+='<div class="pt-sec"><div class="h">Historique</div>'+timelineFor(function(x){return x.companyId===id;})+'</div>';
     drawer(h);
@@ -3606,6 +3606,13 @@ if(AUTH && AUTH.token){
     if(val&&!seen[val])opts.push({v:val,t:val+' (hors liste)'});
     return fSel(label,id,opts,val||'');
   }
+  // Société/agence d'un contact (ex. le contact WPP Media qui gère la marque). Vide = contact direct côté client.
+  function fContactOrg(label,id,val,cid){
+    var co=cid?company(cid):null, sugg=[];
+    if(co&&co.agency)sugg.push(co.agency);
+    ['WPP Media','Havas Media','Publicis Media','GroupM','Dentsu','OMD','Omnicom Media Group','EssenceMediacom','Mindshare','Wavemaker','Zenith','Starcom','iProspect','Initiative','UM'].forEach(function(a){if(sugg.indexOf(a)<0)sugg.push(a);});
+    return '<div class="pt-field"><label>'+label+'</label><input id="'+id+'" type="text" list="pt-corg" placeholder="Vide = direct (client)" value="'+esc(val==null?'':val)+'"><datalist id="pt-corg">'+sugg.map(function(a){return '<option value="'+esc(a)+'"></option>';}).join('')+'</datalist></div>';
+  }
   // Agence qui gère le client (ex. WPP Media, Havas, Publicis) — champ libre avec suggestions.
   function fAgency(label,id,val){
     var sugg=['WPP Media','Havas Media','Publicis Media','GroupM','Dentsu','OMD','Omnicom Media Group','EssenceMediacom','Mindshare','Wavemaker','Zenith','Starcom','iProspect','Initiative','UM'];
@@ -3637,7 +3644,7 @@ if(AUTH && AUTH.token){
     var h='<h3>'+(edit?'Modifier le contact':'Nouveau contact')+'</h3>'
       +'<div class="pt-2col">'+fld('Prénom','m-fn',ct.firstName)+fld('Nom','m-ln',ct.lastName)+'</div>'
       +fSel('Entreprise','m-co',[{v:'',t:'—'}].concat(cos),ct.companyId||companyId||'')
-      +fld('Poste','m-job',ct.jobTitle)
+      +'<div class="pt-2col">'+fld('Poste','m-job',ct.jobTitle)+fContactOrg('Société / Agence','m-org',ct.org,ct.companyId||companyId)+'</div>'
       +'<div class="pt-2col">'+fld('Email','m-em',ct.email,'email')+fld('Téléphone','m-ph',ct.phone)+'</div>'
       +fld('LinkedIn','m-li',ct.linkedin)
       +'<div class="pt-field"><label><input type="checkbox" id="m-prim" '+(ct.isPrimary?'checked':'')+' style="width:auto;margin-right:6px">Contact principal</label></div>'
@@ -3645,8 +3652,8 @@ if(AUTH && AUTH.token){
     modal(h); bindClose();
     document.getElementById('m-save').onclick=function(){var fn=gv('m-fn'),ln=gv('m-ln');if(!fn&&!ln){toast('Prénom ou nom requis');return;}var prim=document.getElementById('m-prim').checked,cid=gv('m-co');
       if(prim&&cid){DB.contacts.forEach(function(x){if(x.companyId===cid)x.isPrimary=false;});}
-      if(edit){ct.firstName=fn;ct.lastName=ln;ct.companyId=cid;ct.jobTitle=gv('m-job');ct.email=gv('m-em');ct.phone=gv('m-ph');ct.linkedin=gv('m-li');ct.isPrimary=prim;ct.updatedAt=nowISO();}
-      else{DB.contacts.push({id:uid(),companyId:cid,firstName:fn,lastName:ln,jobTitle:gv('m-job'),email:gv('m-em'),phone:gv('m-ph'),linkedin:gv('m-li'),isPrimary:prim,createdAt:nowISO(),updatedAt:nowISO()});}
+      if(edit){ct.firstName=fn;ct.lastName=ln;ct.companyId=cid;ct.jobTitle=gv('m-job');ct.org=gv('m-org');ct.email=gv('m-em');ct.phone=gv('m-ph');ct.linkedin=gv('m-li');ct.isPrimary=prim;ct.updatedAt=nowISO();}
+      else{DB.contacts.push({id:uid(),companyId:cid,firstName:fn,lastName:ln,jobTitle:gv('m-job'),org:gv('m-org'),email:gv('m-em'),phone:gv('m-ph'),linkedin:gv('m-li'),isPrimary:prim,createdAt:nowISO(),updatedAt:nowISO()});}
       persist();closeModal();toast('Contact enregistré');drawSub(); if(cid)openCompany(cid);};
   }
 
