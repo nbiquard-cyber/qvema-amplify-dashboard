@@ -3214,6 +3214,7 @@ if(AUTH && AUTH.token){
   var sub='overview', loaded=false, loading=false, searchQ='';
   var pipeView='kanban', pf={owner:'',type:'',prio:''};
   var me='Moi';
+  var USERS=[]; // utilisateurs du cockpit (responsable interne) — [{name,email}]
 
   function root(){return document.getElementById('partners-root');}
   function ptypes(){return (DB.partnershipTypes&&DB.partnershipTypes.length)?DB.partnershipTypes:TYPES_DEF;}
@@ -3231,9 +3232,14 @@ if(AUTH && AUTH.token){
   function nextActivity(o){var l=DB.activities.filter(function(a){return a.opportunityId===o.id&&!a.completed&&a.dueDate;}).sort(function(a,b){return a.dueDate<b.dueDate?-1:1;});return l[0]||null;}
 
   // ---- data ----
+  function loadUsers(){
+    if(USERS.length)return;
+    fetch('/api/data?only=cockpit-users',{headers:authHeaders()}).then(function(r){return r.json();}).then(function(j){ if(j&&j.ok&&Array.isArray(j.users))USERS=j.users; }).catch(function(){});
+  }
   function load(cb){
     if(loading){return;} loading=true;
     me=(window.AUTH&&(AUTH.name||AUTH.email))||'Moi';
+    loadUsers();
     fetch('/api/data?only=partners',{headers:authHeaders()}).then(function(r){return r.json();}).then(function(j){
       if(j&&j.ok){
         DB.companies=j.companies||[];DB.contacts=j.contacts||[];DB.opportunities=j.opportunities||[];DB.activities=j.activities||[];DB.notes=j.notes||[];
@@ -3435,7 +3441,7 @@ if(AUTH && AUTH.token){
   // ---- COMPANIES ----
   function statusChip(s){var m={prospect:['prospect','Prospect'],opportunity:['opp','Opportunité'],client:['client','Client']};var x=m[s]||m.prospect;return '<span class="pt-chip '+x[0]+'"><span class="pt-dot" style="background:currentColor"></span>'+x[1]+'</span>';}
   function rowCompany(c){var pc=primaryContact(c.id);var ops=oppsOf(c.id);var open=ops.filter(isOpen);var pipe=open.reduce(function(s,o){return s+(Number(o.amount)||0);},0);
-    return '<div class="pt-row" data-co="'+c.id+'"><div class="pt-avatar" style="background:'+colorFor(c.name)+'">'+initials(c.name)+'</div><div class="pt-rmain"><div class="t">'+esc(c.name)+' '+statusChip(c.status)+'</div><div class="s">'+esc(c.industry||'—')+(pc?' · '+esc((pc.firstName||'')+' '+(pc.lastName||'')):'')+' · '+ops.length+' opp.</div></div><div class="pt-amt">'+(pipe?ek(pipe):'')+'</div></div>';}
+    return '<div class="pt-row" data-co="'+c.id+'"><div class="pt-avatar" style="background:'+colorFor(c.name)+'">'+initials(c.name)+'</div><div class="pt-rmain"><div class="t">'+esc(c.name)+' '+statusChip(c.status)+(c.agency?' <span class="pt-chip" style="font-size:10px">🏢 '+esc(c.agency)+'</span>':'')+'</div><div class="s">'+esc(c.industry||'—')+(pc?' · '+esc((pc.firstName||'')+' '+(pc.lastName||'')):'')+' · '+ops.length+' opp.'+(c.owner?' · 👤 '+esc(c.owner):'')+'</div></div><div class="pt-amt">'+(pipe?ek(pipe):'')+'</div></div>';}
   function drawCompanies(){
     var l=DB.companies.slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'');});
     var h='<div class="card"><h3><span class="dot"></span>Entreprises <span class="sub">'+l.length+'</span></h3>'+(l.length?l.map(rowCompany).join(''):'<div class="pt-empty"><div class="big">🏢</div>Aucune entreprise. Clique sur « + Ajouter ».</div>')+'</div>';
@@ -3521,7 +3527,8 @@ if(AUTH && AUTH.token){
       +'<span class="k">Site web</span><span class="v">'+esc(c.website||'—')+'</span>'
       +'<span class="k">Taille</span><span class="v">'+esc(c.size||'—')+'</span>'
       +'<span class="k">Source du lead</span><span class="v">'+esc(c.leadSource||'—')+'</span>'
-      +'<span class="k">Propriétaire</span><span class="v">'+esc(c.owner||'—')+'</span>'
+      +'<span class="k">Agence</span><span class="v">'+esc(c.agency||'—')+'</span>'
+      +'<span class="k">Responsable interne</span><span class="v">'+esc(c.owner||'—')+'</span>'
       +'<span class="k">Créée le</span><span class="v">'+fdate(c.createdAt)+'</span></div>'
       +(c.notes?'<div class="note" style="margin-top:8px">'+esc(c.notes)+'</div>':'')+'</div>';
     h+='<div class="pt-sec"><div class="h">Contacts <span>'+cts.length+'</span></div>'+(cts.length?cts.map(function(ct){return '<div class="pt-row" data-ct="'+ct.id+'"><div class="pt-avatar sm" style="background:'+colorFor(ct.lastName)+'">'+initials((ct.firstName||'')+' '+(ct.lastName||''))+'</div><div class="pt-rmain"><div class="t">'+esc((ct.firstName||'')+' '+(ct.lastName||''))+(ct.isPrimary?' <span class="pt-chip" style="color:var(--accent);font-size:10px">principal</span>':'')+'</div><div class="s">'+esc(ct.jobTitle||'')+(ct.email?' · '+esc(ct.email):'')+(ct.phone?' · '+esc(ct.phone):'')+'</div></div>'+(ct.linkedin?'<a href="'+esc(ct.linkedin)+'" target="_blank" class="pt-btn sm ghost">in</a>':'')+'</div>';}).join(''):'<div class="pt-empty" style="padding:12px">Aucun contact.</div>')+'</div>';
@@ -3592,6 +3599,18 @@ if(AUTH && AUTH.token){
   function closeModal(){var o=document.getElementById('pt-ov');if(o)o.remove();}
   function fld(label,id,val,type){return '<div class="pt-field"><label>'+label+'</label><input id="'+id+'" type="'+(type||'text')+'" value="'+esc(val==null?'':val)+'"></div>';}
   function fArea(label,id,val){return '<div class="pt-field"><label>'+label+'</label><textarea id="'+id+'">'+esc(val==null?'':val)+'</textarea></div>';}
+  // Responsable interne : liste déroulante contrainte aux Cockpit Users (garde la valeur actuelle si hors liste).
+  function fUser(label,id,val){
+    var opts=[{v:'',t:'— Non attribué'}], seen={};
+    USERS.forEach(function(u){var nm=(u.name||u.email||'').trim(); if(nm&&!seen[nm]){seen[nm]=1;opts.push({v:nm,t:nm});}});
+    if(val&&!seen[val])opts.push({v:val,t:val+' (hors liste)'});
+    return fSel(label,id,opts,val||'');
+  }
+  // Agence qui gère le client (ex. WPP Media, Havas, Publicis) — champ libre avec suggestions.
+  function fAgency(label,id,val){
+    var sugg=['WPP Media','Havas Media','Publicis Media','GroupM','Dentsu','OMD','Omnicom Media Group','EssenceMediacom','Mindshare','Wavemaker','Zenith','Starcom','iProspect','Initiative','UM'];
+    return '<div class="pt-field"><label>'+label+'</label><input id="'+id+'" type="text" list="pt-agencies" placeholder="Aucune / en direct" value="'+esc(val==null?'':val)+'"><datalist id="pt-agencies">'+sugg.map(function(a){return '<option value="'+esc(a)+'"></option>';}).join('')+'</datalist></div>';
+  }
   function fSel(label,id,opts,val){return '<div class="pt-field"><label>'+label+'</label><select id="'+id+'">'+opts.map(function(o){var v=(typeof o==='object')?o.v:o,t=(typeof o==='object')?o.t:o;return '<option value="'+esc(v)+'"'+(String(v)===String(val)?' selected':'')+'>'+esc(t)+'</option>';}).join('')+'</select></div>';}
   function gv(id){var e=document.getElementById(id);return e?e.value.trim():'';}
   function foot(saveId){return '<div class="pt-mfoot"><button class="pt-btn" id="pt-mc">Annuler</button><button class="pt-btn primary" id="'+saveId+'">Enregistrer</button></div>';}
@@ -3602,12 +3621,13 @@ if(AUTH && AUTH.token){
       +fld('Nom *','m-name',c.name)
       +'<div class="pt-2col">'+fld('Secteur','m-ind',c.industry)+fld('Site web','m-web',c.website)+'</div>'
       +'<div class="pt-2col">'+fSel('Statut','m-status',[{v:'prospect',t:'Prospect'},{v:'opportunity',t:'Opportunité'},{v:'client',t:'Client'}],c.status||'prospect')+fld('Taille','m-size',c.size)+'</div>'
-      +'<div class="pt-2col">'+fld('Source du lead','m-src',c.leadSource)+fld('Propriétaire','m-own',c.owner||me)+'</div>'
+      +'<div class="pt-2col">'+fAgency('Agence','m-agency',c.agency)+fUser('Responsable interne','m-own',c.owner||me)+'</div>'
+      +fld('Source du lead','m-src',c.leadSource)
       +fArea('Notes','m-notes',c.notes)+foot('m-save');
     modal(h); bindClose();
     document.getElementById('m-save').onclick=function(){var nm=gv('m-name');if(!nm){toast('Le nom est requis');return;}
-      if(edit){c.name=nm;c.industry=gv('m-ind');c.website=gv('m-web');c.status=gv('m-status');c.size=gv('m-size');c.leadSource=gv('m-src');c.owner=gv('m-own');c.notes=gv('m-notes');c.updatedAt=nowISO();}
-      else{DB.companies.push({id:uid(),name:nm,industry:gv('m-ind'),website:gv('m-web'),status:gv('m-status'),size:gv('m-size'),leadSource:gv('m-src'),owner:gv('m-own'),notes:gv('m-notes'),createdAt:nowISO(),updatedAt:nowISO()});}
+      if(edit){c.name=nm;c.industry=gv('m-ind');c.website=gv('m-web');c.status=gv('m-status');c.size=gv('m-size');c.leadSource=gv('m-src');c.agency=gv('m-agency');c.owner=gv('m-own');c.notes=gv('m-notes');c.updatedAt=nowISO();}
+      else{DB.companies.push({id:uid(),name:nm,industry:gv('m-ind'),website:gv('m-web'),status:gv('m-status'),size:gv('m-size'),leadSource:gv('m-src'),agency:gv('m-agency'),owner:gv('m-own'),notes:gv('m-notes'),createdAt:nowISO(),updatedAt:nowISO()});}
       persist();closeModal();toast('Entreprise enregistrée');drawSub(); if(edit)openCompany(c.id);};
   }
 

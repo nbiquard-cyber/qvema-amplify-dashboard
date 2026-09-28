@@ -350,6 +350,27 @@ module.exports = async (req, res) => {
     }
   }
 
+  // Liste des utilisateurs du cockpit (nom + email des actifs), pour affecter un
+  // « responsable interne » dans le CRM Partenariats. Accessible à tout utilisateur connecté
+  // ayant accès au CRM (partners) ou au business — jamais de mot de passe renvoyé.
+  if (only === "cockpit-users") {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    if (!auth.has(user.perms, "partners") && !auth.has(user.perms, "bootcamp") && !auth.has(user.perms, "amplify")) {
+      res.statusCode = 403; return res.end(JSON.stringify({ ok: false, error: "forbidden" }));
+    }
+    try {
+      const users = await auth.fetchUsers();
+      const out = users.filter((u) => u.actif && (u.name || u.email)).map((u) => ({ name: u.name || "", email: u.email || "" }));
+      out.sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email, "fr"));
+      res.statusCode = 200;
+      return res.end(JSON.stringify({ ok: true, users: out }));
+    } catch (e) {
+      res.statusCode = 502;
+      return res.end(JSON.stringify({ ok: false, error: String((e && e.message) || e) }));
+    }
+  }
+
   // Accès aux données business (toutes les autres routes) : nécessite Bootcamp ou Amplify (ou Admin).
   if (!auth.has(user.perms, "bootcamp") && !auth.has(user.perms, "amplify")) {
     res.statusCode = 403;
