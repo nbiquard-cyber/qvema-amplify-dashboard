@@ -3697,7 +3697,7 @@ if(AUTH && AUTH.token){
       +fld('Action à effectuer *','m-title',a.title)
       +fSel('Entreprise','m-co',[{v:'',t:'—'}].concat(cos),curCo)
       +fSel('Opportunité','m-op',[{v:'',t:'—'}].concat(ops),a.opportunityId||ctx.opportunityId||'')
-      +'<div class="pt-2col">'+fld('Responsable','m-own',a.owner||me)+'<div class="pt-field"><label>&nbsp;</label><label style="font-weight:400"><input type="checkbox" id="m-done" '+(a.completed?'checked':'')+' style="width:auto;margin-right:6px">Terminée</label></div></div>'
+      +'<div class="pt-2col">'+fUser('Responsable','m-own',a.owner||me)+'<div class="pt-field"><label>&nbsp;</label><label style="font-weight:400"><input type="checkbox" id="m-done" '+(a.completed?'checked':'')+' style="width:auto;margin-right:6px">Terminée</label></div></div>'
       +fArea('Détails','m-desc',a.description)+foot('m-save');
     modal(h); bindClose();
     var coSel=document.getElementById('m-co');coSel.onchange=function(){var ops2=oppsOf(this.value);document.getElementById('m-op').innerHTML='<option value="">—</option>'+ops2.map(function(o){return '<option value="'+o.id+'">'+esc(o.name)+'</option>';}).join('');};
