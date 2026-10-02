@@ -847,11 +847,12 @@ module.exports = async (req, res) => {
     for (const c of succeeded) {
       const b = bucket(c.amount);
       if (b !== "b1x" && b !== "b4x") continue; // Amplify & autres exclus du bootcamp
-      const net = (c.amount - (c.amount_refunded || 0)) / 100;
       const em = chargeEmail(c);
       const promo = em && emailToPromo[em] ? emailToPromo[em] : null;
-      caEncGlobal += net;
-      if (promo) caEncByPromo[promo] = (caEncByPromo[promo] || 0) + net;
+      // NB : le CA encaissé n'est PLUS cumulé ici. L'ancien calcul n'additionnait que les
+      // montants b1x/b4x standards : il excluait les SOLDES payés en une fois ("Solde
+      // Bootcamp…", bucket "other") et les virements hors Stripe, d'où un "reste à encaisser"
+      // surévalué. Il est désormais recalculé de façon robuste juste après cette boucle.
       if (b === "b4x") {
         instGlobal++;
         if (em) emails4x.add(em);
@@ -890,6 +891,34 @@ module.exports = async (req, res) => {
       if (bucket(c.amount) === "amplify") continue;
       const em = chargeEmail(c);
       if (em) bcNetByEmail[em] = (bcNetByEmail[em] || 0) + (c.amount - (c.amount_refunded || 0)) / 100;
+    }
+
+    // --- CA ENCAISSÉ (robuste) : tout l'argent réellement encaissé sur le Bootcamp =
+    //     mensualités 4x + paiements 1x + SOLDES payés en une fois ("Solde Bootcamp…",
+    //     bucket "other"), net des remboursements. Hors produit Amplify (1000€) et hors
+    //     Coaching (réinjecté séparément par buildScope via coach.ca, sinon double compte).
+    //     Rattachement à la promo par e-mail d'inscription OU "Email paiement" (emailToPromoAll),
+    //     ce qui récupère les paiements faits sous une carte/e-mail pro distinct.
+    for (const c of succeeded) {
+      if (bucket(c.amount) === "amplify") continue;
+      if (/coaching/i.test(c.description || "")) continue;
+      const net = (c.amount - (c.amount_refunded || 0)) / 100;
+      const em = chargeEmail(c);
+      const promo = em && emailToPromoAll[em] ? emailToPromoAll[em] : null;
+      caEncGlobal += net;
+      if (promo) caEncByPromo[promo] = (caEncByPromo[promo] || 0) + net;
+    }
+    // Mensualités réglées HORS Stripe (virements) : argent encaissé, compté dans le CA encaissé
+    // (mensualité = Montant du contrat / 4). Symétrique du crédit déjà appliqué aux impayés.
+    for (const c of clients) {
+      const n = Number(c.fields["Mensualités hors Stripe"]) || 0;
+      if (n <= 0) continue;
+      const mens = (Number(c.fields["Montant"]) || 0) / 4;
+      if (mens <= 0) continue;
+      const add = n * mens;
+      const promo = promoOf(c);
+      caEncGlobal += add;
+      if (promo) caEncByPromo[promo] = (caEncByPromo[promo] || 0) + add;
     }
 
     // ----- Impayés (recouvrement) : payeurs 4x en retard sur l'échéancier OU dont une
