@@ -3610,12 +3610,12 @@ if(AUTH && AUTH.token){
   function fContactOrg(label,id,val,cid){
     var co=cid?company(cid):null, sugg=[];
     if(co&&co.agency)sugg.push(co.agency);
-    ['WPP Media','Havas Media','Publicis Media','GroupM','Dentsu','OMD','Omnicom Media Group','EssenceMediacom','Mindshare','Wavemaker','Zenith','Starcom','iProspect','Initiative','UM'].forEach(function(a){if(sugg.indexOf(a)<0)sugg.push(a);});
+    ['Fuse','WPP Media','Havas Media','Publicis Media','GroupM','Dentsu','OMD','Omnicom Media Group','EssenceMediacom','Mindshare','Wavemaker','Zenith','Starcom','iProspect','Initiative','UM'].forEach(function(a){if(sugg.indexOf(a)<0)sugg.push(a);});
     return '<div class="pt-field"><label>'+label+'</label><input id="'+id+'" type="text" list="pt-corg" placeholder="Vide = direct (client)" value="'+esc(val==null?'':val)+'"><datalist id="pt-corg">'+sugg.map(function(a){return '<option value="'+esc(a)+'"></option>';}).join('')+'</datalist></div>';
   }
   // Agence qui gère le client (ex. WPP Media, Havas, Publicis) — champ libre avec suggestions.
   function fAgency(label,id,val){
-    var sugg=['WPP Media','Havas Media','Publicis Media','GroupM','Dentsu','OMD','Omnicom Media Group','EssenceMediacom','Mindshare','Wavemaker','Zenith','Starcom','iProspect','Initiative','UM'];
+    var sugg=['Fuse','WPP Media','Havas Media','Publicis Media','GroupM','Dentsu','OMD','Omnicom Media Group','EssenceMediacom','Mindshare','Wavemaker','Zenith','Starcom','iProspect','Initiative','UM'];
     return '<div class="pt-field"><label>'+label+'</label><input id="'+id+'" type="text" list="pt-agencies" placeholder="Aucune / en direct" value="'+esc(val==null?'':val)+'"><datalist id="pt-agencies">'+sugg.map(function(a){return '<option value="'+esc(a)+'"></option>';}).join('')+'</datalist></div>';
   }
   function fSel(label,id,opts,val){return '<div class="pt-field"><label>'+label+'</label><select id="'+id+'">'+opts.map(function(o){var v=(typeof o==='object')?o.v:o,t=(typeof o==='object')?o.t:o;return '<option value="'+esc(v)+'"'+(String(v)===String(val)?' selected':'')+'>'+esc(t)+'</option>';}).join('')+'</select></div>';}
