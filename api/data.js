@@ -902,15 +902,21 @@ module.exports = async (req, res) => {
     for (const c of succeeded) {
       if (bucket(c.amount) === "amplify") continue;
       if (/coaching/i.test(c.description || "")) continue;
-      const net = (c.amount - (c.amount_refunded || 0)) / 100;
       const em = chargeEmail(c);
-      const promo = em && emailToPromoAll[em] ? emailToPromoAll[em] : null;
+      // Rattaché à un client PAYÉ (e-mail d'inscription OU "Email paiement", via emailToPromo
+      // qui n'indexe que les Payés) : symétrie avec le CA généré, qui ne compte que les Payés.
+      // Les paiements non rattachés à un Payé (statut Remboursé/En attente/Échec, ou e-mail
+      // tiers inconnu de la fiche) sont exclus — sinon le CA encaissé dépasse le généré.
+      const promo = em && emailToPromo[em] ? emailToPromo[em] : null;
+      if (!promo) continue;
+      const net = (c.amount - (c.amount_refunded || 0)) / 100;
       caEncGlobal += net;
-      if (promo) caEncByPromo[promo] = (caEncByPromo[promo] || 0) + net;
+      caEncByPromo[promo] = (caEncByPromo[promo] || 0) + net;
     }
-    // Mensualités réglées HORS Stripe (virements) : argent encaissé, compté dans le CA encaissé
-    // (mensualité = Montant du contrat / 4). Symétrique du crédit déjà appliqué aux impayés.
-    for (const c of clients) {
+    // Mensualités réglées HORS Stripe (virements), clients PAYÉS uniquement : argent encaissé,
+    // compté dans le CA encaissé (mensualité = Montant du contrat / 4). Symétrique du crédit
+    // déjà appliqué aux impayés.
+    for (const c of bcPaid) {
       const n = Number(c.fields["Mensualités hors Stripe"]) || 0;
       if (n <= 0) continue;
       const mens = (Number(c.fields["Montant"]) || 0) / 4;
