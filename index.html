@@ -801,7 +801,7 @@ function renderBootcamp(){
   buildPromoFilter();
   const s = bc.scopes[currentPromo];
   const scopeLabel = currentPromo==='Toutes' ? 'toutes promos' : currentPromo;
-  renderBcPilotage(s, scopeLabel);
+  if(hasPerm('bootcamp')) renderBcPilotage(s, scopeLabel); // pilotage financier : bootcamp uniquement
   renderBcDemo(s, scopeLabel);
 }
 
@@ -1177,7 +1177,7 @@ async function enter(){
 
 function labelPerms(){
   if(hasPerm('admin')) return 'Admin';
-  const m={bootcamp:'Bootcamp',feedback:'Feedbacks',amplify:'Amplify'};
+  const m={bootcamp:'Bootcamp',feedback:'Feedbacks',amplify:'Amplify',stats:'Stats apprenants'};
   return (AUTH && AUTH.perms || []).map(p=>m[p]||p).join(' · ');
 }
 // Navigation sidebar -> vues internes.
@@ -1309,7 +1309,7 @@ if(AUTH && AUTH.token){
   const escH=(s)=>{const d=document.createElement('div');d.textContent=(s==null?'':s);return d.innerHTML;};
   const NAVS=[
     {key:'pilotage',label:'Pilotage',ic:'📊',perm:'bootcamp'},
-    {key:'demo',label:'Stats apprenants',ic:'👥',perm:'bootcamp'},
+    {key:'demo',label:'Stats apprenants',ic:'👥',perm:'stats'},
     {key:'feedback',label:'Feedbacks',ic:'💬',perm:'feedback'},
     {key:'agenda',label:'Agenda des lives',ic:'🎥',perm:'bootcamp'},
     {key:'amplify',label:'Amplify Connect — Data',ic:'📊',perm:'amplify'},
@@ -1318,7 +1318,7 @@ if(AUTH && AUTH.token){
     {key:'seo',label:'Site & SEO',ic:'🔍',perm:'seo'},
     {key:'crm',label:'CRM',ic:'🗂️',perm:'crm'},
   ];
-  function navAllowed(n){ return n.perm==='crm' ? (hasPerm('bootcamp')||hasPerm('amplify')) : n.key==='agenda' ? (hasPerm('bootcamp')||hasPerm('agenda')) : hasPerm(n.perm); }
+  function navAllowed(n){ return n.perm==='crm' ? (hasPerm('bootcamp')||hasPerm('amplify')) : n.key==='agenda' ? (hasPerm('bootcamp')||hasPerm('agenda')) : n.key==='demo' ? (hasPerm('bootcamp')||hasPerm('stats')) : hasPerm(n.perm); }
   function openK(){ if(!AUTH||!AUTH.token) return; el('cmdk').classList.remove('hidden'); el('cmdk-input').value=''; el('cmdk-input').focus(); build(''); ensureContacts(); }
   function closeK(){ el('cmdk').classList.add('hidden'); }
   async function ensureContacts(){ if(contactsReady) return; try{ if(window.CRM&&window.CRM.ensure){ await window.CRM.ensure(); contactsReady=true; build(el('cmdk-input').value); } }catch(e){} }

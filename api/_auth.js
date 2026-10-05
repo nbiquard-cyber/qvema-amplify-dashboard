@@ -16,13 +16,15 @@ const CONFIG = {
   ttlHours: 12,
 };
 
-// Vues métier connues. "admin" = accès total.
-const PERMS = ["bootcamp", "feedback", "amplify", "board", "seo", "rs", "agenda", "partners"];
+// Vues métier connues. "admin" = accès total. "stats" = page "Stats apprenants"
+// (démographie) accessible indépendamment du Bootcamp (sans les données financières).
+const PERMS = ["bootcamp", "feedback", "amplify", "board", "seo", "rs", "agenda", "partners", "stats"];
 
 function labelToPerm(label) {
   const s = String(label || "").trim().toLowerCase();
   if (s.startsWith("admin")) return "admin";
   if (s.startsWith("bootcamp")) return "bootcamp";
+  if (s.startsWith("stat")) return "stats"; // "Stats apprenant(s)"
   if (s.startsWith("feedback")) return "feedback";
   if (s.startsWith("amplify")) return "amplify";
   if (s.startsWith("board")) return "board";

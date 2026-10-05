@@ -372,7 +372,11 @@ module.exports = async (req, res) => {
   }
 
   // Accès aux données business (toutes les autres routes) : nécessite Bootcamp ou Amplify (ou Admin).
-  if (!auth.has(user.perms, "bootcamp") && !auth.has(user.perms, "amplify")) {
+  // Exception : l'accès "stats" (page Stats apprenants / démographie) ouvre UNIQUEMENT la route
+  // principale (payload par défaut, filtré plus bas) et only=progression — PAS les diagnostics
+  // financiers (mensualites, charges, find-charge, etc.), qui restent réservés à bootcamp/amplify.
+  const statsAllowedHere = auth.has(user.perms, "stats") && (!only || only === "progression");
+  if (!auth.has(user.perms, "bootcamp") && !auth.has(user.perms, "amplify") && !statsAllowedHere) {
     res.statusCode = 403;
     res.setHeader("Content-Type", "application/json");
     return res.end(JSON.stringify({ error: "forbidden" }));
@@ -1194,7 +1198,25 @@ module.exports = async (req, res) => {
 
     // Filtrage par permissions (copie, pour ne pas altérer le cache).
     const out = { ...result };
-    if (!auth.has(user.perms, "bootcamp")) delete out.bootcamp;
+    if (!auth.has(user.perms, "bootcamp")) {
+      // Accès "stats" seul : on sert une version RÉDUITE du bootcamp = démographie uniquement
+      // (Stats apprenants), SANS les données financières (CA, impayés, remboursements, paiements).
+      if (auth.has(user.perms, "stats")) {
+        const bc = JSON.parse(JSON.stringify(result.bootcamp)); // deep copy (ne pas altérer le cache)
+        delete bc.byPromo; delete bc.caRembourse; delete bc.nbRembourses;
+        delete bc.subsByStatus; delete bc.prixUnitaire; delete bc.prixByPromo;
+        for (const k of Object.keys(bc.scopes || {})) {
+          const s = bc.scopes[k];
+          delete s.caGenere; delete s.caEncaisse; delete s.caRestantAEncaisser;
+          delete s.coaching; delete s.paiement; delete s.statutCounts;
+          delete s.byDay; delete s.impayes; delete s.refund;
+          // conservés : totalInscrits, demographics, secteurs, stades
+        }
+        out.bootcamp = bc;
+      } else {
+        delete out.bootcamp;
+      }
+    }
     if (!auth.has(user.perms, "amplify")) delete out.amplify;
 
     res.statusCode = 200;
