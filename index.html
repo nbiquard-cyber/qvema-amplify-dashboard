@@ -736,18 +736,18 @@ function tokenExpired(tok){ try{ var b=String(tok).split('.')[0].replace(/-/g,'+
 function hasPerm(k){ return !!(AUTH && AUTH.perms && (AUTH.perms.indexOf('admin')>=0 || AUTH.perms.indexOf(k)>=0)); }
 function authHeaders(){ return { 'Authorization': 'Bearer ' + getToken() }; }
 
-async function load(){
+async function load(force){
   // Données business (/api/data) : uniquement si l'utilisateur a Bootcamp ou Amplify.
   if(hasPerm('bootcamp') || hasPerm('amplify')){
     const L=document.getElementById('loading');
-    // 1) Affichage INSTANTANÉ depuis le cache navigateur (stale-while-revalidate).
-    let cached=null; try{ cached=JSON.parse(sessionStorage.getItem('qvema_data')||'null'); }catch(e){}
+    // 1) Affichage INSTANTANÉ depuis le cache navigateur persistant (stale-while-revalidate).
+    let cached=null; try{ cached=JSON.parse(localStorage.getItem('qvema_data')||'null'); }catch(e){}
     if(cached){ DATA=cached; L.classList.add('hidden'); render(); applyPerms(); }
     else { L.classList.remove('hidden'); document.getElementById('view-bootcamp').classList.add('hidden'); document.getElementById('view-amplify').classList.add('hidden'); }
-    // 2) Récupération des données FRAÎCHES en arrière-plan.
+    // 2) Récupération des données FRAÎCHES en arrière-plan. force=true → bypass du cache serveur (60 s).
     const rb=document.getElementById('refreshBtn'); const rbTxt=rb?rb.textContent:''; if(rb&&cached){ rb.textContent='↻ …'; }
     let r;
-    try{ r = await fetch('/api/data', { headers: authHeaders() }); }
+    try{ r = await fetch('/api/data'+(force?'?fresh=1':''), { headers: authHeaders() }); }
     catch(e){ if(rb)rb.textContent=rbTxt; if(!cached){ L.innerHTML='Erreur réseau.'; applyPerms(); } return; }
     if(rb)rb.textContent=rbTxt;
     if(r.status===401){ logout('Session expirée, reconnecte-toi.'); return; }
@@ -755,7 +755,7 @@ async function load(){
     const fresh = await r.json();
     if(fresh.error){ if(!cached){ L.innerHTML='Erreur : '+fresh.error; applyPerms(); } return; }
     DATA = fresh;
-    try{ sessionStorage.setItem('qvema_data', JSON.stringify(fresh)); }catch(e){}
+    try{ localStorage.setItem('qvema_data', JSON.stringify(fresh)); }catch(e){}
     L.classList.add('hidden');
     render();
     if(!cached) applyPerms();
@@ -1152,7 +1152,7 @@ function showGate(err){
 }
 function logout(msg){
   AUTH = null;
-  try{ sessionStorage.removeItem('qvema_auth'); sessionStorage.removeItem('qvema_data'); sessionStorage.removeItem('qvema_feedback'); }catch(e){}
+  try{ sessionStorage.removeItem('qvema_auth'); sessionStorage.removeItem('qvema_data'); sessionStorage.removeItem('qvema_feedback'); localStorage.removeItem('qvema_data'); localStorage.removeItem('qvema_feedback'); }catch(e){}
   showGate(msg||'');
 }
 async function enter(){
@@ -1253,7 +1253,8 @@ function applyPerms(){
 document.getElementById('pwBtn').onclick = enter;
 document.getElementById('emailInput').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('pwInput').focus();});
 document.getElementById('pwInput').addEventListener('keydown',e=>{if(e.key==='Enter')enter();});
-document.getElementById('refreshBtn').onclick = ()=>{ fbLoaded=false; crmLoaded=false; load(); };
+document.getElementById('refreshBtn').onclick = ()=>{ fbLoaded=false; crmLoaded=false; try{localStorage.removeItem('qvema_data');localStorage.removeItem('qvema_feedback');}catch(e){} load(true); if(window.FB && fbVisible()) { fbLoaded=true; window.FB.load(true); } };
+function fbVisible(){ const v=document.getElementById('bc-sub-feedback'); return v && !v.classList.contains('hidden'); }
 document.getElementById('logoutBtn').onclick = ()=>logout('');
 document.querySelectorAll('.sb-item[data-nav]').forEach(t=>t.onclick=()=>navigate(t.dataset.nav));
 
@@ -1295,7 +1296,7 @@ document.getElementById('themeToggle').onclick = ()=>{
 };
 
 loadAuth();
-if(AUTH && AUTH.token && tokenExpired(AUTH.token)){ try{ sessionStorage.removeItem('qvema_auth'); sessionStorage.removeItem('qvema_data'); }catch(e){} AUTH=null; }
+if(AUTH && AUTH.token && tokenExpired(AUTH.token)){ try{ sessionStorage.removeItem('qvema_auth'); sessionStorage.removeItem('qvema_data'); localStorage.removeItem('qvema_data'); localStorage.removeItem('qvema_feedback'); }catch(e){} AUTH=null; }
 if(AUTH && AUTH.token){
   document.getElementById('gate').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
@@ -1434,16 +1435,16 @@ if(AUTH && AUTH.token){
     return DEPT_REGION[dep]||null;
   }
 
-  async function load(){
-    // 1) Affichage instantané depuis le cache navigateur (stale-while-revalidate).
-    let cached=null; try{ cached=JSON.parse(sessionStorage.getItem('qvema_feedback')||'null'); }catch(e){}
+  async function load(force){
+    // 1) Affichage instantané depuis le cache navigateur persistant (stale-while-revalidate).
+    let cached=null; try{ cached=JSON.parse(localStorage.getItem('qvema_feedback')||'null'); }catch(e){}
     if(cached && cached.ok){ handle(cached); }
     else { $('fb-root').innerHTML='<div class="fb-loading"><div class="spin"></div>Lecture des feedbacks…</div>'; }
-    // 2) Récupération fraîche en arrière-plan.
+    // 2) Récupération fraîche en arrière-plan. force=true → bypass du cache serveur (60 s).
     const rb=$('fb-reload'); const rbt=rb?rb.textContent:''; if(rb&&cached){ rb.textContent='↻ …'; }
     let resp;
     try{
-      const r = await fetch('/api/feedback', { headers: authHeaders() });
+      const r = await fetch('/api/feedback'+(force?'?fresh=1':''), { headers: authHeaders() });
       if(rb)rb.textContent=rbt;
       if(r.status===401){ if(!cached) $('fb-root').innerHTML='<div class="fb-err">Session expirée. Reconnecte-toi au cockpit.</div>'; return; }
       if(r.status===403){ if(!cached) $('fb-root').innerHTML='<div class="fb-err">Tu n\'as pas accès aux feedbacks.</div>'; return; }
@@ -1453,7 +1454,7 @@ if(AUTH && AUTH.token){
       if(!cached) $('fb-root').innerHTML='<div class="fb-err">Source des feedbacks injoignable. Réessaie.</div>';
       return;
     }
-    if(resp && resp.ok){ try{ sessionStorage.setItem('qvema_feedback', JSON.stringify(resp)); }catch(e){} handle(resp); }
+    if(resp && resp.ok){ try{ localStorage.setItem('qvema_feedback', JSON.stringify(resp)); }catch(e){} handle(resp); }
     else if(!cached){ handle(resp); }
   }
   function handle(resp){
@@ -1688,7 +1689,7 @@ if(AUTH && AUTH.token){
   $('fb-viewToggle').addEventListener('click',e=>{const b=e.target.closest('button[data-view]');if(!b)return;view=b.dataset.view;[...document.querySelectorAll('#fb-viewToggle button')].forEach(x=>x.classList.toggle('on',x===b));render();});
   $('fb-fPromo').addEventListener('change',render);
   $('fb-fModule').addEventListener('change',render);
-  $('fb-reload').addEventListener('click',load);
+  $('fb-reload').addEventListener('click',()=>load(true));
 
   window.FB = { load: load };
 })();

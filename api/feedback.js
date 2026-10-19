@@ -42,8 +42,10 @@ module.exports = async (req, res) => {
     );
   }
 
+  // ?fresh=1 : bypass du cache chaud (bouton « Rafraîchir »).
+  const fresh = /[?&]fresh=1\b/.test(req.url || "");
   // Cache chaud : réponse instantanée si les feedbacks ont < 60 s.
-  if (_fbCache.body && Date.now() - _fbCache.at < _FB_TTL) {
+  if (_fbCache.body && Date.now() - _fbCache.at < _FB_TTL && !fresh) {
     res.statusCode = 200;
     return res.end(_fbCache.body);
   }

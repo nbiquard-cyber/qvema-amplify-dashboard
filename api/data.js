@@ -263,6 +263,8 @@ module.exports = async (req, res) => {
   }
   // Sous-routes hébergées sur /api/data (limite Hobby : pas de nouvelle fonction serverless).
   const only = (req.query && req.query.only) || require("url").parse(req.url, true).query.only;
+  // ?fresh=1 : force le recalcul (bypass du cache chaud de 60 s) — bouton « Rafraîchir ».
+  const fresh = !!((req.query && req.query.fresh) || require("url").parse(req.url, true).query.fresh);
 
   // POST : crée/MET À JOUR un live (brouillon) dans Circle depuis l'agenda. Accès agenda/bootcamp/amplify.
   if (req.method === "POST" && (only === "create-live-draft" || only === "update-live-draft")) {
@@ -721,8 +723,8 @@ module.exports = async (req, res) => {
   }
 
   try {
-    // Cache chaud : réponse quasi instantanée si les données ont < 60 s.
-    if (_cache.data && Date.now() - _cache.at < _CACHE_TTL) {
+    // Cache chaud : réponse quasi instantanée si les données ont < 60 s (sauf ?fresh=1).
+    if (_cache.data && Date.now() - _cache.at < _CACHE_TTL && !fresh) {
       const out = { ..._cache.data };
       if (!auth.has(user.perms, "bootcamp")) delete out.bootcamp;
       if (!auth.has(user.perms, "amplify")) delete out.amplify;
