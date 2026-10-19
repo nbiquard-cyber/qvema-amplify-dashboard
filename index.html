@@ -1464,7 +1464,10 @@ if(AUTH && AUTH.token){
     RECORDS=[];bugCount=0;
     AIRTABLE=(resp.airtable||[]).map(a=>({sexe:a.sexe||'',age:(typeof a.age==='number'?a.age:num(a.age)),cp:a.cp||'',dob:a.dob||'',promo:canonPromo(a.promo),region:cpToRegion(a.cp)})).filter(a=>!/test/i.test(a.promo||''));
     const tabs=resp.tabs||{};
+    // Onglets exclus de l'affichage Feedbacks : témoignage Bootcamp, live Marc Simoncini, accueil.
+    const FB_EXCLURE=/t[ée]moign|simoncini|accueil/i;
     Object.keys(tabs).forEach(tab=>{
+      if(FB_EXCLURE.test(tab)) return;
       const mod=moduleOf(tab);
       (tabs[tab]||[]).forEach(r=>{
         const kSat=findKey(r,/satisfaction/i), kNps=findKey(r,/recommand/i), kPed=findKey(r,/p[ée]dagogie|niveau|rythme/i);
