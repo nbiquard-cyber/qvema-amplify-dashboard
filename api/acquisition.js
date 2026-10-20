@@ -122,6 +122,20 @@ const accLabel = (id) => P3_META.accountNames[id] || (id === "*" ? "tous comptes
 // de campagne), on réutilise ses dernières lignes plutôt que d'afficher une dépense fausse ; sans repli => dépense PARTIELLE.
 let _lastMeta = {};
 
+// ---------- PROMO 4 — même mécanique que P3 (vue Airtable « Inscrits Webi 4 » + clients {Promo}='PROMO 4').
+// La dépense Meta P4 reste DÉSACTIVÉE tant que P4_META_MATCH n'est pas défini (sinon on double-compterait
+// le spend P3). Pour l'activer : définir dans Vercel P4_META_MATCH (nom de campagne, ex. « Novembre 2026 »)
+// + P4_META_SINCE (début de fenêtre, AAAA-MM-JJ), et au besoin P4_META_INCLUDE_IDS / P4_META_ALIASES / P4_LIVE_DATE.
+const P4_META = {
+  liveDate: process.env.P4_LIVE_DATE || "à venir",
+  match: envRe(process.env.P4_META_MATCH, "\u0000périmètre-p4-non-défini\u0000"), // défaut : ne matche aucune campagne réelle
+  matchLabel: process.env.P4_META_MATCH || "(à définir)",
+  includeIds: (process.env.P4_META_INCLUDE_IDS || "").split(",").map((s) => s.trim()).filter(Boolean),
+  rtgMatch: /RTG|retarget|remarketing/i,
+  aliases: envJson(process.env.P4_META_ALIASES),
+  accountNames: P3_META.accountNames,
+};
+
 async function airtableAll(table, fields, filterByFormula, view) {
   const out = [];
   let offset = null;
@@ -266,28 +280,32 @@ async function buildPromo2() {
 // PROMO 3 : même chemin que P2 (vue Airtable "Inscrits Webi 3" + clients {Promo}='PROMO 3'),
 // mais dépense Meta LIVE (Marketing API, 2 comptes, périmètre « Septembre 2026 ») au lieu de CSV figés.
 // Sans META_ACCESS_TOKEN : comportement d'avant (dépense 0, CPL/ROAS/CAC null) + note explicite.
-async function buildPromo3() {
+// Builder générique d'une promo LIVE (funnel Airtable + dépense Meta optionnelle).
+// cfg = { promoLabel, promoFilter, webiView, webiLabel, openText, since, meta, metaEnabled, metaOffNote }
+async function buildPromoLive(cfg) {
+  const META = cfg.meta;
   const OPTIN_FIELDS = ["Email", "Created", "UTM Source", "UTM Medium", "UTM Campaign"];
-  const since = CONFIG.p3Since, until = todayParis();
-  const optinsP = airtableAll(T.optin, OPTIN_FIELDS, null, "Inscrits Webi 3").catch(() => []);
-  // Dépense Meta en parallèle des 2 appels Airtable ; null si pas de token (fallback = comme avant).
-  const metaP = CONFIG.metaToken
+  const since = cfg.since, until = todayParis();
+  const optinsP = airtableAll(T.optin, OPTIN_FIELDS, null, cfg.webiView).catch(() => []);
+  // Dépense Meta en parallèle des 2 appels Airtable ; null si désactivée pour cette promo (fallback = funnel seul).
+  const metaP = cfg.metaEnabled
     ? fetchCampaignSpend({ token: CONFIG.metaToken, accounts: CONFIG.metaAccounts, since, until, apiVersion: CONFIG.apiVersion })
         .catch((e) => ({ rows: [], errors: [{ account: "*", error: scrub(e, CONFIG.metaToken) }] }))
     : Promise.resolve(null);
   const [optins, clients, meta] = await Promise.all([
     optinsP,
     airtableAll(T.clients, ["Email", "UTM Source", "Montant", "Mode de paiement", "Statut Paiement", "Promo", "Date Paiement"],
-      `TRIM(UPPER({Promo})) = 'PROMO 3'`),
+      cfg.promoFilter),
     metaP,
   ]);
   // Repli par compte : compte en erreur => dernières lignes connues (stale) si on en a, sinon dépense PARTIELLE (KPIs masqués).
   const stale = [], missing = [];
+  const LK = (a) => cfg.promoLabel + "|" + a; // clé de repli Meta par promo (évite tout mélange P3/P4)
   if (meta) {
     const failed = new Set(meta.errors.map((e) => e.account));
     for (const a of CONFIG.metaAccounts) {
-      if (!failed.has(a) && !failed.has("*")) { _lastMeta[a] = { rows: meta.rows.filter((r) => r.account === a), at: Date.now() }; continue; }
-      const lg = _lastMeta[a];
+      if (!failed.has(a) && !failed.has("*")) { _lastMeta[LK(a)] = { rows: meta.rows.filter((r) => r.account === a), at: Date.now() }; continue; }
+      const lg = _lastMeta[LK(a)];
       if (lg) { meta.rows.push(...lg.rows); stale.push(accLabel(a) + " (figé à " + hhmm(lg.at) + ")"); } else missing.push(a);
     }
   }
@@ -352,7 +370,7 @@ async function buildPromo3() {
   const rows = {}, excl = {}, badCur = [];
   for (const m of (meta && meta.rows) || []) {
     if (m.currency && m.currency !== "EUR") { if (m.spend > 0) badCur.push(clean(m.name) + " (" + m.currency + ")"); continue; } // devise non gérée : jamais sommée
-    const ok = P3_META.match.test(norm2(m.name)) || P3_META.includeIds.includes(String(m.campaignId));
+    const ok = META.match.test(norm2(m.name)) || META.includeIds.includes(String(m.campaignId));
     if (!ok && !(m.spend > 0)) continue;
     const bucket = ok ? rows : excl, k = norm2(m.name);
     const row = bucket[k] || (bucket[k] = { name: clean(m.name), spend: 0, ids: [], ins: 0, ventes: 0 });
@@ -362,7 +380,7 @@ async function buildPromo3() {
   // ---- Rattachement UTM → campagne Meta : clé numérique = campaign_id, sinon nom exact normalisé (alias possible).
   //      Plusieurs clés UTM (id + nom) résolues vers la même campagne = 1 ligne, nommée comme dans Meta.
   const byId = {}, byName = {}, aliasByNorm = {};
-  for (const [k, v] of Object.entries(P3_META.aliases)) aliasByNorm[norm2(k)] = v;
+  for (const [k, v] of Object.entries(META.aliases)) aliasByNorm[norm2(k)] = v;
   for (const row of Object.values(rows)) {
     row.ids.forEach((id) => { byId[id] = row; });
     byName[norm2(row.name)] = row;
@@ -380,35 +398,35 @@ async function buildPromo3() {
 
   const scope = Object.values(rows);
   const total = r2(scope.reduce((a, c) => a + c.spend, 0));
-  const rtg = r2(scope.filter((c) => P3_META.rtgMatch.test(c.name)).reduce((a, c) => a + c.spend, 0));
+  const rtg = r2(scope.filter((c) => META.rtgMatch.test(c.name)).reduce((a, c) => a + c.spend, 0));
   const spend = { total, rtg, acquisition: r2(total - rtg), note: "", partial };
   const fenetre = ddmm(since) + " → " + ddmm(until);
   const notes = [
-    "Attribution UTM (source de vérité) : ① UTM checkout → ② match e-mail opt-in (1ᵉʳ contact) → ③ Direct. Inscrits = vue Airtable « Inscrits Webi 3 » (inscriptions ouvertes le 05/09).",
+    "Attribution UTM (source de vérité) : ① UTM checkout → ② match e-mail opt-in (1ᵉʳ contact) → ③ Direct. Inscrits = vue Airtable « " + cfg.webiLabel + " » (" + cfg.openText + ").",
   ];
   if (!meta) {
-    spend.note = "Dépense Meta non branchée (META_ACCESS_TOKEN manquant)";
-    notes.push("Dépense Meta non branchée (META_ACCESS_TOKEN manquant) : CPL, ROAS et CAC s'afficheront dès que le token Marketing API sera configuré dans Vercel.");
+    spend.note = cfg.metaOffNote;
+    notes.push(cfg.metaOffNote + " : CPL, ROAS et CAC s'afficheront une fois branchés.");
   } else {
     const errs = meta.errors.map((e) => "compte " + accLabel(e.account) + " indisponible : " + e.error);
     const dropped = Object.values(excl).sort((a, b) => b.spend - a.spend).map((c) => c.name + " " + EUR0(c.spend));
-    const perim = "nom sans « " + P3_META.matchLabel + " »";
+    const perim = "nom sans « " + META.matchLabel + " »";
     spend.note = (partial ? "⚠ DÉPENSE PARTIELLE · " : "") + "Live Meta API · " + CONFIG.metaAccounts.length + " compte(s) · fenêtre " + fenetre
       + (stale.length ? " · dernière valeur connue : " + stale.join(", ") : "")
       + (errs.length ? " · " + errs.join(" · ") : "")
-      + (dropped.length ? " · Hors périmètre P3 (" + perim + ") : " + dropped.join(", ") : "")
+      + (dropped.length ? " · Hors périmètre " + cfg.promoLabel + " (" + perim + ") : " + dropped.join(", ") : "")
       + (badCur.length ? " · devise non gérée (exclu) : " + badCur.join(", ") : "");
-    notes.push("Dépense Meta LIVE (Marketing API) : " + CONFIG.metaAccounts.map(accLabel).join(" + ") + " · périmètre P3 = campagnes dont le nom contient « " + P3_META.matchLabel + " »"
-      + (P3_META.includeIds.length ? " + ids forcés " + P3_META.includeIds.join(", ") : "") + " · fenêtre " + fenetre + " · rafraîchi toutes les 60 s.");
+    notes.push("Dépense Meta LIVE (Marketing API) : " + CONFIG.metaAccounts.map(accLabel).join(" + ") + " · périmètre " + cfg.promoLabel + " = campagnes dont le nom contient « " + META.matchLabel + " »"
+      + (META.includeIds.length ? " + ids forcés " + META.includeIds.join(", ") : "") + " · fenêtre " + fenetre + " · rafraîchi toutes les 60 s.");
     notes.push("Campagnes rattachées par UTM campaign (nom Meta encodé ou id numérique) ; UTM vides ou « {{campaign.name}} » non résolus comptés en UTM cassé ; une campagne Meta sans inscrit reste affichée (0) pour que la dépense totale soit juste.");
     if (stale.length) notes.push("Compte(s) Meta indisponible(s), dépense figée à la dernière lecture réussie : " + stale.join(", ") + ".");
     if (partial) notes.push("⚠ " + errs.join(" · ") + " — dépense PARTIELLE : CPL, ROAS et CAC masqués (ils seraient faux) ; la dépense affichée ne couvre pas tous les comptes.");
     else if (errs.length) notes.push("⚠ " + errs.join(" · "));
     if (badCur.length) notes.push("Campagne(s) dans une devise autre que EUR, exclue(s) du total : " + badCur.join(", ") + ".");
-    if (dropped.length) notes.push("Hors périmètre P3 (" + perim + "), dépense ignorée : " + dropped.join(", ") + ". Pour l'inclure : P3_META_INCLUDE_IDS=id de campagne.");
+    if (dropped.length) notes.push("Hors périmètre " + cfg.promoLabel + " (" + perim + "), dépense ignorée : " + dropped.join(", ") + ".");
   }
   return {
-    fenetre, liveDate: P3_META.liveDate, spend,
+    fenetre, liveDate: META.liveDate, spend,
     inscrits, channels: channelList,
     byDay: days.map((d) => ({ d, ch: byDayMap[d] })),
     // Campagnes : dépense Meta live (périmètre P3) + inscrits via UTM ; spend null = UTM non rattaché (colonnes Dépense/CPL vides).
@@ -426,6 +444,37 @@ async function buildPromo3() {
     },
     notes,
   };
+}
+
+// PROMO 3 : funnel live (vue « Inscrits Webi 3 ») + dépense Meta LIVE (périmètre « Septembre 2026 »).
+function buildPromo3() {
+  return buildPromoLive({
+    promoLabel: "PROMO 3",
+    promoFilter: `TRIM(UPPER({Promo})) = 'PROMO 3'`,
+    webiView: "Inscrits Webi 3",
+    webiLabel: "Inscrits Webi 3",
+    openText: "inscriptions ouvertes le 05/09",
+    since: CONFIG.p3Since,
+    meta: P3_META,
+    metaEnabled: !!CONFIG.metaToken,
+    metaOffNote: "Dépense Meta non branchée (META_ACCESS_TOKEN manquant)",
+  });
+}
+
+// PROMO 4 : même chemin (vue « Inscrits Webi 4 » + clients 'PROMO 4'). Dépense Meta désactivée tant que
+// P4_META_MATCH n'est pas défini (sinon double-comptage du spend P3) ; funnel/ventes/organique restent live.
+function buildPromo4() {
+  return buildPromoLive({
+    promoLabel: "PROMO 4",
+    promoFilter: `TRIM(UPPER({Promo})) = 'PROMO 4'`,
+    webiView: "Inscrits Webi 4",
+    webiLabel: "Inscrits Webi 4",
+    openText: process.env.P4_OPEN_TEXT || "inscriptions webi 4",
+    since: process.env.P4_META_SINCE || "2026-10-01",
+    meta: P4_META,
+    metaEnabled: !!CONFIG.metaToken && !!process.env.P4_META_MATCH,
+    metaOffNote: "Dépense Meta P4 à configurer (définir P4_META_MATCH + P4_META_SINCE dans Vercel)",
+  });
 }
 
 function promo1Scope() {
@@ -512,12 +561,12 @@ module.exports = async (req, res) => {
   try {
     if (!_cache.data || Date.now() - _cache.at > _TTL) {
       if (!_inflight) _inflight = (async () => {
-        const [p2, p3] = await Promise.all([buildPromo2(), buildPromo3()]);
+        const [p2, p3, p4] = await Promise.all([buildPromo2(), buildPromo3(), buildPromo4()]);
         return {
           generatedAt: new Date().toISOString(),
           colors: COLORS,
-          promoOrder: ["PROMO 1", "PROMO 2", "PROMO 3"],
-          scopes: { "PROMO 1": promo1Scope(), "PROMO 2": p2, "PROMO 3": p3 },
+          promoOrder: ["PROMO 1", "PROMO 2", "PROMO 3", "PROMO 4"],
+          scopes: { "PROMO 1": promo1Scope(), "PROMO 2": p2, "PROMO 3": p3, "PROMO 4": p4 },
         };
       })().finally(() => { _inflight = null; });
       const data = await _inflight;
@@ -535,4 +584,4 @@ module.exports = async (req, res) => {
 };
 
 // Export pour tests hors-ligne (p3-selftest) : n'altère pas le handler Vercel.
-module.exports._test = { buildPromo3, buildPromo2, promo1Scope };
+module.exports._test = { buildPromo3, buildPromo4, buildPromo2, promo1Scope };
