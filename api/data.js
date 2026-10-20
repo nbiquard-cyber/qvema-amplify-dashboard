@@ -1127,15 +1127,19 @@ module.exports = async (req, res) => {
     scopes["Toutes"].secteurs = secteurGlobal;
     scopes["Toutes"].stades = stadeGlobal;
     scopes["Toutes"].impayes = impayeScope(impayesAll);
-    const promoList = [...new Set(bcPaid.map(promoOf))];
+    // Promos à toujours afficher même sans client payé (préparation du lancement) : l'onglet
+    // existe dès maintenant dans Pilotage & Stats apprenants et se remplit à la 1ʳᵉ vente.
+    const ALWAYS_PROMOS = ["PROMO 4"];
+    const promoList = [...new Set([...bcPaid.map(promoOf), ...ALWAYS_PROMOS])];
     for (const p of promoList) {
       const list = bcPaid.filter((c) => promoOf(c) === p);
       scopes[p] = buildScope(list, caEncByPromo[p] || 0, instByPromo[p] || 0, statutByPromo[p] || {}, coachByPromo[p] || { count: 0, ca: 0 });
       scopes[p].secteurs = secteurByPromo[p] || {};
       scopes[p].stades = stadeByPromo[p] || {};
       scopes[p].impayes = impayeScope(impayesByPromo[p]);
-      // Promo 3 : genre + régions depuis Accueil Bootcamp (champs Clients non renseignés pour cette promo).
-      if (p === "PROMO 3" && scopes[p].demographics) {
+      // Promos 3 & 4 : genre + régions depuis Accueil Bootcamp (champs Clients non renseignés pour une promo récente ;
+      // demoFromAccueil retombe sur les champs Clients si l'e-mail n'est pas dans Accueil).
+      if ((p === "PROMO 3" || p === "PROMO 4") && scopes[p].demographics) {
         const dd = demoFromAccueil(list);
         scopes[p].demographics.genre = dd.genre;
         scopes[p].demographics.regions = dd.regions;
