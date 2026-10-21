@@ -128,8 +128,10 @@ let _lastMeta = {};
 // + P4_META_SINCE (début de fenêtre, AAAA-MM-JJ), et au besoin P4_META_INCLUDE_IDS / P4_META_ALIASES / P4_LIVE_DATE.
 const P4_META = {
   liveDate: process.env.P4_LIVE_DATE || "à venir",
-  match: envRe(process.env.P4_META_MATCH, "\u0000périmètre-p4-non-défini\u0000"), // défaut : ne matche aucune campagne réelle
-  matchLabel: process.env.P4_META_MATCH || "(à définir)",
+  // Périmètre P4 : campagnes Meta nommées « Octobre 2026 » (distinct de « Septembre 2026 » = P3,
+  // donc aucun double-comptage). Surchargeable via P4_META_MATCH (texte ou /regex/, ex. « Octobre 2026|Novembre 2026 »).
+  match: envRe(process.env.P4_META_MATCH, "Octobre 2026"),
+  matchLabel: process.env.P4_META_MATCH || "Octobre 2026",
   includeIds: (process.env.P4_META_INCLUDE_IDS || "").split(",").map((s) => s.trim()).filter(Boolean),
   rtgMatch: /RTG|retarget|remarketing/i,
   aliases: envJson(process.env.P4_META_ALIASES),
@@ -472,8 +474,8 @@ function buildPromo4() {
     openText: process.env.P4_OPEN_TEXT || "inscriptions webi 4",
     since: process.env.P4_META_SINCE || "2026-10-01",
     meta: P4_META,
-    metaEnabled: !!CONFIG.metaToken && !!process.env.P4_META_MATCH,
-    metaOffNote: "Dépense Meta P4 à configurer (définir P4_META_MATCH + P4_META_SINCE dans Vercel)",
+    metaEnabled: !!CONFIG.metaToken, // périmètre P4 défini (« Octobre 2026 ») : dépense Meta LIVE comme la P3
+    metaOffNote: "Dépense Meta non branchée (META_ACCESS_TOKEN manquant)",
   });
 }
 
