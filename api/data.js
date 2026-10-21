@@ -893,10 +893,17 @@ module.exports = async (req, res) => {
     // Total net encaissé par email sur le bootcamp (mensualités + solde payé en une fois, ex.
     // "Solde Bootcamp…"), hors produit Amplify (1000€) : sert à détecter les plans 4x SOLDÉS.
     const bcNetByEmail = {};
+    // Dernier paiement bootcamp RÉUSSI par e-mail (n'importe quel montant : mensualité, solde,
+    // ou demi-mensualité d'un arrangement). Sert à lever le flag « échec » quand un paiement a
+    // réussi après l'échec, même si ce n'est pas une mensualité standard de 322,50/372,50 €.
+    const lastPaidBcByEmail = {};
     for (const c of succeeded) {
       if (bucket(c.amount) === "amplify") continue;
       const em = chargeEmail(c);
-      if (em) bcNetByEmail[em] = (bcNetByEmail[em] || 0) + (c.amount - (c.amount_refunded || 0)) / 100;
+      if (!em) continue;
+      bcNetByEmail[em] = (bcNetByEmail[em] || 0) + (c.amount - (c.amount_refunded || 0)) / 100;
+      const cr = (c.created || 0) * 1000;
+      if (cr > (lastPaidBcByEmail[em] || 0)) lastPaidBcByEmail[em] = cr;
     }
 
     // --- CA ENCAISSÉ (robuste) : tout l'argent réellement encaissé sur le Bootcamp =
@@ -979,19 +986,31 @@ module.exports = async (req, res) => {
         if (due.getTime() < todayMs) echues++;
       }
       let retard = Math.max(0, echues - paye); // échéances passées non réglées (calendrier)
-      // Échec Stripe : tentative échouée APRÈS le dernier paiement réussi. On ne le force
-      // QUE si rien n'a été réglé hors Stripe depuis (sinon le virement a résolu l'échec).
+      // Échec Stripe : tentative échouée APRÈS le dernier paiement réussi. On ne le force QUE si
+      // rien n'a été réglé depuis — ni hors Stripe (virement), ni via un paiement Stripe réussi
+      // ultérieur (même une demi-mensualité d'un arrangement : la charge a résolu l'échec).
       const lf = lastFailedByEmail[e] || 0;
-      const echecStripe = lf > (info.last || 0);
+      const lastPaid = Math.max(info.last || 0, lastPaidBcByEmail[e] || 0);
+      const echecStripe = lf > lastPaid;
       const flagEchec = echecStripe && manual === 0;
       if (flagEchec) retard = Math.max(retard, 1);
       if (retard < 1) continue; // à jour : aucune échéance due non réglée, aucun échec non résolu
+      // Reste RÉELLEMENT dû = contrat (mensualité × 4) − argent encaissé (Stripe net + hors Stripe).
+      // Plafonne le montant impayé : un paiement partiel (ex. demi-mensualité) réduit l'impayé
+      // sans jamais afficher plus que ce qui reste à payer. (Sous-estimer l'encaissé ne fait que
+      // laisser le montant = échéances×mensualité : jamais de réduction erronée.)
+      const contractTotal = (info.amount / 100) * 4;
+      const encaisse = (bcNetByEmail[e] || 0) + manual * (info.amount / 100);
+      const reste = Math.round((contractTotal - encaisse) * 100) / 100;
+      if (reste <= 1 && !flagEchec) continue; // soldé (tolérance 1 €) et aucun échec non résolu
+      const montant = Math.min(retard * (info.amount / 100), Math.max(0, reste));
+      const dernierPaiementMs = lastPaid || info.last || 0;
       const perso = {
         email: e, nom: nameByEmail[e] || "", promo: emailToPromoAll[e] || "Sans promo",
         paye, echues: Math.max(echues, paye + (flagEchec ? 1 : 0)), retard,
         mensualite: Math.round((info.amount / 100) * 100) / 100,
-        montant: Math.round(retard * (info.amount / 100) * 100) / 100,
-        dernierPaiement: info.last ? new Date(info.last).toISOString().slice(0, 10) : null,
+        montant: Math.round(montant * 100) / 100,
+        dernierPaiement: dernierPaiementMs ? new Date(dernierPaiementMs).toISOString().slice(0, 10) : null,
         echecStripe: flagEchec, dernierEchec: flagEchec ? new Date(lf).toISOString().slice(0, 10) : null,
       };
       (impayesByPromo[perso.promo] = impayesByPromo[perso.promo] || []).push(perso);
