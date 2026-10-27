@@ -183,6 +183,25 @@ const ORGANIC_CHAN = {
 function decode(c) {
   try { return decodeURIComponent((c || "").replace(/\+/g, " ")); } catch (_) { return c || ""; }
 }
+// Répare un UTM « cassé » : lien publié avec « &amp; » au lieu de « & » → toute la query atterrit dans
+// utm_source, ex. « linkedinamp;utm_medium=elarchevequeamp;utm_campaign=amplify-oct-2026 ».
+// On recompose source / medium / campaign. Sans effet sur un UTM propre.
+function fixUtm(rawSrc, rawMed, rawCamp) {
+  let source = decode(rawSrc).trim(), medium = decode(rawMed).trim(), campaign = decode(rawCamp).trim();
+  if (/(amp;|&|;)utm_/i.test(source)) {
+    const parts = source.replace(/amp;/gi, "&").split(/[&;]/);
+    source = parts[0].trim();
+    for (const p of parts.slice(1)) {
+      const m = /^utm_(source|medium|campaign)=(.*)$/i.exec(p.trim());
+      if (!m || !m[2].trim()) continue;
+      const k = m[1].toLowerCase(), v = m[2].trim();
+      if (k === "medium") medium = v; else if (k === "campaign") campaign = v; else source = v;
+    }
+  }
+  // medium seul cassé (« elarchevequeamp;utm_campaign=… ») : on coupe au premier séparateur.
+  if (/(amp;|&|;)utm_/i.test(medium)) medium = medium.split(/amp;|&|;/i)[0].trim();
+  return { source, medium, campaign };
+}
 // Aujourd'hui à Paris en YYYY-MM-DD (fr-CA = format ISO) : borne « until » de la fenêtre Meta P3.
 const todayParis = () => new Intl.DateTimeFormat("fr-CA", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 const ddmm = (iso) => norm(iso).slice(8, 10) + "/" + norm(iso).slice(5, 7);
@@ -319,7 +338,8 @@ async function buildPromoLive(cfg) {
 
   const channels = {}, byDayMap = {}, emailChan = {}, campIns = {}, orgMap = {}, emailOrg = {}, emailCamp = {}, campVentes = {};
   for (const r of uniq) {
-    const chan = chanFromSrc(r.fields["UTM Source"]);
+    const u = fixUtm(r.fields["UTM Source"], r.fields["UTM Medium"], r.fields["UTM Campaign"]); // UTM réparé si lien « &amp; »
+    const chan = chanFromSrc(u.source);
     channels[chan] = channels[chan] || { ins: 0, ventes: 0, fac: 0, enc: 0 };
     channels[chan].ins++;
     const em = lower(r.fields["Email"]); if (em) emailChan[em] = chan;
@@ -327,11 +347,11 @@ async function buildPromoLive(cfg) {
     if (created) { const d = created.slice(8, 10) + "/" + created.slice(5, 7); byDayMap[d] = byDayMap[d] || {}; byDayMap[d][chan] = (byDayMap[d][chan] || 0) + 1; }
     // Campagne via l'UTM : nom Meta encodé ({{campaign.name}} → « ACQ+-+Marc+-+Septembre+2026 ») OU id numérique ({{campaign.id}}).
     // Vide / « {{campaign.name}} » non résolu = UTM cassé (compté à part, comme en P2).
-    if (chan === "Paid Meta (ads)") { const c = decode(r.fields["UTM Campaign"]).trim(); const key = !c || /\{\{|\}\}/.test(c) ? "(UTM cassé)" : c; campIns[key] = (campIns[key] || 0) + 1; if (em) emailCamp[em] = key; }
+    if (chan === "Paid Meta (ads)") { const c = u.campaign; const key = !c || /\{\{|\}\}/.test(c) ? "(UTM cassé)" : c; campIns[key] = (campIns[key] || 0) + 1; if (em) emailCamp[em] = key; }
     // Organique par intervenant × canal (utm_source organique + utm_medium = la personne qui poste).
-    const orgLabel = ORGANIC_CHAN[lower(r.fields["UTM Source"])];
+    const orgLabel = ORGANIC_CHAN[lower(u.source)];
     if (orgLabel) {
-      const med = decode(r.fields["UTM Medium"]).trim() || "(sans intervenant)";
+      const med = u.medium || "(sans intervenant)";
       const key = med + " | " + orgLabel;
       (orgMap[key] = orgMap[key] || { intervenant: med, canal: orgLabel, ins: 0, ventes: 0 }).ins++;
       if (em) emailOrg[em] = key; // pour attribuer la vente au même intervenant×canal que l'inscrit
@@ -344,7 +364,7 @@ async function buildPromoLive(cfg) {
     if (st === "En attente" || st === "Échec") continue;
     const m = Number(c.fields["Montant"]) || 0;
     const mode = lower(c.fields["Mode de paiement"]);
-    const src = norm(c.fields["UTM Source"]);
+    const src = fixUtm(c.fields["UTM Source"]).source; // même réparation côté checkout
     const em = lower(c.fields["Email"]);
     const chan = src ? chanFromSrc(src) : (em && emailChan[em]) || "Direct / Site";
     channels[chan] = channels[chan] || { ins: 0, ventes: 0, fac: 0, enc: 0 };
