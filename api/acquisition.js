@@ -529,6 +529,39 @@ module.exports = async (req, res) => {
       }));
     } catch (e) { res.statusCode = 502; return res.end(JSON.stringify({ error: String(e.message || e) })); }
   }
+  if (only === "p4-diag") {
+    res.setHeader("Content-Type", "application/json"); res.setHeader("Cache-Control", "no-store");
+    try {
+      const rows = await airtableAll(T.optin, ["Email", "Created", "UTM Source", "UTM Medium", "UTM Campaign"], null, "Inscrits Webi 4");
+      const emails = rows.map((r) => lower(r.fields["Email"]));
+      const withEmail = emails.filter(Boolean);
+      const uniq = new Set(withEmail);
+      // distribution des utm_source (décodés) + mapping canal/organique
+      const bySrc = {};
+      for (const r of rows) {
+        const rawSrc = decode(r.fields["UTM Source"]).trim();
+        const s = lower(rawSrc);
+        const e = bySrc[s] || (bySrc[s] = { source: rawSrc || "(vide)", n: 0, canal: chanFromSrc(rawSrc), organique: ORGANIC_CHAN[s] || null, mediums: {} });
+        e.n++;
+        const med = decode(r.fields["UTM Medium"]).trim() || "(vide)";
+        e.mediums[med] = (e.mediums[med] || 0) + 1;
+      }
+      const srcList = Object.values(bySrc).sort((a, b) => b.n - a.n);
+      // lignes mentionnant larcheveque/linkedin (source OU medium OU campaign)
+      const hit = rows.filter((r) => /larchev|linkedin/i.test(decode(r.fields["UTM Source"]) + " " + decode(r.fields["UTM Medium"]) + " " + decode(r.fields["UTM Campaign"])))
+        .map((r) => ({ source: decode(r.fields["UTM Source"]), medium: decode(r.fields["UTM Medium"]), campaign: decode(r.fields["UTM Campaign"]) }));
+      const hitAgg = {};
+      for (const h of hit) { const k = h.source + " | " + h.medium + " | " + h.campaign; hitAgg[k] = (hitAgg[k] || 0) + 1; }
+      res.statusCode = 200;
+      return res.end(JSON.stringify({
+        lignes_vue: rows.length, emails_uniques: uniq.size, lignes_sans_email: rows.length - withEmail.length,
+        doublons_email: withEmail.length - uniq.size,
+        inscrits_dashboard: uniq.size + (rows.length - withEmail.length),
+        sources: srcList,
+        larcheveque_linkedin: { lignes: hit.length, detail: hitAgg },
+      }, null, 2));
+    } catch (e) { res.statusCode = 502; return res.end(JSON.stringify({ error: String(e.message || e) })); }
+  }
   if (only === "p3-meta-signups") {
     res.setHeader("Content-Type", "application/json"); res.setHeader("Cache-Control", "no-store");
     try {
