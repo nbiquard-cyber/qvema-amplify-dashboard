@@ -517,6 +517,28 @@ module.exports = async (req, res) => {
     }
   }
 
+  // DIAGNOSTIC (lecture seule) : clients d'une promo par statut et par jour de 1er paiement
+  // (statuts confondus, remboursés inclus). ?only=promo-day&promo=PROMO%203&day=2026-09-16
+  if (only === "promo-day") {
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store");
+    try {
+      const q = require("url").parse(req.url, true).query;
+      const promo = String(q.promo || "").trim().toUpperCase(), day = String(q.day || "").trim();
+      const clients = await airtableAll(T.clients, ["Promo", "Statut Paiement", "Date Paiement"]);
+      const parStatut = {}, parJour = {};
+      for (const c of clients) {
+        if (String(c.fields["Promo"] || "").trim().toUpperCase() !== promo) continue;
+        const st = String(c.fields["Statut Paiement"] || "(vide)").trim();
+        const d = String(c.fields["Date Paiement"] || "").slice(0, 10) || "(sans date)";
+        (parJour[d] = parJour[d] || {})[st] = (parJour[d][st] || 0) + 1;
+        if (d === day) parStatut[st] = (parStatut[st] || 0) + 1;
+      }
+      res.statusCode = 200;
+      return res.end(JSON.stringify({ promo, day, total: Object.values(parStatut).reduce((a, b) => a + b, 0), parStatut, parJour }, null, 2));
+    } catch (e) { res.statusCode = 502; return res.end(JSON.stringify({ error: String((e && e.message) || e) })); }
+  }
+
   // DIAGNOSTIC (lecture seule) : participants Promo 3 (Payé/OFFERT) n'ayant pas rempli le formulaire Accueil.
   if (only === "p3-accueil-missing") {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
