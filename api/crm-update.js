@@ -84,15 +84,16 @@ module.exports = async (req, res) => {
         }
         result.patched["Stade d'avancement"] = clean(p.stade);
       }
-    } else if (object === "p3-identity-map") {
-      // Mapping identité Accueil -> Clients pour la Promo 3 (Prénom, Nom, Sexe, Date de naissance).
+    } else if (object === "p3-identity-map" || object === "identity-map") {
+      // Mapping identité Accueil -> Clients pour une promo (body.promo, défaut PROMO 3) (Prénom, Nom, Sexe, Date de naissance).
       // Remplit UNIQUEMENT les champs vides (ne réécrit jamais une valeur existante) et ne traite
       // que les Clients P3 appariés par e-mail à une réponse Accueil P3. dry=true -> plan sans écriture.
       if (!auth.has(user.perms, "bootcamp")) { res.statusCode = 403; return res.end(JSON.stringify({ ok: false, error: "forbidden" })); }
       const dry = body.dry !== false; // par défaut, aperçu seulement
       const norm = (s) => (s == null ? "" : String(s)).trim();
       const low = (s) => norm(s).toLowerCase();
-      const isP3 = (v) => norm(v).toUpperCase() === "PROMO 3";
+      const promoWanted = (norm(body.promo) || "PROMO 3").toUpperCase();
+      const isP3 = (v) => norm(v).toUpperCase() === promoWanted;
       // Overrides sexe validés par l'utilisateur (par e-mail)
       const SEXE_OVERRIDE = { "net-eclair@hotmail.com": "Homme" };
       const toISODate = (v) => {
@@ -154,7 +155,7 @@ module.exports = async (req, res) => {
         }
       }
       res.statusCode = 200;
-      return res.end(JSON.stringify({ ok: true, dry, candidats: plan.length, written, plan }, null, 2));
+      return res.end(JSON.stringify({ ok: true, dry, promo: promoWanted, candidats: plan.length, written, plan }, null, 2));
     } else if (object === "amplify") {
       if (!auth.has(user.perms, "amplify")) { res.statusCode = 403; return res.end(JSON.stringify({ ok: false, error: "forbidden" })); }
       if (!id) throw new Error("id_manquant");
