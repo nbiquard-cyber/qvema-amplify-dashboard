@@ -551,13 +551,13 @@ module.exports = async (req, res) => {
       const isP3 = (v) => norm(v).toUpperCase() === promoWanted;
       const nameKey = (p, n) => [p, n].map((x) => String(x || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "")).filter(Boolean).sort().join("|");
       const [clients, accueil] = await Promise.all([
-        airtableAll(T.clients, ["Email", "Promo", "Statut Paiement", "Prénom", "Nom"]),
-        airtableAll(T.accueil, ["Adresse mail", "Promo", "Prénom", "Nom"]),
+        airtableAll(T.clients, ["Email", "Promo", "Statut Paiement", "Prénom", "Nom", "Date de naissance", "Age"]),
+        airtableAll(T.accueil, ["Adresse mail", "Promo", "Prénom", "Nom", "Date de naissance"]),
       ]);
-      const accEmails = new Set(), accNames = new Set();
+      const accEmails = new Set(), accNames = new Set(), accDob = {};
       for (const a of accueil) {
         if (!isP3(a.fields["Promo"])) continue;
-        const e = lower(a.fields["Adresse mail"]); if (e) accEmails.add(e);
+        const e = lower(a.fields["Adresse mail"]); if (e) { accEmails.add(e); if (a.fields["Date de naissance"]) accDob[e] = a.fields["Date de naissance"]; }
         const k = nameKey(a.fields["Prénom"], a.fields["Nom"]); if (k) accNames.add(k);
       }
       const participants = clients.filter((c) => isP3(c.fields["Promo"]) && ["Payé", "OFFERT"].includes(norm(c.fields["Statut Paiement"])));
@@ -576,6 +576,12 @@ module.exports = async (req, res) => {
         manquants: missing.length, missing,
         remplisAvecEmailDifferent: nameOnly,
         emailsCCI: missing.map((r) => r.email).join("; "),
+        // Contrôle âge : participants ayant rempli Accueil -> DOB Accueil / DOB + Age Clients
+        ages: participants.filter((c) => accEmails.has(lower(c.fields["Email"]))).map((c) => ({
+          email: norm(c.fields["Email"]), statut: norm(c.fields["Statut Paiement"]),
+          dobAccueil: accDob[lower(c.fields["Email"])] || null,
+          dobClients: c.fields["Date de naissance"] || null, age: c.fields["Age"] ?? null,
+        })),
       }, null, 2));
     } catch (e) {
       res.statusCode = 502;
