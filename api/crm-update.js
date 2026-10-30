@@ -98,6 +98,13 @@ module.exports = async (req, res) => {
       const SEXE_OVERRIDE = { "net-eclair@hotmail.com": "Homme" };
       const toISODate = (v) => {
         const s = norm(v); if (!s) return "";
+        // Format français JJ/MM/AAAA (Accueil) : ne jamais laisser Date.parse le lire en MM/JJ
+        const fr = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);
+        if (fr) {
+          const dd = +fr[1], mm = +fr[2];
+          if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return "";
+          return fr[3] + "-" + String(mm).padStart(2, "0") + "-" + String(dd).padStart(2, "0");
+        }
         const t = Date.parse(s); if (isNaN(t)) return "";
         const d = new Date(t + 12 * 3600 * 1000); // recadre le midi -> date locale correcte
         return d.toISOString().slice(0, 10);
@@ -139,10 +146,10 @@ module.exports = async (req, res) => {
           const sx = SEXE_OVERRIDE[e] || norm(a["Sexe"]);
           if (sx) fill["Sexe"] = sx;
         }
-        if (!norm(c.fields["Date de naissance"])) {
-          const dob = toISODate(a["Date de naissance"]);
-          if (dob) fill["Date de naissance"] = dob;
-        }
+        const dob = toISODate(a["Date de naissance"]);
+        const cur = norm(c.fields["Date de naissance"]);
+        // Remplit si vide ; corrige aussi une date écrite jour/mois inversés par l'ancien parsing (AAAA-JJ-MM).
+        if (dob && (!cur || (cur !== dob && cur === dob.slice(0, 5) + dob.slice(8, 10) + "-" + dob.slice(5, 7)))) fill["Date de naissance"] = dob;
         if (Object.keys(fill).length) {
           plan.push({ id: c.id, email: norm(c.fields["Email"]), fill });
         }
