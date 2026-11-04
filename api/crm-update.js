@@ -170,8 +170,8 @@ module.exports = async (req, res) => {
       let written = 0;
       if (!dry) {
         for (const row of plan) {
-          await patch(T.clients, row.id, row.fill);
-          written++;
+          try { await patch(T.clients, row.id, row.fill); written++; }
+          catch (e) { row.error = String((e && e.message) || e).slice(0, 200); }
         }
         for (const [rid, f] of Object.entries(names)) {
           if (!nameDiffs.some((d) => d.id === rid)) continue; // uniquement des fiches signalées en écart

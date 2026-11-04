@@ -19,8 +19,8 @@ const T = {
 };
 
 // Stripe amount buckets (in cents / centimes)
-const BOOTCAMP_1X = [129000, 99000, 149000]; // paiement 1 fois (1290€, ancien 990€, PROMO 2 = 1490€)
-const BOOTCAMP_4X = [32250, 46666, 37250]; // mensualité plan 4x (322,50€, ancien 466,66€, PROMO 2 = 372,50€ = 1490/4)
+const BOOTCAMP_1X = [129000, 99000, 149000, 139000]; // paiement 1 fois (1290€, ancien 990€, PROMO 2 = 1490€, offre PROMO 4 = 1390€)
+const BOOTCAMP_4X = [32250, 46666, 37250, 27250]; // mensualité plan 4x (322,50€, ancien 466,66€, PROMO 2 = 372,50€ = 1490/4, offre PROMO 4 = 272,50€ = 1090/4)
 const AMPLIFY = [100000]; // Amplify Connect (1000€) - jamais compté dans le bootcamp
 
 async function airtableAll(table, fields) {
@@ -602,7 +602,7 @@ module.exports = async (req, res) => {
       ]);
       const promoWanted = decodeURIComponent(((((req.url || "").match(/[?&]promo=([^&]+)/) || [])[1]) || "PROMO 3").replace(/\+/g, " ")).trim().toUpperCase();
       const p3 = clients.filter((c) => norm(c.fields["Promo"]).toUpperCase() === promoWanted);
-      const INST = [32250, 46666, 37250], FULL = [149000, 129000, 99000];
+      const INST = BOOTCAMP_4X, FULL = BOOTCAMP_1X;
       const chargeEmail = (c) => lower((c.billing_details && c.billing_details.email) || c.receipt_email || "");
       const byEmail = {};
       for (const c of charges) {
@@ -704,7 +704,7 @@ module.exports = async (req, res) => {
       ]);
       const wanted = clients.filter((c) => norm(c.fields["Promo"]).toUpperCase() === promoWanted && norm(c.fields["Statut Paiement"]) === "Payé");
       const chargeEmail = (c) => lower((c.billing_details && c.billing_details.email) || c.receipt_email || "");
-      const INST = [32250, 46666, 37250], FULL = [149000, 129000, 99000]; // mensualités 4x (toutes promos) / paiements 1x
+      const INST = BOOTCAMP_4X, FULL = BOOTCAMP_1X; // mensualités 4x (toutes promos) / paiements 1x
       const byEmail = {};
       for (const c of charges) {
         const em = chargeEmail(c); if (!em) continue;
