@@ -1138,21 +1138,6 @@ module.exports = async (req, res) => {
       }
     }
 
-    // Région PROMO 2 : source Accueil Bootcamp (champ "Région"), dédupliquée par
-    // e-mail — un même e-mail (plusieurs formulaires) n'est compté qu'UNE fois
-    // (on garde le formulaire le plus récent via l'Horodatage).
-    const p2RegionByEmail = new Map();
-    for (const a of accueil) {
-      if (norm(a.fields["Promo"]).toUpperCase() !== "PROMO 2") continue;
-      const em = lower(a.fields["Adresse mail"]);
-      if (!em) continue;
-      const ts = norm(a.fields["Horodatage"]);
-      const prev = p2RegionByEmail.get(em);
-      if (!prev || ts > prev.ts) p2RegionByEmail.set(em, { region: norm(a.fields["Région"]) || "Non renseigné", ts });
-    }
-    const regionsPromo2 = {};
-    for (const v of p2RegionByEmail.values()) regionsPromo2[v.region] = (regionsPromo2[v.region] || 0) + 1;
-
     // Accueil dédupliqué par e-mail (formulaire le plus récent) : source Sexe + Région par apprenant.
     const accByEmail = new Map();
     for (const a of accueil) {
