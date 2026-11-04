@@ -154,15 +154,49 @@ module.exports = async (req, res) => {
           plan.push({ id: c.id, email: norm(c.fields["Email"]), fill });
         }
       }
+      // Contrôle Prénom/Nom : Clients vs Accueil (même e-mail), différences hors casse/accents/espaces.
+      const nk = (x) => norm(x).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const nameDiffs = [];
+      for (const c of clients) {
+        if (!isP3(c.fields["Promo"])) continue;
+        const e = low(c.fields["Email"]); if (!e || !acc[e]) continue;
+        const a = acc[e];
+        const cp = norm(c.fields["Prénom"]), cn = norm(c.fields["Nom"]), ap = norm(a["Prénom"]), an = norm(a["Nom"]);
+        const same = (nk(cp) === nk(ap) && nk(cn) === nk(an)) || (nk(cp) === nk(an) && nk(cn) === nk(ap));
+        if (cp && cn && ap && an && !same) nameDiffs.push({ id: c.id, email: norm(c.fields["Email"]), clients: cp + " " + cn, accueil: ap + " " + an });
+      }
+      // Corrections de nom explicitement validées : body.names = { recId: { "Prénom": ..., "Nom": ... } }
+      const names = (body.names && typeof body.names === "object") ? body.names : {};
       let written = 0;
       if (!dry) {
         for (const row of plan) {
           await patch(T.clients, row.id, row.fill);
           written++;
         }
+        for (const [rid, f] of Object.entries(names)) {
+          if (!nameDiffs.some((d) => d.id === rid)) continue; // uniquement des fiches signalées en écart
+          const ff = {}; if (norm(f["Prénom"])) ff["Prénom"] = norm(f["Prénom"]); if (norm(f["Nom"])) ff["Nom"] = norm(f["Nom"]);
+          if (Object.keys(ff).length) { await patch(T.clients, rid, ff); written++; }
+        }
       }
       res.statusCode = 200;
-      return res.end(JSON.stringify({ ok: true, dry, promo: promoWanted, candidats: plan.length, written, plan }, null, 2));
+      return res.end(JSON.stringify({ ok: true, dry, promo: promoWanted, candidats: plan.length, written, plan, nameDiffs }, null, 2));
+    } else if (object === "modes") {
+      // Mode de paiement (1x/4x) d'une liste validée : body.modes = { recId: "1x"|"4x" }. Ne remplit que si vide.
+      if (!auth.has(user.perms, "bootcamp")) { res.statusCode = 403; return res.end(JSON.stringify({ ok: false, error: "forbidden" })); }
+      const modes = (body.modes && typeof body.modes === "object") ? body.modes : {};
+      let written = 0; const skipped = [];
+      for (const [rid, m] of Object.entries(modes)) {
+        if (m !== "1x" && m !== "4x") { skipped.push(rid); continue; }
+        const r = await fetch("https://api.airtable.com/v0/" + CONFIG.base + "/" + T.clients + "/" + rid, { headers: { Authorization: "Bearer " + CONFIG.token } });
+        if (!r.ok) { skipped.push(rid); continue; }
+        const cur = ((await r.json()).fields || {})["Mode de paiement"];
+        if (cur && String(cur).trim()) { skipped.push(rid); continue; }
+        await patch(T.clients, rid, { "Mode de paiement": m });
+        written++;
+      }
+      res.statusCode = 200;
+      return res.end(JSON.stringify({ ok: true, written, skipped }));
     } else if (object === "amplify") {
       if (!auth.has(user.perms, "amplify")) { res.statusCode = 403; return res.end(JSON.stringify({ ok: false, error: "forbidden" })); }
       if (!id) throw new Error("id_manquant");

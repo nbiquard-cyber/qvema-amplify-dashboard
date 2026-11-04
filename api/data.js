@@ -590,7 +590,7 @@ module.exports = async (req, res) => {
   }
 
   // DIAGNOSTIC (lecture seule) : mode de paiement 1x/4x par client Promo 3 (source Stripe) + plan de MAJ.
-  if (only === "p3-modes") {
+  if (only === "p3-modes" || only === "modes") {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.setHeader("Cache-Control", "no-store");
     try {
@@ -600,7 +600,8 @@ module.exports = async (req, res) => {
         airtableAll(T.clients, ["Email", "Promo", "Mode de paiement", "Prénom", "Nom", "Email paiement"]),
         stripeList("charges"),
       ]);
-      const p3 = clients.filter((c) => norm(c.fields["Promo"]).toUpperCase() === "PROMO 3");
+      const promoWanted = decodeURIComponent(((((req.url || "").match(/[?&]promo=([^&]+)/) || [])[1]) || "PROMO 3").replace(/\+/g, " ")).trim().toUpperCase();
+      const p3 = clients.filter((c) => norm(c.fields["Promo"]).toUpperCase() === promoWanted);
       const INST = [32250, 46666, 37250], FULL = [149000, 129000, 99000];
       const chargeEmail = (c) => lower((c.billing_details && c.billing_details.email) || c.receipt_email || "");
       const byEmail = {};
@@ -609,14 +610,16 @@ module.exports = async (req, res) => {
         if (!(c.status === "succeeded" && c.paid)) continue;
         const b = byEmail[em] || (byEmail[em] = { full: 0, inst: 0 });
         if (FULL.includes(c.amount)) b.full++; else if (INST.includes(c.amount)) b.inst++;
+        (b.amounts || (b.amounts = [])).push(c.amount / 100);
       }
       const plan = p3.map((c) => {
         const emails = [lower(c.fields["Email"]), lower(c.fields["Email paiement"])].filter(Boolean);
         let full = 0, inst = 0;
-        for (const e of emails) { const b = byEmail[e]; if (b) { full += b.full; inst += b.inst; } }
+        const amounts = [];
+        for (const e of emails) { const b = byEmail[e]; if (b) { full += b.full; inst += b.inst; amounts.push(...(b.amounts || [])); } }
         const computed = full > 0 ? "1x" : (inst > 0 ? "4x" : "?");
         const cur = norm(c.fields["Mode de paiement"]) || null;
-        return { id: c.id, nom: (norm(c.fields["Prénom"]) + " " + norm(c.fields["Nom"])).trim(), email: emails[0] || "", current: cur, computed, full, inst, conflict: full > 0 && inst > 0, needsUpdate: computed !== "?" && !(full > 0 && inst > 0) && cur !== computed };
+        return { id: c.id, nom: (norm(c.fields["Prénom"]) + " " + norm(c.fields["Nom"])).trim(), email: emails[0] || "", current: cur, computed, full, inst, conflict: full > 0 && inst > 0, amounts, needsUpdate: computed !== "?" && !(full > 0 && inst > 0) && cur !== computed };
       });
       res.statusCode = 200;
       return res.end(JSON.stringify({ count: plan.length, plan }));
