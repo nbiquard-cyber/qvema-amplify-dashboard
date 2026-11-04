@@ -1174,6 +1174,40 @@ module.exports = async (req, res) => {
       return { genre: { Homme, Femme, nonRenseigne }, regions };
     };
 
+    // Région par apprenant : Accueil (formulaire) -> code postal Clients -> adresse de facturation Stripe.
+    // Libellés harmonisés (PACA, DOM-TOM… -> noms officiels) pour que toutes les sources s'additionnent.
+    const canonRegion = (r) => {
+      const k = norm(r).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z]/g, "");
+      if (!k) return "";
+      const MAP = { paca: "Provence-Alpes-Côte d'Azur", provencealpescotedazur: "Provence-Alpes-Côte d'Azur", domtom: "Outre-Mer", outremer: "Outre-Mer", drom: "Outre-Mer", dromcom: "Outre-Mer",
+        iledefrance: "Île-de-France", idf: "Île-de-France", auvergnerhonealpes: "Auvergne-Rhône-Alpes", bourgognefranchecomte: "Bourgogne-Franche-Comté", bretagne: "Bretagne",
+        centrevaldeloire: "Centre-Val de Loire", corse: "Corse", grandest: "Grand Est", hautsdefrance: "Hauts-de-France", normandie: "Normandie", nouvelleaquitaine: "Nouvelle-Aquitaine",
+        occitanie: "Occitanie", paysdelaloire: "Pays de la Loire", etranger: "Étranger", national: "Autre", autre: "Autre" };
+      return MAP[k] || norm(r);
+    };
+    const stripeGeoByEmail = new Map(); // e-mail -> { cp, country } (charge réussie la plus récente avec une adresse)
+    for (const c of [...charges].sort((a, b) => (a.created || 0) - (b.created || 0))) {
+      if (c.status !== "succeeded") continue;
+      const ad = (c.billing_details && c.billing_details.address) || {};
+      const cp = norm(ad.postal_code).replace(/\s+/g, ""), country = norm(ad.country).toUpperCase();
+      if (!cp && !country) continue;
+      const em = chargeEmail(c); if (em) stripeGeoByEmail.set(em, { cp, country });
+    }
+    const regionOf = (c) => {
+      const em = lower(c.fields["Email"]); const acc = em && accByEmail.get(em);
+      const fromAcc = acc && canonRegion(acc.region);
+      if (fromAcc) return fromAcc;
+      const fromClients = regionFromFields(c.fields);
+      if (fromClients !== "Non renseigné") return fromClients;
+      const g = stripeGeoByEmail.get(em) || stripeGeoByEmail.get(lower(c.fields["Email paiement"]));
+      if (g) {
+        if (g.country && g.country !== "FR") return "Étranger";
+        if (g.cp) return regionFromFields({ "Code postal": g.cp });
+      }
+      return "Non renseigné";
+    };
+    const regionsOf = (list) => { const r = {}; for (const c of list) { const k = regionOf(c); r[k] = (r[k] || 0) + 1; } return r; };
+
     const scopes = {};
     scopes["Toutes"] = buildScope(bcPaid, caEncGlobal, instGlobal, statutGlobal, coachGlobal);
     scopes["Toutes"].secteurs = secteurGlobal;
@@ -1197,9 +1231,10 @@ module.exports = async (req, res) => {
         scopes[p].demographics.regions = dd.regions;
       }
     }
-    // Pour la Promo 2, la région vient d'Accueil (dédupliquée par e-mail), pas du code postal Clients.
-    if (scopes["PROMO 2"] && scopes["PROMO 2"].demographics) {
-      scopes["PROMO 2"].demographics.regions = regionsPromo2;
+    // Régions de toutes les vues (Toutes + chaque promo) : une ligne par apprenant payé, sources fusionnées.
+    if (scopes["Toutes"].demographics) scopes["Toutes"].demographics.regions = regionsOf(bcPaid);
+    for (const p of promoList) {
+      if (scopes[p] && scopes[p].demographics) scopes[p].demographics.regions = regionsOf(bcPaid.filter((c) => promoOf(c) === p));
     }
     // Remboursements par scope : nombre (Airtable), montant réel (Stripe amount_refunded), taux.
     const attachRefund = (scopeObj, count, montantReel, montantContrat) => {
