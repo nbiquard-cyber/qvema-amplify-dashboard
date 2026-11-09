@@ -834,10 +834,16 @@ module.exports = async (req, res) => {
     // ----- Amplify Connect (payeurs Airtable) -----
     const acMembers = connect;
     const acCaAirtable = acMembers.reduce((a, c) => a + (Number(c.fields["Montant"]) || 0), 0);
+    // Deux populations (champ "Statut Membre") : alumni de l'émission QVEMA (payants) / alumni du Bootcamp (accès offert).
+    const isAcBootcamp = (c) => /bootcamp/i.test(norm(c.fields["Statut Membre"]));
+    const acQvema = acMembers.filter((c) => !isAcBootcamp(c));
+    const acBootcamp = acMembers.filter(isAcBootcamp);
+    const acPayants = acMembers.filter((c) => (Number(c.fields["Montant"]) || 0) > 0);
     const acBySaison = {};
     const acByMode = {};
-    for (const c of acMembers) {
-      const s = norm(c.fields["Saison QVEMA"]) || "—";
+    for (const c of acQvema) {
+      // "Saison 6" / "S4" -> "6" / "4" (saisie libre)
+      const s = norm(c.fields["Saison QVEMA"]).replace(/^(saison|s)\s*/i, "") || "—";
       const mode = norm(c.fields["Mode Paiement"]) || "—";
       acBySaison[s] = (acBySaison[s] || 0) + 1;
       acByMode[mode] = (acByMode[mode] || 0) + 1;
@@ -1266,12 +1272,14 @@ module.exports = async (req, res) => {
         prixByPromo: { "PROMO 1": 1290, "PROMO 2": 1490, "PROMO 3": 1490, "PROMO 4": 1490 },
       },
       amplify: {
-        membresPayants: acMembers.length,
+        membresPayants: acPayants.length,
+        alumniQvema: acQvema.length,
+        alumniBootcamp: acBootcamp.length,
         caEncaisse: acCaAirtable,
         caAirtable: acCaAirtable,
-        abonnementsActifs: acMembers.length,
+        abonnementsActifs: acPayants.length,
         arr: acCaAirtable,
-        prixAbonnement: acMembers.length ? Math.round(acCaAirtable / acMembers.length) : 0,
+        prixAbonnement: acPayants.length ? Math.round(acCaAirtable / acPayants.length) : 0,
         bySaison: acBySaison,
         byMode: acByMode,
         regions: acGeo.regions,

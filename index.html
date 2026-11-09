@@ -44,8 +44,9 @@
   .promo-btn.active .cnt{background:rgba(0,0,0,.18);color:#11151d}
   .grid{display:grid;gap:16px}
   .kpis{grid-template-columns:repeat(4,1fr)}
-  @media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}}
-  @media(max-width:560px){.kpis{grid-template-columns:1fr}}
+  .kpis.kpis5{grid-template-columns:repeat(5,1fr)}
+  @media(max-width:900px){.kpis,.kpis.kpis5{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.kpis,.kpis.kpis5{grid-template-columns:1fr}}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
   .kpi .label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
   .kpi .value{font-size:30px;font-weight:800;margin-top:8px;line-height:1.1}
@@ -533,8 +534,9 @@
 
   <!-- AMPLIFY -->
   <section id="view-amplify" class="hidden">
-    <div class="grid kpis">
-      <div class="card kpi"><div class="label">Membres payants</div><div class="value yellow" id="ac-membres">—</div><div class="sub">Cercle Alumni</div></div>
+    <div class="grid kpis kpis5">
+      <div class="card kpi"><div class="label">Alumni QVEMA</div><div class="value yellow" id="ac-alumni-qvema">—</div><div class="sub">candidats de l'émission</div></div>
+      <div class="card kpi"><div class="label">Alumni Bootcamp</div><div class="value purple" id="ac-alumni-bootcamp">—</div><div class="sub">apprenants du Bootcamp</div></div>
       <div class="card kpi"><div class="label">CA encaissé</div><div class="value green" id="ac-ca">—</div><div class="sub">paiements Stripe</div></div>
       <div class="card kpi"><div class="label">ARR (récurrent)</div><div class="value blue" id="ac-arr">—</div><div class="sub" id="ac-arr-sub"></div></div>
       <div class="card kpi"><div class="label">Candidatures</div><div class="value purple" id="ac-cand">—</div><div class="sub" id="ac-cand-sub"></div></div>
@@ -1032,7 +1034,8 @@ function renderBcProgression(){
 /* ====== AMPLIFY ====== */
 function renderAmplify(){
   const a = DATA.amplify;
-  document.getElementById('ac-membres').textContent = NUM(a.membresPayants);
+  document.getElementById('ac-alumni-qvema').textContent = NUM(a.alumniQvema ?? a.membresPayants);
+  document.getElementById('ac-alumni-bootcamp').textContent = NUM(a.alumniBootcamp ?? 0);
   document.getElementById('ac-ca').textContent = EUR(a.caEncaisse);
   document.getElementById('ac-arr').textContent = EUR(a.arr);
   document.getElementById('ac-arr-sub').textContent = a.abonnementsActifs+' abo. actifs · '+EUR(a.prixAbonnement)+'/an';
@@ -1052,7 +1055,7 @@ function renderAmplify(){
   destroy('saison');
   charts.saison = new Chart(document.getElementById('ac-saison-chart'),{
     type:'bar',
-    data:{labels:se.map(x=>'Saison '+x[0]),datasets:[{data:se.map(x=>x[1]),backgroundColor:'#a779ff',borderRadius:6}]},
+    data:{labels:se.map(x=>x[0]==='—'?'Saison non renseignée':'Saison '+x[0]),datasets:[{data:se.map(x=>x[1]),backgroundColor:'#a779ff',borderRadius:6}]},
     options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}
   });
 
