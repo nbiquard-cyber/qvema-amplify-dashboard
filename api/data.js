@@ -770,7 +770,7 @@ module.exports = async (req, res) => {
     // ---------- AIRTABLE ----------
     const [clientsRaw, connect, candidatures, accueilRaw] = await Promise.all([
       airtableAll(T.clients, ["Promo", "Montant", "Statut Paiement", "Produit", "Date Paiement", "Email", "Email paiement", "Mensualités hors Stripe", "Sexe", "Age", "Code postal", "Pays", "Mode de paiement", "Prénom", "Nom"]),
-      airtableAll(T.connect, ["Email", "Nom complet", "Montant", "Statut Paiement", "Date Paiement", "Mode Paiement", "Saison QVEMA", "Statut Membre", "Code postal", "Ville", "Pays"]),
+      airtableAll(T.connect, ["Email", "Nom complet", "Montant", "Statut Paiement", "Date Paiement", "Mode Paiement", "Saison QVEMA", "Statut Membre", "Code postal", "Ville", "Pays", "Notes"]),
       airtableAll(T.candidatures, ["Statut Candidature", "Statut Membre", "Mode de paiement", "Date Candidature", "Sous-cercle d'intérêt", "Saison"]),
       airtableAll(T.accueil, ["Promo", "Secteur d'activité", "Stade d'avancement", "Région", "Adresse mail", "Horodatage", "Sexe"]),
     ]);
@@ -839,6 +839,15 @@ module.exports = async (req, res) => {
     const acQvema = acMembers.filter((c) => !isAcBootcamp(c));
     const acBootcamp = acMembers.filter(isAcBootcamp);
     const acPayants = acMembers.filter((c) => (Number(c.fields["Montant"]) || 0) > 0);
+    // Promo Bootcamp d'un alumni : fiche Clients (par e-mail), sinon la mention "PROMO N" des Notes.
+    const acBootcampByPromo = {};
+    for (const c of acBootcamp) {
+      const em = lower(c.fields["Email"]);
+      const cl = clients.find((x) => emailsOf(x).includes(em));
+      const m = norm(c.fields["Notes"]).match(/PROMO\s*(\d+)/i);
+      const p = cl ? promoOf(cl).toUpperCase() : (m ? "PROMO " + m[1] : "Promo inconnue");
+      acBootcampByPromo[p] = (acBootcampByPromo[p] || 0) + 1;
+    }
     const acBySaison = {};
     const acByMode = {};
     for (const c of acQvema) {
@@ -1275,6 +1284,7 @@ module.exports = async (req, res) => {
         membresPayants: acPayants.length,
         alumniQvema: acQvema.length,
         alumniBootcamp: acBootcamp.length,
+        bootcampByPromo: acBootcampByPromo,
         caEncaisse: acCaAirtable,
         caAirtable: acCaAirtable,
         abonnementsActifs: acPayants.length,

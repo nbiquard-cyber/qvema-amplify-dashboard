@@ -544,8 +544,8 @@
 
     <div class="row2">
       <div class="card">
-        <h3><span class="dot"></span>Candidatures par statut</h3>
-        <div class="chart-box"><canvas id="ac-cand-chart"></canvas></div>
+        <h3><span class="dot"></span>Alumni Bootcamp par promo</h3>
+        <div class="chart-box"><canvas id="ac-bcpromo-chart"></canvas></div>
       </div>
       <div class="card">
         <h3><span class="dot"></span>Membres par saison QVEMA</h3>
@@ -1043,12 +1043,12 @@ function renderAmplify(){
   const val = a.candidatures.byStatut['Validé']||a.candidatures.byStatut['Validée']||0;
   document.getElementById('ac-cand-sub').textContent = val+' validée(s)';
 
-  const ce = Object.entries(a.candidatures.byStatut);
-  destroy('cand');
-  charts.cand = new Chart(document.getElementById('ac-cand-chart'),{
-    type:'doughnut',
-    data:{labels:ce.map(x=>x[0]),datasets:[{data:ce.map(x=>x[1]),backgroundColor:PALETTE,borderWidth:0}]},
-    options:{cutout:'60%',plugins:{legend:{position:'bottom'}}}
+  const bp = Object.entries(a.bootcampByPromo||{}).sort((x,y)=>x[0].localeCompare(y[0]));
+  destroy('bcpromo');
+  charts.bcpromo = new Chart(document.getElementById('ac-bcpromo-chart'),{
+    type:'bar',
+    data:{labels:bp.map(x=>x[0].replace(/^PROMO/,'Promo')),datasets:[{data:bp.map(x=>x[1]),backgroundColor:'#a779ff',borderRadius:6}]},
+    options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}
   });
 
   const se = Object.entries(a.bySaison).sort((a,b)=>a[0].localeCompare(b[0]));
