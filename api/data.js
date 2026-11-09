@@ -857,7 +857,6 @@ module.exports = async (req, res) => {
       acBySaison[s] = (acBySaison[s] || 0) + 1;
       acByMode[mode] = (acByMode[mode] || 0) + 1;
     }
-    const acGeo = computeAmplifyGeo(acMembers); // { regions, map:{points,horsCarte,total} }
     const candByStatut = {};
     const candByMode = {};
     const candBySousCercle = {};
@@ -1221,6 +1220,20 @@ module.exports = async (req, res) => {
     };
     const regionsOf = (list) => { const r = {}; for (const c of list) { const k = regionOf(c); r[k] = (r[k] || 0) + 1; } return r; };
 
+    // Géo Amplify Connect : code postal de la fiche Connect, sinon fiche Clients (alumni Bootcamp), sinon adresse Stripe.
+    const acWithGeo = (c) => {
+      if (norm(c.fields["Code postal"]) || norm(c.fields["Pays"])) return c;
+      const em = lower(c.fields["Email"]);
+      const cl = clients.find((x) => emailsOf(x).includes(em));
+      if (cl && (norm(cl.fields["Code postal"]) || norm(cl.fields["Pays"]))) return { fields: { ...c.fields, "Code postal": cl.fields["Code postal"], Pays: cl.fields["Pays"] } };
+      const g = stripeGeoByEmail.get(em);
+      if (g) return { fields: { ...c.fields, "Code postal": g.cp, Pays: g.country && g.country !== "FR" ? g.country : "" } };
+      return c;
+    };
+    const acGeo = computeAmplifyGeo(acMembers.map(acWithGeo)); // { regions, map:{points,horsCarte,total} }
+    const acGeoQvema = computeAmplifyGeo(acQvema.map(acWithGeo));
+    const acGeoBootcamp = computeAmplifyGeo(acBootcamp.map(acWithGeo));
+
     const scopes = {};
     scopes["Toutes"] = buildScope(bcPaid, caEncGlobal, instGlobal, statutGlobal, coachGlobal);
     scopes["Toutes"].secteurs = secteurGlobal;
@@ -1294,6 +1307,8 @@ module.exports = async (req, res) => {
         byMode: acByMode,
         regions: acGeo.regions,
         map: acGeo.map,
+        mapQvema: acGeoQvema.map,
+        mapBootcamp: acGeoBootcamp.map,
         candidatures: {
           total: candidatures.length,
           byStatut: candByStatut,
