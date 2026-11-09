@@ -834,7 +834,7 @@ module.exports = async (req, res) => {
     // ----- Amplify Connect (payeurs Airtable) -----
     const acMembers = connect;
     const acCaAirtable = acMembers.reduce((a, c) => a + (Number(c.fields["Montant"]) || 0), 0);
-    // Deux populations (champ "Statut Membre") : alumni de l'émission QVEMA (payants) / alumni du Bootcamp (accès offert).
+    // Deux populations (champ "Statut Membre") : alumni de l'émission QVEMA (payants) / alumni du Bootcamp (inscrits, 1er paiement en 2027 : pas encore de CA).
     const isAcBootcamp = (c) => /bootcamp/i.test(norm(c.fields["Statut Membre"]));
     const acQvema = acMembers.filter((c) => !isAcBootcamp(c));
     const acBootcamp = acMembers.filter(isAcBootcamp);
