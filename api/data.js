@@ -349,7 +349,7 @@ module.exports = async (req, res) => {
         return res.end(JSON.stringify({
           ok: true, seeded: !!rec,
           companies: arr("companies"), contacts: arr("contacts"), opportunities: arr("opportunities"),
-          activities: arr("activities"), notes: arr("notes"),
+          activities: arr("activities"), notes: arr("notes"), formats: arr("formats"),
           stages: Array.isArray(d.stages) ? d.stages : null,
           partnershipTypes: Array.isArray(d.partnershipTypes) ? d.partnershipTypes : null,
         }));
@@ -359,6 +359,8 @@ module.exports = async (req, res) => {
       const data = {
         companies: A("companies"), contacts: A("contacts"), opportunities: A("opportunities"),
         activities: A("activities"), notes: A("notes"),
+        // Catalogue des formats : un client qui n'envoie pas la clé (onglet ouvert avant la mise à jour) ne l'efface pas.
+        formats: Array.isArray(body.formats) ? body.formats : (Array.isArray(partnersData(rec).formats) ? partnersData(rec).formats : []),
       };
       if (Array.isArray(body.stages)) data.stages = body.stages;
       if (Array.isArray(body.partnershipTypes)) data.partnershipTypes = body.partnershipTypes;

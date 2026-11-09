@@ -384,6 +384,7 @@
         <a class="sb-item" data-nav="partners-contacts"><span class="sb-ic">👤</span> Contacts</a>
         <a class="sb-item" data-nav="partners-activities"><span class="sb-ic">✅</span> Activités &amp; relances</a>
         <a class="sb-item" data-nav="partners-clients"><span class="sb-ic">🤝</span> Clients</a>
+        <a class="sb-item" data-nav="partners-formats"><span class="sb-ic">🎬</span> Formats</a>
       </div>
       <div class="sb-group" id="sbg-seo">
         <div class="sb-h">Site &amp; SEO</div>
@@ -743,7 +744,7 @@ let crmLoaded = false;
 let AUTH = null;
 let currentPage = 'pilotage';
 const PAGE_LABELS = { pilotage:'Pilotage', demo:'Stats apprenants', feedback:'Feedbacks', agenda:'Agenda des lives', amplify:'Amplify Connect — Data', 'amplify-crm':'Amplify Connect — CRM', 'amplify-retro':'Amplify Connect — Rétroplanning', seo:'Site & SEO', 'rs-overview':'Réseaux — Vue d\'ensemble', 'rs-monthly':'Réseaux — Évolution', crm:'CRM', board:'Board mensuel',
-  'partners-overview':'Partenariats — Vue d\'ensemble', 'partners-pipeline':'Partenariats — Pipeline', 'partners-companies':'Partenariats — Entreprises', 'partners-contacts':'Partenariats — Contacts', 'partners-activities':'Partenariats — Activités & relances', 'partners-clients':'Partenariats — Clients' };
+  'partners-overview':'Partenariats — Vue d\'ensemble', 'partners-pipeline':'Partenariats — Pipeline', 'partners-companies':'Partenariats — Entreprises', 'partners-contacts':'Partenariats — Contacts', 'partners-activities':'Partenariats — Activités & relances', 'partners-clients':'Partenariats — Clients', 'partners-formats':'Partenariats — Formats' };
 
 function loadAuth(){ try{ AUTH = JSON.parse(sessionStorage.getItem('qvema_auth')||'null'); }catch(e){ AUTH=null; } return AUTH; }
 function getToken(){ return (AUTH && AUTH.token) || ''; }
@@ -1221,6 +1222,7 @@ const NAV = {
   'partners-contacts':  ()=>{ showTab('partners'); if(window.PART) window.PART.show('contacts'); },
   'partners-activities':()=>{ showTab('partners'); if(window.PART) window.PART.show('activities'); },
   'partners-clients':   ()=>{ showTab('partners'); if(window.PART) window.PART.show('clients'); },
+  'partners-formats':   ()=>{ showTab('partners'); if(window.PART) window.PART.show('formats'); },
 };
 function navigate(key){
   if(!NAV[key]) return;
@@ -3234,7 +3236,7 @@ if(AUTH && AUTH.token){
   var TYPES_DEF=['Brand content','Sponsoring','Intégration de marque','Partenariat Bootcamp','Partenariat événementiel','Amplify Connect','Format vidéo','Autre'];
 
   // ---- state ----
-  var DB={companies:[],contacts:[],opportunities:[],activities:[],notes:[],partnershipTypes:null};
+  var DB={companies:[],contacts:[],opportunities:[],activities:[],notes:[],formats:[],partnershipTypes:null};
   var sub='overview', loaded=false, loading=false, searchQ='';
   var pipeView='kanban', pf={owner:'',type:'',prio:''};
   var me='Moi';
@@ -3266,7 +3268,7 @@ if(AUTH && AUTH.token){
     loadUsers();
     fetch('/api/data?only=partners',{headers:authHeaders()}).then(function(r){return r.json();}).then(function(j){
       if(j&&j.ok){
-        DB.companies=j.companies||[];DB.contacts=j.contacts||[];DB.opportunities=j.opportunities||[];DB.activities=j.activities||[];DB.notes=j.notes||[];
+        DB.companies=j.companies||[];DB.contacts=j.contacts||[];DB.opportunities=j.opportunities||[];DB.activities=j.activities||[];DB.notes=j.notes||[];DB.formats=j.formats||[];
         DB.partnershipTypes=j.partnershipTypes||null;
       }
       loaded=true;loading=false;if(cb)cb();
@@ -3297,7 +3299,7 @@ if(AUTH && AUTH.token){
   function ensure(){ if(loaded){render();} else { root().innerHTML='<div class="pt-empty"><div class="big">⏳</div>Chargement du CRM…</div>'; load(render); } }
   function show(s){ sub=s; ensure(); }
 
-  var SUBS=[['overview','Vue d\'ensemble'],['pipeline','Pipeline'],['companies','Entreprises'],['contacts','Contacts'],['activities','Activités & relances'],['clients','Clients']];
+  var SUBS=[['overview','Vue d\'ensemble'],['pipeline','Pipeline'],['companies','Entreprises'],['contacts','Contacts'],['activities','Activités & relances'],['clients','Clients'],['formats','Formats']];
   function render(){
     if(!loaded){return;}
     var h='<div class="pt-head"><div class="pt-title">Partenariats de marque<span class="sub">CRM commercial</span></div>'
@@ -3321,6 +3323,7 @@ if(AUTH && AUTH.token){
     else if(sub==='contacts')drawContacts();
     else if(sub==='activities')drawActivities();
     else if(sub==='clients')drawClients();
+    else if(sub==='formats')drawFormats();
   }
 
   // ---- SEARCH ----
@@ -3523,6 +3526,76 @@ if(AUTH && AUTH.token){
     C().innerHTML=h; wireRows();
   }
 
+  // ---- FORMATS (catalogue à vendre / déjà vendus) ----
+  var FSTATUS=[{v:'dispo',t:'Disponible',c:'#3ecf8e'},{v:'avalider',t:'Prix / KPI à valider',c:'#f5c542'},{v:'surmesure',t:'Sur mesure',c:'#a779ff'},{v:'archive',t:'Archivé',c:'#6b7280'}];
+  function fst(v){for(var i=0;i<FSTATUS.length;i++)if(FSTATUS[i].v===v)return FSTATUS[i];return FSTATUS[0];}
+  function fmt(id){for(var i=0;i<DB.formats.length;i++)if(DB.formats[i].id===id)return DB.formats[i];return null;}
+  function oppsOfFormat(id){return DB.opportunities.filter(function(o){return (o.formats||[]).indexOf(id)>=0;});}
+  function fFormats(sel){
+    if(!DB.formats.length)return '';
+    return '<div class="pt-field"><label>Formats vendus / proposés</label><div style="display:flex;flex-wrap:wrap;gap:6px 14px;max-height:140px;overflow:auto">'
+      +DB.formats.filter(function(f){return f.status!=='archive'||sel.indexOf(f.id)>=0;}).map(function(f){return '<label style="display:flex;gap:6px;align-items:center;font-weight:400;font-size:12.5px;text-transform:none;letter-spacing:0"><input type="checkbox" class="m-fmt" value="'+esc(f.id)+'"'+(sel.indexOf(f.id)>=0?' checked':'')+'>'+esc(f.name)+'</label>';}).join('')+'</div></div>';
+  }
+  function gvFormats(){return [].map.call(document.querySelectorAll('.m-fmt:checked'),function(x){return x.value;});}
+  var fmtFilter='all';
+  function drawFormats(){
+    var list=DB.formats.slice().sort(function(a,b){return (a.order||99)-(b.order||99)||(a.name||'').localeCompare(b.name||'');});
+    var vendus=list.filter(function(f){return oppsOfFormat(f.id).some(function(o){return o.stage==='won';});});
+    var caF=DB.opportunities.filter(function(o){return o.stage==='won'&&(o.formats||[]).length;}).reduce(function(s,o){return s+(Number(o.amount)||0);},0);
+    var enCours=DB.opportunities.filter(function(o){return isOpen(o)&&(o.formats||[]).length;}).length;
+    var h='<div class="pt-kgrid" style="grid-template-columns:repeat(4,1fr)">'+kpiCard('Formats au catalogue',list.filter(function(f){return f.status!=='archive';}).length,'','')+kpiCard('Formats déjà vendus',vendus.length,'green','')+kpiCard('CA signé sur ces formats',eur(caF),'green','')+kpiCard('Opportunités en cours',enCours,'','avec au moins un format')+'</div>';
+    var chips=[['all','Tous'],['vendu','Déjà vendus'],['dispo','Disponibles'],['avalider','À valider'],['surmesure','Sur mesure'],['archive','Archivés']];
+    h+='<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin:4px 0 12px;flex-wrap:wrap"><div style="display:flex;gap:6px;flex-wrap:wrap">'+chips.map(function(c){return '<button class="pt-btn'+(fmtFilter===c[0]?' primary':'')+'" data-ff="'+c[0]+'">'+c[1]+'</button>';}).join('')+'</div><button class="pt-btn primary" id="pt-fadd">+ Format</button></div>';
+    var shown=list.filter(function(f){
+      if(fmtFilter==='all')return f.status!=='archive';
+      if(fmtFilter==='vendu')return vendus.indexOf(f)>=0;
+      return f.status===fmtFilter;
+    });
+    h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px">';
+    h+=shown.map(function(f){
+      var st=fst(f.status), ops=oppsOfFormat(f.id), won=ops.filter(function(o){return o.stage==='won';}), open=ops.filter(isOpen);
+      var sold=won.map(function(o){var c=company(o.companyId);return '<div class="pt-row" data-op="'+o.id+'" style="padding:6px 0"><div class="pt-avatar sm" style="background:'+colorFor(c?c.name:'')+'">'+initials(c?c.name:'?')+'</div><div class="pt-rmain"><div class="t">'+esc(c?c.name:'?')+'</div><div class="s">'+esc(o.name)+'</div></div><div class="pt-amt">'+ek(o.amount)+'</div></div>';}).join('');
+      return '<div class="card" style="display:flex;flex-direction:column;gap:8px">'
+        +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div><div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">'+(f.order&&f.order<90?String(f.order).padStart(2,'0')+' · ':'')+esc(f.type||'')+'</div><div style="font-size:16px;font-weight:700;margin-top:2px">'+esc(f.name)+'</div></div>'
+        +'<span class="pt-chip" style="color:'+st.c+';white-space:nowrap"><span class="pt-dot" style="background:currentColor"></span>'+st.t+'</span></div>'
+        +(f.tagline?'<div style="color:var(--muted);font-size:13px">'+esc(f.tagline)+'</div>':'')
+        +'<div style="font-size:12.5px;line-height:1.55">'
+        +(f.dispositif?'<div><b>Dispositif :</b> '+esc(f.dispositif)+'</div>':'')
+        +(f.diffusion?'<div><b>Diffusion :</b> '+esc(f.diffusion)+'</div>':'')
+        +'<div><b>KPI garantis :</b> '+esc(f.kpi||'À valider')+'</div>'
+        +'<div><b>Prix :</b> '+esc(f.price||'À valider')+'</div></div>'
+        +'<div style="border-top:1px solid var(--line);padding-top:8px;margin-top:auto"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:2px">Déjà vendu à</div>'
+        +(sold||'<div style="font-size:12.5px;color:var(--muted)">Pas encore vendu</div>')
+        +(open.length?'<div style="font-size:12px;color:var(--muted);margin-top:4px">En discussion : '+open.map(function(o){var c=company(o.companyId);return esc(c?c.name:o.name);}).join(', ')+'</div>':'')
+        +'</div><div><button class="pt-btn" data-fe="'+f.id+'">Voir / modifier</button></div></div>';
+    }).join('');
+    h+='</div>'+(shown.length?'':'<div class="pt-empty"><div class="big">🎬</div>Aucun format dans cette vue.</div>');
+    C().innerHTML=h; wireRows();
+    [].forEach.call(C().querySelectorAll('[data-ff]'),function(b){b.onclick=function(){fmtFilter=b.dataset.ff;drawFormats();};});
+    [].forEach.call(C().querySelectorAll('[data-fe]'),function(b){b.onclick=function(){formatModal(fmt(b.dataset.fe));};});
+    document.getElementById('pt-fadd').onclick=function(){formatModal();};
+  }
+  function formatModal(f){
+    f=f||{}; var edit=!!f.id;
+    var h='<h3>'+(edit?'Modifier le format':'Nouveau format')+'</h3>'
+      +'<div class="pt-2col">'+fld('Nom *','m-fname',f.name)+fld('Type','m-ftype',f.type)+'</div>'
+      +fld('Accroche','m-ftag',f.tagline)
+      +fArea('Concept','m-fconcept',f.concept)
+      +'<div class="pt-2col">'+fld('Dispositif (épisodes, durée, clippings)','m-fdisp',f.dispositif)+fld('Diffusion','m-fdiff',f.diffusion)+'</div>'
+      +fArea('Intégration de la marque','m-fbrand',f.brand)
+      +fld('Incarnants','m-finc',f.incarnants)
+      +'<div class="pt-2col">'+fld('KPI garantis','m-fkpi',f.kpi)+fld('Prix HT (catalogue)','m-fprice',f.price)+'</div>'
+      +'<div class="pt-2col">'+fSel('Statut','m-fst',FSTATUS.map(function(x){return {v:x.v,t:x.t};}),f.status||'dispo')+fld('Ordre d\'affichage','m-ford',f.order||'','number')+'</div>'
+      +(edit?'<div style="margin-top:6px"><button class="pt-btn" id="m-fdel" style="color:#ef4444">Supprimer ce format</button></div>':'')
+      +foot('m-save');
+    modal(h); bindClose();
+    if(edit) document.getElementById('m-fdel').onclick=function(){ if(!confirm('Supprimer le format « '+f.name+' » ?'))return; DB.formats=DB.formats.filter(function(x){return x.id!==f.id;}); DB.opportunities.forEach(function(o){if(o.formats)o.formats=o.formats.filter(function(id){return id!==f.id;});}); persist(); closeModal(); toast('Format supprimé'); drawSub(); };
+    document.getElementById('m-save').onclick=function(){var nm=gv('m-fname');if(!nm){toast('Le nom est requis');return;}
+      var d={name:nm,type:gv('m-ftype'),tagline:gv('m-ftag'),concept:gv('m-fconcept'),dispositif:gv('m-fdisp'),diffusion:gv('m-fdiff'),brand:gv('m-fbrand'),incarnants:gv('m-finc'),kpi:gv('m-fkpi'),price:gv('m-fprice'),status:gv('m-fst'),order:parseInt(gv('m-ford'),10)||99,updatedAt:nowISO()};
+      if(edit)Object.assign(f,d); else {d.id=uid();d.createdAt=nowISO();DB.formats.push(d);}
+      persist(); closeModal(); toast('Format enregistré'); drawSub();};
+  }
+
   // ================= FICHES (drawers) =================
   function drawer(html){
     var d=document.getElementById('pt-drawer');
@@ -3695,6 +3768,7 @@ if(AUTH && AUTH.token){
       +'<div class="pt-2col">'+fSelInline('m-type',ptypes(),o.partnershipType)
       +fSel('Priorité','m-prio',[{v:'low',t:'Faible'},{v:'normal',t:'Normale'},{v:'high',t:'Haute'},{v:'urgent',t:'Urgente'}],o.priority||'normal')+'</div>'
       +fld('Propriétaire','m-own',o.owner||me)
+      +fFormats(o.formats||[])
       +foot('m-save');
     modal(h); bindClose();
     // auto-proba selon l'étape à la sélection (si champ vide ou = ancien défaut)
@@ -3704,8 +3778,8 @@ if(AUTH && AUTH.token){
     coSel.onchange=function(){var cts2=contactsOf(this.value);var ctSel=document.getElementById('m-ct');ctSel.innerHTML='<option value="">—</option>'+cts2.map(function(c){return '<option value="'+c.id+'">'+esc((c.firstName||'')+' '+(c.lastName||''))+'</option>';}).join('');};
     document.getElementById('m-save').onclick=function(){var nm=gv('m-name'),cid=gv('m-co');if(!nm){toast('Nom requis');return;}if(!cid){toast('Choisis une entreprise');return;}
       var stage=gv('m-stage'),prob=parseInt(gv('m-prob')||stg(stage).proba,10);
-      var data={name:nm,companyId:cid,primaryContactId:gv('m-ct')||null,amount:parseFloat(gv('m-amt')||0)||0,probability:isNaN(prob)?stg(stage).proba:prob,stage:stage,expectedCloseDate:gv('m-close'),partnershipType:gv('m-type'),priority:gv('m-prio'),owner:gv('m-own')};
-      if(edit){var oldStage=o.stage;['name','companyId','primaryContactId','amount','probability','expectedCloseDate','partnershipType','priority','owner'].forEach(function(k){o[k]=data[k];});o.updatedAt=nowISO();if(oldStage!==data.stage)moveStage(o,data.stage);else persist();}
+      var data={name:nm,companyId:cid,primaryContactId:gv('m-ct')||null,amount:parseFloat(gv('m-amt')||0)||0,probability:isNaN(prob)?stg(stage).proba:prob,stage:stage,expectedCloseDate:gv('m-close'),partnershipType:gv('m-type'),priority:gv('m-prio'),owner:gv('m-own'),formats:gvFormats()};
+      if(edit){var oldStage=o.stage;['name','companyId','primaryContactId','amount','probability','expectedCloseDate','partnershipType','priority','owner','formats'].forEach(function(k){o[k]=data[k];});o.updatedAt=nowISO();if(oldStage!==data.stage)moveStage(o,data.stage);else persist();}
       else{data.id=uid();data.createdAt=nowISO();data.updatedAt=nowISO();DB.opportunities.push(data);var c=company(cid);if(c&&c.status==='prospect'&&data.stage!=='lost')c.status='opportunity';if(data.stage==='won'){var oo=DB.opportunities[DB.opportunities.length-1];moveStage(oo,'won');}else persist();}
       closeModal();toast('Opportunité enregistrée');drawSub();};
   }
@@ -3743,10 +3817,10 @@ if(AUTH && AUTH.token){
     var btn=document.getElementById('pt-add');var r=btn.getBoundingClientRect();
     var m=document.getElementById('pt-addmenu');if(m)m.remove();
     m=document.createElement('div');m.id='pt-addmenu';m.className='pt-menu';m.style.top=(r.bottom+6+window.scrollY)+'px';m.style.left=(r.right-190+window.scrollX)+'px';
-    m.innerHTML='<button data-x="opp">🧩 Opportunité</button><button data-x="company">🏢 Entreprise</button><button data-x="contact">👤 Contact</button><button data-x="activity">✅ Activité / relance</button><button data-x="note">📝 Note</button>';
+    m.innerHTML='<button data-x="opp">🧩 Opportunité</button><button data-x="company">🏢 Entreprise</button><button data-x="contact">👤 Contact</button><button data-x="activity">✅ Activité / relance</button><button data-x="note">📝 Note</button><button data-x="format">🎬 Format</button>';
     document.body.appendChild(m);
     setTimeout(function(){document.addEventListener('click',function h(e){if(!m.contains(e.target)){m.remove();document.removeEventListener('click',h);}});},0);
-    [].forEach.call(m.querySelectorAll('button'),function(b){b.onclick=function(){m.remove();var x=b.dataset.x;if(x==='company')companyModal();else if(x==='contact')contactModal();else if(x==='opp')opportunityModal();else if(x==='activity')activityModal();else if(x==='note')noteModal();};});
+    [].forEach.call(m.querySelectorAll('button'),function(b){b.onclick=function(){m.remove();var x=b.dataset.x;if(x==='company')companyModal();else if(x==='contact')contactModal();else if(x==='opp')opportunityModal();else if(x==='activity')activityModal();else if(x==='note')noteModal();else if(x==='format')formatModal();};});
   }
 
   // ---- delete company cascade ----
