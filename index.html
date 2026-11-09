@@ -3554,6 +3554,14 @@ if(AUTH && AUTH.token){
     if(u) return '<a class="pt-btn" href="'+esc(u)+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;background:#5b5fc7;border-color:#5b5fc7;color:#fff;text-decoration:none">'+TEAMS_ICO+'Voir le PPT</a>';
     return '<button class="pt-btn" data-fppt="'+f.id+'" title="Aucun lien enregistré : cliquer pour ajouter le lien Teams du PPT" style="display:inline-flex;align-items:center;gap:6px;opacity:.6">'+TEAMS_ICO+'Ajouter le PPT</button>';
   }
+  // Miniature : image importée (data:image), lien https, ou chemin du dépôt (/thumbs/…)
+  function thumbOf(f){var t=(f.thumb||'').trim();return /^(https:\/\/|\/thumbs\/|data:image\/(jpeg|png|webp);base64,)/i.test(t)?t:'';}
+  function shrinkImage(file,cb){
+    var r=new FileReader();r.onload=function(){var img=new Image();img.onload=function(){
+      var w=Math.min(640,img.width),h=Math.round(img.height*w/img.width),c=document.createElement('canvas');c.width=w;c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);cb(c.toDataURL('image/jpeg',0.75));};img.onerror=function(){toast('Image illisible');};img.src=r.result;};
+    r.readAsDataURL(file);
+  }
   var fmtFilter='all';
   function drawFormats(){
     var list=DB.formats.slice().sort(function(a,b){return (a.order||99)-(b.order||99)||(a.name||'').localeCompare(b.name||'');});
@@ -3572,9 +3580,13 @@ if(AUTH && AUTH.token){
     h+=shown.map(function(f){
       var st=fst(f.status), ops=oppsOfFormat(f.id), won=ops.filter(function(o){return o.stage==='won';}), open=ops.filter(isOpen);
       var sold=won.map(function(o){var c=company(o.companyId);return '<div class="pt-row" data-op="'+o.id+'" style="padding:6px 0"><div class="pt-avatar sm" style="background:'+colorFor(c?c.name:'')+'">'+initials(c?c.name:'?')+'</div><div class="pt-rmain"><div class="t">'+esc(c?c.name:'?')+'</div><div class="s">'+esc(o.name)+'</div></div><div class="pt-amt">'+ek(o.amount)+'</div></div>';}).join('');
+      var th=thumbOf(f);
       return '<div class="card" style="display:flex;flex-direction:column;gap:8px">'
-        +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div><div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">'+(f.order&&f.order<90?String(f.order).padStart(2,'0')+' · ':'')+esc(f.type||'')+'</div><div style="font-size:16px;font-weight:700;margin-top:2px">'+esc(f.name)+'</div></div>'
-        +'<span class="pt-chip" style="color:'+st.c+';white-space:nowrap"><span class="pt-dot" style="background:currentColor"></span>'+st.t+'</span></div>'
+        +(th?'<div style="position:relative;margin:-4px -4px 2px;border-radius:10px;overflow:hidden;aspect-ratio:16/9;background:#111;cursor:pointer" data-fe="'+f.id+'" title="'+esc(f.name)+'"><img src="'+esc(th)+'" alt="'+esc(f.name)+'" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block">'
+            +'<span class="pt-chip" style="position:absolute;top:8px;right:8px;background:rgba(10,10,12,.82);color:'+st.c+';white-space:nowrap"><span class="pt-dot" style="background:currentColor"></span>'+st.t+'</span></div>'
+            +'<div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">'+(f.order&&f.order<90?String(f.order).padStart(2,'0')+' · ':'')+esc(f.type||'')+'</div>'
+          :'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div><div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">'+(f.order&&f.order<90?String(f.order).padStart(2,'0')+' · ':'')+esc(f.type||'')+'</div><div style="font-size:16px;font-weight:700;margin-top:2px">'+esc(f.name)+'</div></div>'
+            +'<span class="pt-chip" style="color:'+st.c+';white-space:nowrap"><span class="pt-dot" style="background:currentColor"></span>'+st.t+'</span></div>')
         +(f.tagline?'<div style="color:var(--muted);font-size:13px">'+esc(f.tagline)+'</div>':'')
         +'<div style="font-size:12.5px;line-height:1.55">'
         +(f.dispositif?'<div><b>Dispositif :</b> '+esc(f.dispositif)+'</div>':'')
@@ -3604,16 +3616,23 @@ if(AUTH && AUTH.token){
       +fArea('Intégration de la marque','m-fbrand',f.brand)
       +fld('Incarnants','m-finc',f.incarnants)
       +fArea('Épisodes / places à vendre (une ligne par épisode, « | Marque » quand c\'est vendu)','m-fslots',slotsText(f))
+      +'<div class="pt-field"><label>Miniature (remplace le titre sur la carte)</label><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
+        +'<img id="m-fthumb-prev" src="'+esc(thumbOf(f))+'" style="width:128px;aspect-ratio:16/9;object-fit:cover;border-radius:6px;background:#111;'+(thumbOf(f)?'':'display:none')+'">'
+        +'<input type="file" id="m-fthumb-file" accept="image/jpeg,image/png,image/webp" style="font-size:12px">'
+        +'<button class="pt-btn sm" id="m-fthumb-clear" type="button">Retirer</button></div></div>'
       +fld('Lien du PPT sur Teams (Copier le lien dans Teams / SharePoint)','m-fppt',f.pptUrl)
       +'<div class="pt-2col">'+fld('KPI garantis','m-fkpi',f.kpi)+fld('Prix HT (catalogue)','m-fprice',f.price)+'</div>'
       +'<div class="pt-2col">'+fSel('Statut','m-fst',FSTATUS.map(function(x){return {v:x.v,t:x.t};}),f.status||'dispo')+fld('Ordre d\'affichage','m-ford',f.order||'','number')+'</div>'
       +(edit?'<div style="margin-top:6px"><button class="pt-btn" id="m-fdel" style="color:#ef4444">Supprimer ce format</button></div>':'')
       +foot('m-save');
     modal(h); bindClose();
+    var thumbVal=f.thumb||'', prev=document.getElementById('m-fthumb-prev');
+    document.getElementById('m-fthumb-file').onchange=function(e){var file=e.target.files[0];if(!file)return;shrinkImage(file,function(d){thumbVal=d;prev.src=d;prev.style.display='';});};
+    document.getElementById('m-fthumb-clear').onclick=function(){thumbVal='';prev.style.display='none';prev.removeAttribute('src');document.getElementById('m-fthumb-file').value='';};
     if(edit) document.getElementById('m-fdel').onclick=function(){ if(!confirm('Supprimer le format « '+f.name+' » ?'))return; DB.formats=DB.formats.filter(function(x){return x.id!==f.id;}); DB.opportunities.forEach(function(o){if(o.formats)o.formats=o.formats.filter(function(id){return id!==f.id;});}); persist(); closeModal(); toast('Format supprimé'); drawSub(); };
     document.getElementById('m-save').onclick=function(){var nm=gv('m-fname');if(!nm){toast('Le nom est requis');return;}
       var ppt=gv('m-fppt'); if(ppt&&!safeUrl(ppt)){toast('Le lien du PPT doit commencer par https://');return;}
-      var d={pptUrl:ppt,name:nm,type:gv('m-ftype'),tagline:gv('m-ftag'),concept:gv('m-fconcept'),dispositif:gv('m-fdisp'),diffusion:gv('m-fdiff'),brand:gv('m-fbrand'),incarnants:gv('m-finc'),kpi:gv('m-fkpi'),price:gv('m-fprice'),status:gv('m-fst'),order:parseInt(gv('m-ford'),10)||99,slots:parseSlots(document.getElementById('m-fslots').value),updatedAt:nowISO()};
+      var d={thumb:thumbVal,pptUrl:ppt,name:nm,type:gv('m-ftype'),tagline:gv('m-ftag'),concept:gv('m-fconcept'),dispositif:gv('m-fdisp'),diffusion:gv('m-fdiff'),brand:gv('m-fbrand'),incarnants:gv('m-finc'),kpi:gv('m-fkpi'),price:gv('m-fprice'),status:gv('m-fst'),order:parseInt(gv('m-ford'),10)||99,slots:parseSlots(document.getElementById('m-fslots').value),updatedAt:nowISO()};
       if(edit)Object.assign(f,d); else {d.id=uid();d.createdAt=nowISO();DB.formats.push(d);}
       persist(); closeModal(); toast('Format enregistré'); drawSub();};
   }
