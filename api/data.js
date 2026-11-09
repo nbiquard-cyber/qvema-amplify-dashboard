@@ -120,25 +120,44 @@ async function retroWrite(data, rec) {
   if (!r.ok) throw new Error("retro write " + r.status + ": " + (await r.text()).slice(0, 150));
 }
 
-// --- Stockage du CRM Partenariats (table "Partners CRM", 1 enreg. Clé=store, JSON) ---
+// --- Stockage du CRM Partenariats (table "Partners CRM", JSON) ---
+// Un champ texte long Airtable est limité à 100 000 caractères : le JSON est découpé en morceaux
+// stockés dans plusieurs enregistrements Clé = "store", "store#2", "store#3"… relus dans l'ordre.
 const PARTNERS_TABLE = "tbl6VzJSI0MbLCUdt";
+const PARTNERS_CHUNK = 90000;
+const partnersKeyIdx = (k) => (k === "store" ? 1 : Number(String(k).split("#")[1]) || 0);
 async function partnersRecord() {
   const url = "https://api.airtable.com/v0/" + CONFIG.airtableBase + "/" + PARTNERS_TABLE +
-    "?maxRecords=1&filterByFormula=" + encodeURIComponent("{Clé}='store'");
+    "?filterByFormula=" + encodeURIComponent("OR({Clé}='store',FIND('store#',{Clé})=1)");
   const r = await fetch(url, { headers: { Authorization: "Bearer " + AGENDA_WRITE_TOKEN } });
   if (!r.ok) throw new Error("partners read " + r.status);
   const j = await r.json();
-  return (j.records && j.records[0]) || null;
+  const recs = (j.records || []).filter((x) => partnersKeyIdx(x.fields["Clé"]) > 0)
+    .sort((x, y) => partnersKeyIdx(x.fields["Clé"]) - partnersKeyIdx(y.fields["Clé"]));
+  return recs.length ? recs : null;
 }
-function partnersData(rec) { try { return rec ? (JSON.parse(rec.fields.Data || "{}") || {}) : {}; } catch (e) { return {}; } }
-async function partnersWrite(data, rec) {
-  const fields = { "Clé": "store", Data: JSON.stringify(data), Updated: new Date().toISOString() };
+function partnersData(recs) {
+  try { return recs ? (JSON.parse(recs.map((x) => x.fields.Data || "").join("") || "{}") || {}) : {}; } catch (e) { return {}; }
+}
+async function partnersWrite(data, recs) {
+  const json = JSON.stringify(data);
+  const parts = [];
+  for (let i = 0; i < json.length; i += PARTNERS_CHUNK) parts.push(json.slice(i, i + PARTNERS_CHUNK));
+  if (!parts.length) parts.push("{}");
   const base = "https://api.airtable.com/v0/" + CONFIG.airtableBase + "/" + PARTNERS_TABLE;
-  const opt = rec
-    ? { url: base + "/" + rec.id, method: "PATCH", body: JSON.stringify({ fields }) }
-    : { url: base, method: "POST", body: JSON.stringify({ records: [{ fields }] }) };
-  const r = await fetch(opt.url, { method: opt.method, headers: { Authorization: "Bearer " + AGENDA_WRITE_TOKEN, "Content-Type": "application/json" }, body: opt.body });
-  if (!r.ok) throw new Error("partners write " + r.status + ": " + (await r.text()).slice(0, 150));
+  const byIdx = {}; for (const x of recs || []) byIdx[partnersKeyIdx(x.fields["Clé"])] = x;
+  const maxIdx = Math.max(parts.length, ...Object.keys(byIdx).map(Number));
+  const now = new Date().toISOString();
+  for (let i = 1; i <= maxIdx; i++) {
+    const fields = { "Clé": i === 1 ? "store" : "store#" + i, Data: parts[i - 1] || "", Updated: now };
+    const ex = byIdx[i];
+    if (!ex && !parts[i - 1]) continue;
+    const opt = ex
+      ? { url: base + "/" + ex.id, method: "PATCH", body: JSON.stringify({ fields }) }
+      : { url: base, method: "POST", body: JSON.stringify({ records: [{ fields }] }) };
+    const r = await fetch(opt.url, { method: opt.method, headers: { Authorization: "Bearer " + AGENDA_WRITE_TOKEN, "Content-Type": "application/json" }, body: opt.body });
+    if (!r.ok) throw new Error("partners write " + r.status + ": " + (await r.text()).slice(0, 150));
+  }
 }
 
 // --- Démographie : département (code postal) -> région française ---
