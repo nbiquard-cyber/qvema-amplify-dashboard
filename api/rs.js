@@ -245,6 +245,13 @@ module.exports = async (req, res) => {
   if (!auth.has(user.perms, "rs")) { res.statusCode = 403; return res.end(JSON.stringify({ ok: false, error: "forbidden" })); }
   if (!READ_TOKEN) { res.statusCode = 500; return res.end(JSON.stringify({ ok: false, error: "missing_token" })); }
 
+  // Diagnostic : contenu brut de la feuille Excel (lecture seule).
+  if (req.query && req.query.source === "graph-raw") {
+    try {
+      const rows = await graph.readRange(RS_DRIVE_ID, RS_ITEM_ID, RS_SHEET, (req.query.range || RS_RANGE));
+      res.statusCode = 200; return res.end(JSON.stringify({ ok: true, rows }));
+    } catch (e) { res.statusCode = 500; return res.end(JSON.stringify({ ok: false, error: String((e && e.message) || e) })); }
+  }
   // Synchro Excel déclenchée à la main depuis le cockpit (bouton « Synchroniser l'Excel »).
   if (wantGraph) {
     try { return await graphSync(res); }
