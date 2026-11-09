@@ -1122,7 +1122,20 @@ module.exports = async (req, res) => {
     const secteurByPromo = {};
     const stadeGlobal = {};
     const stadeByPromo = {};
+    // Une réponse par apprenant payé : formulaire le plus récent par e-mail, rattaché à la promo du client
+    // (les doublons de formulaire et les répondants non inscrits ne sont pas comptés).
+    const accLatest = new Map();
     for (const a of accueil) {
+      const em = lower(a.fields["Adresse mail"]); if (!em) continue;
+      const prev = accLatest.get(em);
+      if (!prev || norm(a.fields["Horodatage"]) > norm(prev.fields["Horodatage"])) accLatest.set(em, a);
+    }
+    const accPaid = [];
+    for (const c of bcPaid) {
+      const a = accLatest.get(lower(c.fields["Email"])) || accLatest.get(lower(c.fields["Email paiement"]));
+      if (a) accPaid.push({ fields: { ...a.fields, Promo: promoOf(c) } });
+    }
+    for (const a of accPaid) {
       const p = norm(a.fields["Promo"]).toUpperCase();
       const sec = norm(a.fields["Secteur d'activité"]);
       if (sec) {
