@@ -245,10 +245,25 @@ module.exports = async (req, res) => {
   if (!auth.has(user.perms, "rs")) { res.statusCode = 403; return res.end(JSON.stringify({ ok: false, error: "forbidden" })); }
   if (!READ_TOKEN) { res.statusCode = 500; return res.end(JSON.stringify({ ok: false, error: "missing_token" })); }
 
+  // Diagnostic : retrouve un fichier Excel du drive RS (nom, identifiant, feuilles) — lecture seule.
+  if (req.query && req.query.source === "graph-find") {
+    try {
+      const tk = await graph.getToken();
+      const g = async (u) => { const r = await fetch("https://graph.microsoft.com/v1.0" + u, { headers: { Authorization: "Bearer " + tk } }); return r.json(); };
+      const q = encodeURIComponent(req.query.q || "xlsx");
+      const found = await g("/drives/" + encodeURIComponent(RS_DRIVE_ID) + "/root/search(q='" + q + "')?$select=id,name,webUrl,lastModifiedDateTime,sharepointIds,parentReference&$top=200");
+      const want = String(req.query.uid || "").toLowerCase();
+      const items = (found.value || []).filter((x) => /\.xlsx?$/i.test(x.name || "")).map((x) => ({ id: x.id, name: x.name, modified: x.lastModifiedDateTime, uid: x.sharepointIds && x.sharepointIds.listItemUniqueId, path: x.parentReference && x.parentReference.path }));
+      const match = want ? items.filter((x) => String(x.uid || "").toLowerCase() === want) : items;
+      let sheets = null;
+      if (match.length === 1) { const w = await g("/drives/" + encodeURIComponent(RS_DRIVE_ID) + "/items/" + match[0].id + "/workbook/worksheets?$select=name"); sheets = (w.value || []).map((x) => x.name); }
+      res.statusCode = 200; return res.end(JSON.stringify({ ok: true, error: found.error || null, count: items.length, match, sheets }));
+    } catch (e) { res.statusCode = 500; return res.end(JSON.stringify({ ok: false, error: String((e && e.message) || e) })); }
+  }
   // Diagnostic : contenu brut de la feuille Excel (lecture seule).
   if (req.query && req.query.source === "graph-raw") {
     try {
-      const rows = await graph.readRange(RS_DRIVE_ID, RS_ITEM_ID, RS_SHEET, (req.query.range || RS_RANGE));
+      const rows = await graph.readRange(RS_DRIVE_ID, (req.query.item || RS_ITEM_ID), (req.query.sheet || RS_SHEET), (req.query.range || RS_RANGE));
       res.statusCode = 200; return res.end(JSON.stringify({ ok: true, rows }));
     } catch (e) { res.statusCode = 500; return res.end(JSON.stringify({ ok: false, error: String((e && e.message) || e) })); }
   }
