@@ -1308,6 +1308,7 @@ module.exports = async (req, res) => {
         scopes,
         promoOrder,
         byPromo,
+        alumniBootcampByPromo: acBootcampByPromo,
         caRembourse,
         nbRembourses: refunds.length,
         subsByStatus: bcSubsByStatus,

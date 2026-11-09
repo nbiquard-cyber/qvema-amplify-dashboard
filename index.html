@@ -458,9 +458,16 @@
         </div>
       </div>
 
-      <div class="card" id="bc-card-detail">
-        <h3><span class="dot"></span>Détail par promo</h3>
-        <table id="bc-promo-table"><thead><tr><th>Promo</th><th class="num">Inscrits</th><th class="num">CA généré</th></tr></thead><tbody></tbody></table>
+      <div class="row2" id="bc-row-detail">
+        <div class="card" id="bc-card-detail">
+          <h3><span class="dot"></span>Détail par promo</h3>
+          <table id="bc-promo-table"><thead><tr><th>Promo</th><th class="num">Inscrits</th><th class="num">CA généré</th></tr></thead><tbody></tbody></table>
+        </div>
+        <div class="card" id="bc-card-alumni">
+          <h3><span class="dot"></span>Amplify Connect (alumni bootcamp)</h3>
+          <div class="chart-box"><canvas id="bc-alumni-chart"></canvas></div>
+          <div class="note" id="bc-alumni-note"></div>
+        </div>
       </div>
 
       <div class="note" id="bc-statut-note" style="margin-top:14px"></div>
@@ -855,6 +862,7 @@ function renderBcPilotage(s, scopeLabel){
   document.getElementById('bc-card-promo').classList.toggle('hidden', !showPromoBreakdown);
   document.getElementById('bc-card-detail').classList.toggle('hidden', !showPromoBreakdown);
   document.getElementById('bc-row-promo').classList.toggle('solo', !showPromoBreakdown);
+  document.getElementById('bc-row-detail').classList.toggle('hidden', !showPromoBreakdown);
   if(showPromoBreakdown){
     const pe = Object.entries(bc.byPromo).sort((a,b)=>a[0].localeCompare(b[0]));
     destroy('promo');
@@ -866,6 +874,16 @@ function renderBcPilotage(s, scopeLabel){
       options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}},
         onClick:(e,els)=>{ if(els.length){ currentPromo=pe[els[0].index][0]; renderBootcamp(); } }}
     });
+    // Amplify Connect : alumni bootcamp inscrits, par promo (même donnée que Amplify Connect → Data)
+    const ab = Object.entries(bc.alumniBootcampByPromo||{}).sort((x,y)=>x[0].localeCompare(y[0]));
+    destroy('bcalumni');
+    charts.bcalumni = new Chart(document.getElementById('bc-alumni-chart'),{
+      type:'bar',
+      data:{labels:ab.map(x=>x[0].replace(/^PROMO/,'Promo')),datasets:[{data:ab.map(x=>x[1]),backgroundColor:'#a779ff',borderRadius:6}]},
+      options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}
+    });
+    const abTot = ab.reduce((t,x)=>t+x[1],0);
+    document.getElementById('bc-alumni-note').textContent = abTot ? NUM(abTot)+' alumni bootcamp inscrits à Amplify Connect · 1er paiement en 2027' : 'Aucun alumni bootcamp inscrit pour l\'instant';
     const tb = document.querySelector('#bc-promo-table tbody'); tb.innerHTML='';
     pe.forEach(([k,v])=>{ tb.insertAdjacentHTML('beforeend',`<tr><td>${k}</td><td class="num">${NUM(v.count)}</td><td class="num">${EUR(v.montant)}</td></tr>`); });
   } else { destroy('promo'); }
