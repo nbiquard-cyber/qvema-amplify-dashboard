@@ -245,6 +245,12 @@ module.exports = async (req, res) => {
   if (!auth.has(user.perms, "rs")) { res.statusCode = 403; return res.end(JSON.stringify({ ok: false, error: "forbidden" })); }
   if (!READ_TOKEN) { res.statusCode = 500; return res.end(JSON.stringify({ ok: false, error: "missing_token" })); }
 
+  // Synchro Excel déclenchée à la main depuis le cockpit (bouton « Synchroniser l'Excel »).
+  if (wantGraph) {
+    try { return await graphSync(res); }
+    catch (e) { res.statusCode = 500; return res.end(JSON.stringify({ ok: false, error: String((e && e.message) || e) })); }
+  }
+
   try {
     if (req.method === "GET") {
       const recs = await fetchAll();
