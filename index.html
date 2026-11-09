@@ -3546,6 +3546,14 @@ if(AUTH && AUTH.token){
   }
   function slotsText(f){return (f.slots||[]).map(function(x){return x.label+(x.soldTo?' | '+x.soldTo:'');}).join('\n');}
   function parseSlots(t){return t.split('\n').map(function(l){var p=l.split('|');return {label:(p[0]||'').trim(),soldTo:(p[1]||'').trim()};}).filter(function(x){return x.label;});}
+  // Bouton Teams : ouvre la présentation (PPT) du format sur Teams / SharePoint
+  var TEAMS_ICO='<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="5" r="3" fill="#a5a8ff"/><circle cx="18" cy="7" r="2.3" fill="#8b8dff"/><path d="M14 10h7a1 1 0 0 1 1 1v5.5a3.5 3.5 0 0 1-7 0z" fill="#6264d6"/><path d="M5 10h10a1 1 0 0 1 1 1v6a5 5 0 0 1-10 0z" fill="#8c8fff"/><rect x="1.5" y="9" width="9" height="9" rx="2" fill="#4b4ec4"/><path d="M3.6 11.2h4.8v1.3H6.7V16H5.3v-3.5H3.6z" fill="#fff"/></svg>';
+  function safeUrl(u){u=(u||'').trim();return /^https:\/\//i.test(u)?u:'';}
+  function teamsBtn(f){
+    var u=safeUrl(f.pptUrl);
+    if(u) return '<a class="pt-btn" href="'+esc(u)+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;background:#5b5fc7;border-color:#5b5fc7;color:#fff;text-decoration:none">'+TEAMS_ICO+'Voir le PPT</a>';
+    return '<button class="pt-btn" data-fppt="'+f.id+'" title="Aucun lien enregistré : cliquer pour ajouter le lien Teams du PPT" style="display:inline-flex;align-items:center;gap:6px;opacity:.6">'+TEAMS_ICO+'Ajouter le PPT</button>';
+  }
   var fmtFilter='all';
   function drawFormats(){
     var list=DB.formats.slice().sort(function(a,b){return (a.order||99)-(b.order||99)||(a.name||'').localeCompare(b.name||'');});
@@ -3577,12 +3585,13 @@ if(AUTH && AUTH.token){
         +'<div style="border-top:1px solid var(--line);padding-top:8px;margin-top:auto"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:2px">Déjà vendu à</div>'
         +(sold||'<div style="font-size:12.5px;color:var(--muted)">Pas encore vendu</div>')
         +(open.length?'<div style="font-size:12px;color:var(--muted);margin-top:4px">En discussion : '+open.map(function(o){var c=company(o.companyId);return esc(c?c.name:o.name);}).join(', ')+'</div>':'')
-        +'</div><div><button class="pt-btn" data-fe="'+f.id+'">Voir / modifier</button></div></div>';
+        +'</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="pt-btn" data-fe="'+f.id+'">Voir / modifier</button>'+teamsBtn(f)+'</div></div>';
     }).join('');
     h+='</div>'+(shown.length?'':'<div class="pt-empty"><div class="big">🎬</div>Aucun format dans cette vue.</div>');
     C().innerHTML=h; wireRows();
     [].forEach.call(C().querySelectorAll('[data-ff]'),function(b){b.onclick=function(){fmtFilter=b.dataset.ff;drawFormats();};});
     [].forEach.call(C().querySelectorAll('[data-fe]'),function(b){b.onclick=function(){formatModal(fmt(b.dataset.fe));};});
+    [].forEach.call(C().querySelectorAll('[data-fppt]'),function(b){b.onclick=function(){formatModal(fmt(b.dataset.fppt));setTimeout(function(){var i=document.getElementById('m-fppt');if(i)i.focus();},50);};});
     document.getElementById('pt-fadd').onclick=function(){formatModal();};
   }
   function formatModal(f){
@@ -3595,6 +3604,7 @@ if(AUTH && AUTH.token){
       +fArea('Intégration de la marque','m-fbrand',f.brand)
       +fld('Incarnants','m-finc',f.incarnants)
       +fArea('Épisodes / places à vendre (une ligne par épisode, « | Marque » quand c\'est vendu)','m-fslots',slotsText(f))
+      +fld('Lien du PPT sur Teams (Copier le lien dans Teams / SharePoint)','m-fppt',f.pptUrl)
       +'<div class="pt-2col">'+fld('KPI garantis','m-fkpi',f.kpi)+fld('Prix HT (catalogue)','m-fprice',f.price)+'</div>'
       +'<div class="pt-2col">'+fSel('Statut','m-fst',FSTATUS.map(function(x){return {v:x.v,t:x.t};}),f.status||'dispo')+fld('Ordre d\'affichage','m-ford',f.order||'','number')+'</div>'
       +(edit?'<div style="margin-top:6px"><button class="pt-btn" id="m-fdel" style="color:#ef4444">Supprimer ce format</button></div>':'')
@@ -3602,7 +3612,8 @@ if(AUTH && AUTH.token){
     modal(h); bindClose();
     if(edit) document.getElementById('m-fdel').onclick=function(){ if(!confirm('Supprimer le format « '+f.name+' » ?'))return; DB.formats=DB.formats.filter(function(x){return x.id!==f.id;}); DB.opportunities.forEach(function(o){if(o.formats)o.formats=o.formats.filter(function(id){return id!==f.id;});}); persist(); closeModal(); toast('Format supprimé'); drawSub(); };
     document.getElementById('m-save').onclick=function(){var nm=gv('m-fname');if(!nm){toast('Le nom est requis');return;}
-      var d={name:nm,type:gv('m-ftype'),tagline:gv('m-ftag'),concept:gv('m-fconcept'),dispositif:gv('m-fdisp'),diffusion:gv('m-fdiff'),brand:gv('m-fbrand'),incarnants:gv('m-finc'),kpi:gv('m-fkpi'),price:gv('m-fprice'),status:gv('m-fst'),order:parseInt(gv('m-ford'),10)||99,slots:parseSlots(document.getElementById('m-fslots').value),updatedAt:nowISO()};
+      var ppt=gv('m-fppt'); if(ppt&&!safeUrl(ppt)){toast('Le lien du PPT doit commencer par https://');return;}
+      var d={pptUrl:ppt,name:nm,type:gv('m-ftype'),tagline:gv('m-ftag'),concept:gv('m-fconcept'),dispositif:gv('m-fdisp'),diffusion:gv('m-fdiff'),brand:gv('m-fbrand'),incarnants:gv('m-finc'),kpi:gv('m-fkpi'),price:gv('m-fprice'),status:gv('m-fst'),order:parseInt(gv('m-ford'),10)||99,slots:parseSlots(document.getElementById('m-fslots').value),updatedAt:nowISO()};
       if(edit)Object.assign(f,d); else {d.id=uid();d.createdAt=nowISO();DB.formats.push(d);}
       persist(); closeModal(); toast('Format enregistré'); drawSub();};
   }
