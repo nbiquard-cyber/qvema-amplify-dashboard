@@ -3537,6 +3537,15 @@ if(AUTH && AUTH.token){
       +DB.formats.filter(function(f){return f.status!=='archive'||sel.indexOf(f.id)>=0;}).map(function(f){return '<label style="display:flex;gap:6px;align-items:center;font-weight:400;font-size:12.5px;text-transform:none;letter-spacing:0"><input type="checkbox" class="m-fmt" value="'+esc(f.id)+'"'+(sel.indexOf(f.id)>=0?' checked':'')+'>'+esc(f.name)+'</label>';}).join('')+'</div></div>';
   }
   function gvFormats(){return [].map.call(document.querySelectorAll('.m-fmt:checked'),function(x){return x.value;});}
+  // Épisodes / places d'un format (ex. 24H : 1 épisode par investisseur) : [{label, soldTo}]
+  function slotsHtml(f){
+    var sl=f.slots||[]; if(!sl.length)return '';
+    var sold=sl.filter(function(x){return x.soldTo;}).length;
+    return '<div style="font-size:12.5px"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:3px">Épisodes : '+sold+'/'+sl.length+' vendus · '+(sl.length-sold)+' à vendre</div>'
+      +sl.map(function(x){return '<div style="display:flex;gap:6px;align-items:center;padding:1px 0"><span class="pt-dot" style="background:'+(x.soldTo?'#3ecf8e':'#f5c542')+'"></span><span>'+esc(x.label)+'</span><span style="color:var(--muted);margin-left:auto">'+(x.soldTo?'vendu · '+esc(x.soldTo):'à vendre')+'</span></div>';}).join('')+'</div>';
+  }
+  function slotsText(f){return (f.slots||[]).map(function(x){return x.label+(x.soldTo?' | '+x.soldTo:'');}).join('\n');}
+  function parseSlots(t){return t.split('\n').map(function(l){var p=l.split('|');return {label:(p[0]||'').trim(),soldTo:(p[1]||'').trim()};}).filter(function(x){return x.label;});}
   var fmtFilter='all';
   function drawFormats(){
     var list=DB.formats.slice().sort(function(a,b){return (a.order||99)-(b.order||99)||(a.name||'').localeCompare(b.name||'');});
@@ -3564,6 +3573,7 @@ if(AUTH && AUTH.token){
         +(f.diffusion?'<div><b>Diffusion :</b> '+esc(f.diffusion)+'</div>':'')
         +'<div><b>KPI garantis :</b> '+esc(f.kpi||'À valider')+'</div>'
         +'<div><b>Prix :</b> '+esc(f.price||'À valider')+'</div></div>'
+        +slotsHtml(f)
         +'<div style="border-top:1px solid var(--line);padding-top:8px;margin-top:auto"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:2px">Déjà vendu à</div>'
         +(sold||'<div style="font-size:12.5px;color:var(--muted)">Pas encore vendu</div>')
         +(open.length?'<div style="font-size:12px;color:var(--muted);margin-top:4px">En discussion : '+open.map(function(o){var c=company(o.companyId);return esc(c?c.name:o.name);}).join(', ')+'</div>':'')
@@ -3584,6 +3594,7 @@ if(AUTH && AUTH.token){
       +'<div class="pt-2col">'+fld('Dispositif (épisodes, durée, clippings)','m-fdisp',f.dispositif)+fld('Diffusion','m-fdiff',f.diffusion)+'</div>'
       +fArea('Intégration de la marque','m-fbrand',f.brand)
       +fld('Incarnants','m-finc',f.incarnants)
+      +fArea('Épisodes / places à vendre (une ligne par épisode, « | Marque » quand c\'est vendu)','m-fslots',slotsText(f))
       +'<div class="pt-2col">'+fld('KPI garantis','m-fkpi',f.kpi)+fld('Prix HT (catalogue)','m-fprice',f.price)+'</div>'
       +'<div class="pt-2col">'+fSel('Statut','m-fst',FSTATUS.map(function(x){return {v:x.v,t:x.t};}),f.status||'dispo')+fld('Ordre d\'affichage','m-ford',f.order||'','number')+'</div>'
       +(edit?'<div style="margin-top:6px"><button class="pt-btn" id="m-fdel" style="color:#ef4444">Supprimer ce format</button></div>':'')
@@ -3591,7 +3602,7 @@ if(AUTH && AUTH.token){
     modal(h); bindClose();
     if(edit) document.getElementById('m-fdel').onclick=function(){ if(!confirm('Supprimer le format « '+f.name+' » ?'))return; DB.formats=DB.formats.filter(function(x){return x.id!==f.id;}); DB.opportunities.forEach(function(o){if(o.formats)o.formats=o.formats.filter(function(id){return id!==f.id;});}); persist(); closeModal(); toast('Format supprimé'); drawSub(); };
     document.getElementById('m-save').onclick=function(){var nm=gv('m-fname');if(!nm){toast('Le nom est requis');return;}
-      var d={name:nm,type:gv('m-ftype'),tagline:gv('m-ftag'),concept:gv('m-fconcept'),dispositif:gv('m-fdisp'),diffusion:gv('m-fdiff'),brand:gv('m-fbrand'),incarnants:gv('m-finc'),kpi:gv('m-fkpi'),price:gv('m-fprice'),status:gv('m-fst'),order:parseInt(gv('m-ford'),10)||99,updatedAt:nowISO()};
+      var d={name:nm,type:gv('m-ftype'),tagline:gv('m-ftag'),concept:gv('m-fconcept'),dispositif:gv('m-fdisp'),diffusion:gv('m-fdiff'),brand:gv('m-fbrand'),incarnants:gv('m-finc'),kpi:gv('m-fkpi'),price:gv('m-fprice'),status:gv('m-fst'),order:parseInt(gv('m-ford'),10)||99,slots:parseSlots(document.getElementById('m-fslots').value),updatedAt:nowISO()};
       if(edit)Object.assign(f,d); else {d.id=uid();d.createdAt=nowISO();DB.formats.push(d);}
       persist(); closeModal(); toast('Format enregistré'); drawSub();};
   }
