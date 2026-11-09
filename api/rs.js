@@ -17,7 +17,8 @@ const IMPORT_SECRET = process.env.RS_IMPORT_SECRET || "";
 const CRON_SECRET = process.env.CRON_SECRET || "";
 // Emplacement de l'Excel Teams (SharePoint) — valeurs par défaut = fichier RS QVEMA.
 const RS_DRIVE_ID = process.env.RS_DRIVE_ID || "b!9sg7UHd1e0Kb0xEO_0B9dVMscmM9-DdEq0rnHj272WouVxyHBddLRYdqIh7ec4Lf";
-const RS_ITEM_ID = process.env.RS_ITEM_ID || "01AQAWV27HY43GNMCTLFA2HE6LKDVZFQDN";
+// Fichier « Suivi_activite_RS_QVEMA_2026_2027_A_JOUR_REVU_CA 090726.xlsx » (STATS) — remplace l'ancien « Dashboard__RS_QVEMA… 100726 » depuis le 09/11/2026.
+const RS_ITEM_ID = process.env.RS_ITEM_ID || "01AQAWV22R4CQF2SKTCVCLJ3BLZTJY6T35";
 const RS_SHEET = process.env.RS_SHEET || "BILANS MENSUELS";
 const RS_RANGE = process.env.RS_RANGE || "A1:AH70";
 
