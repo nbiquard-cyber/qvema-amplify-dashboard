@@ -250,10 +250,19 @@ module.exports = async (req, res) => {
     try {
       const tk = await graph.getToken();
       const g = async (u) => { const r = await fetch("https://graph.microsoft.com/v1.0" + u, { headers: { Authorization: "Bearer " + tk } }); return r.json(); };
-      const q = encodeURIComponent(req.query.q || "xlsx");
-      const found = await g("/drives/" + encodeURIComponent(RS_DRIVE_ID) + "/root/search(q='" + q + "')?$select=id,name,webUrl,lastModifiedDateTime,sharepointIds,parentReference&$top=200");
       const want = String(req.query.uid || "").toLowerCase();
-      const items = (found.value || []).filter((x) => /\.xlsx?$/i.test(x.name || "")).map((x) => ({ id: x.id, name: x.name, modified: x.lastModifiedDateTime, uid: x.sharepointIds && x.sharepointIds.listItemUniqueId, path: x.parentReference && x.parentReference.path }));
+      // Parcours des dossiers (la recherche Graph n'est pas autorisée en mode application avec Files.Read.All).
+      const items = []; let errors = null;
+      const walk = async (path, depth) => {
+        const j = await g("/drives/" + encodeURIComponent(RS_DRIVE_ID) + path + "/children?$select=id,name,folder,file,lastModifiedDateTime,sharepointIds,parentReference&$top=200");
+        if (j.error) { errors = j.error; return; }
+        for (const x of j.value || []) {
+          if (x.folder && depth < 4) await walk("/items/" + x.id, depth + 1);
+          else if (/\.xlsx?$/i.test(x.name || "")) items.push({ id: x.id, name: x.name, modified: x.lastModifiedDateTime, uid: x.sharepointIds && x.sharepointIds.listItemUniqueId, path: x.parentReference && x.parentReference.path });
+        }
+      };
+      await walk("/root", 0);
+      const found = { error: errors };
       const match = want ? items.filter((x) => String(x.uid || "").toLowerCase() === want) : items;
       let sheets = null;
       if (match.length === 1) { const w = await g("/drives/" + encodeURIComponent(RS_DRIVE_ID) + "/items/" + match[0].id + "/workbook/worksheets?$select=name"); sheets = (w.value || []).map((x) => x.name); }
