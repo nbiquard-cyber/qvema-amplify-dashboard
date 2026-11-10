@@ -9,13 +9,14 @@ const BASE = "https://app.circle.so/api/admin/v2";
 const PROMO_RE = /^promo\s*(\d+)$/i;
 const MODULE_RE = /^module\s*(\d+)$/i;
 
-let _cache = { at: 0, data: null };
+let _cache = { at: 0, members: null };
 const TTL = 300000; // 5 min
 
+// status=all : inclut les invités qui n'ont jamais activé leur compte (sinon ils disparaissent du calcul).
 async function fetchAllMembers() {
   let members = [], page = 1;
   for (;;) {
-    const r = await fetch(BASE + "/community_members?per_page=100&page=" + page, {
+    const r = await fetch(BASE + "/community_members?status=all&per_page=100&page=" + page, {
       headers: { Authorization: "Bearer " + TOKEN },
     });
     if (!r.ok) {
@@ -26,57 +27,60 @@ async function fetchAllMembers() {
     const recs = j.records || j.community_members || (Array.isArray(j) ? j : []);
     members = members.concat(recs);
     const more = j.has_next_page === true || recs.length >= 100;
-    if (!more || page >= 25) break;
+    if (!more || page >= 50) break;
     page++;
   }
   return members;
 }
 
-async function progression() {
+// Dernier module TERMINÉ d'un membre Circle : le tag "Module N" est posé par l'automatisation
+// « Module N-1 terminé » → dernier module terminé = plus haut tag - 1 ; "Finisher" = module 7.
+// null = aucun module terminé.
+function lastCompleted(m) {
+  let maxMod = null, finisher = false;
+  for (const t of m.member_tags || []) {
+    const nm = (t.name || "").trim(); let mm;
+    if ((mm = nm.match(MODULE_RE))) { const n = Number(mm[1]); if (maxMod == null || n > maxMod) maxMod = n; }
+    else if (/^finisher$/i.test(nm)) finisher = true;
+  }
+  return finisher ? 7 : (maxMod == null ? null : Math.max(0, maxMod - 1));
+}
+
+// paid = [{ promo, emails[] }] : inscrits payés (table Clients). Chaque payé est compté une fois,
+// dans sa promo Clients. Pas de compte Circle ou compte jamais activé → « aucun module terminé ».
+async function progression(paid) {
   if (!TOKEN) throw new Error("CIRCLE_API_TOKEN manquant dans Vercel.");
-  if (_cache.data && Date.now() - _cache.at < TTL) return _cache.data;
+  if (!_cache.members || Date.now() - _cache.at >= TTL) {
+    _cache = { at: Date.now(), members: await fetchAllMembers() };
+  }
+  const members = _cache.members;
+  const byEmail = new Map();
+  for (const m of members) { const e = (m.email || "").trim().toLowerCase(); if (e) byEmail.set(e, m); }
 
-  const members = await fetchAllMembers();
   const scopes = {};
-  const ensure = (k) => scopes[k] || (scopes[k] = { total: 0, byModule: {} });
-  let horsPromo = 0;
-
-  for (const m of members) {
-    const tags = m.member_tags || [];
-    let promoNum = null, maxMod = null, finisher = false;
-    for (const t of tags) {
-      const nm = (t.name || "").trim();
-      let mm;
-      if ((mm = nm.match(PROMO_RE))) {
-        const n = Number(mm[1]);
-        if (promoNum == null || n < promoNum) promoNum = n; // si plusieurs, la plus ancienne
-      } else if ((mm = nm.match(MODULE_RE))) {
-        const n = Number(mm[1]);
-        if (maxMod == null || n > maxMod) maxMod = n;
-      } else if (/^finisher$/i.test(nm)) finisher = true;
-    }
-    if (promoNum == null) { horsPromo++; continue; } // pas un apprenant de promo (coach, alumni…)
-    // Le tag "Module N" signifie "a TERMINÉ le module N-1". Donc module atteint = plus haut tag - 1.
-    // "Finisher" = a terminé tout le bootcamp (module 7). Aucun tag Module = non démarré.
-    const level = finisher ? 7 : (maxMod == null ? null : Math.max(0, maxMod - 1));
+  const ensure = (k) => scopes[k] || (scopes[k] = { total: 0, byModule: {}, sansCompte: 0, nonActive: 0 });
+  for (const p of paid || []) {
+    const m = p.emails.map((e) => byEmail.get(e)).find(Boolean);
+    const active = !!(m && m.profile_confirmed_at);
+    const level = m ? lastCompleted(m) : null;
     const bucket = level == null ? "none" : String(level);
-    for (const k of ["PROMO " + promoNum, "Toutes"]) {
+    for (const k of [p.promo, "Toutes"]) {
       const s = ensure(k);
       s.total++;
       s.byModule[bucket] = (s.byModule[bucket] || 0) + 1;
+      if (!m) s.sansCompte++;
+      else if (!active) s.nonActive++;
     }
   }
 
-  const data = {
+  return {
     ok: true,
     modules: [0, 1, 2, 3, 4, 5, 6, 7],
     scopes,
-    horsPromo,
+    population: "payes",
     membres: members.length,
     generatedAt: new Date().toISOString(),
   };
-  _cache = { at: Date.now(), data };
-  return data;
 }
 
 // Diagnostic : teste plusieurs bases/en-têtes Circle pour trouver la bonne combinaison.

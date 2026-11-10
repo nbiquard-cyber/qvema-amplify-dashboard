@@ -676,7 +676,16 @@ module.exports = async (req, res) => {
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.setHeader("Cache-Control", "no-store");
     try {
-      const prog = await require("./_circle.js").progression();
+      // Population = inscrits PAYÉS (table Clients, hors tests), rapprochés de Circle par e-mail.
+      const normP = (s) => (s || "").toString().trim();
+      const cl = await airtableAll(T.clients, ["Email", "Email paiement", "Promo", "Statut Paiement"]);
+      const paid = cl
+        .filter((c) => normP(c.fields["Statut Paiement"]) === "Payé" && !/test/i.test(normP(c.fields["Promo"])))
+        .map((c) => ({
+          promo: normP(c.fields["Promo"]) || "Sans promo",
+          emails: [c.fields["Email"], c.fields["Email paiement"]].map((e) => normP(e).toLowerCase()).filter(Boolean),
+        }));
+      const prog = await require("./_circle.js").progression(paid);
       res.statusCode = 200;
       return res.end(JSON.stringify(prog));
     } catch (e) {
