@@ -2373,6 +2373,22 @@ if(AUTH && AUTH.token){
       +'<td class="num">'+EUR(Math.round(caFac))+'</td></tr>';
     html+='</tbody></table></div>';
 
+    // Ventes & CA par canal — cumul de toutes les promos
+    const chanAgg={};
+    list.forEach(p=>DATAQ.scopes[p].channels.forEach(c=>{ const a=chanAgg[c.name]=chanAgg[c.name]||{ins:0,ventes:0,fac:0,enc:0};
+      a.ins+=c.ins||0; a.ventes+=c.ventes||0; a.fac+=c.fac||0; a.enc+=c.enc||0; }));
+    const chanRows=Object.entries(chanAgg).sort((a,b)=>(b[1].ins-a[1].ins)||(b[1].ventes-a[1].ventes));
+    const tot=chanRows.reduce((t,[,v])=>({ins:t.ins+v.ins,ventes:t.ventes+v.ventes,fac:t.fac+v.fac,enc:t.enc+v.enc}),{ins:0,ventes:0,fac:0,enc:0});
+    const convTxt=v=>v.ins?(v.ventes/v.ins*100).toLocaleString('fr-FR',{maximumFractionDigits:2})+' %':'—';
+    html+='<div class="card" style="margin-top:16px"><h3><span class="dot"></span>Ventes &amp; CA par canal (attribution UTM) — toutes promos</h3>'
+      +'<table><thead><tr><th>Canal</th><th class="num">Inscrits</th><th class="num">Ventes</th><th class="num">Conv.</th><th class="num">CA généré</th><th class="num">Encaissé conv.</th></tr></thead><tbody>'
+      +chanRows.map(([n,v])=>'<tr><td><span style="display:inline-block;width:9px;height:9px;border-radius:3px;background:'+(C[n]||'#666')+';margin-right:7px"></span>'+escHtml(n)+'</td>'
+        +'<td class="num">'+NUM(v.ins)+'</td><td class="num">'+NUM(v.ventes)+'</td><td class="num">'+convTxt(v)+'</td>'
+        +'<td class="num">'+EUR(Math.round(v.fac))+'</td><td class="num">'+EUR(Math.round(v.enc))+'</td></tr>').join('')
+      +'<tr style="border-top:2px solid var(--line);font-weight:700"><td>🌍 Total</td><td class="num">'+NUM(tot.ins)+'</td><td class="num">'+NUM(tot.ventes)+'</td><td class="num">'+convTxt(tot)+'</td>'
+        +'<td class="num">'+EUR(Math.round(tot.fac))+'</td><td class="num">'+EUR(Math.round(tot.enc))+'</td></tr>'
+      +'</tbody></table><div class="note">Somme des '+list.length+' promos suivies dans Acquisition.</div></div>';
+
     html+='<div class="grid row2" style="margin-top:16px">'
       +'<div class="card"><h3>Inscrits par canal — par promo</h3><div class="chart-box"><canvas id="acq-g-mix"></canvas></div></div>'
       +'<div class="card"><h3>Efficacité par promo — CPL &amp; ROAS ads</h3><div class="chart-box"><canvas id="acq-g-eff"></canvas></div></div>'
