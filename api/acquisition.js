@@ -138,6 +138,20 @@ const P4_META = {
   accountNames: P3_META.accountNames,
 };
 
+// ---------- PROMO 5 — même mécanique (vue Airtable « Inscrits Webi 5 » + clients {Promo}='PROMO 5').
+// Périmètre Meta par défaut : campagnes nommées « Novembre 2026 » ou « Décembre 2026 » (distinct de
+// « Septembre 2026 » = P3 et « Octobre 2026 » = P4 → aucun double-comptage). Surchargeable via P5_META_MATCH
+// (texte ou /regex/), P5_META_SINCE, P5_META_INCLUDE_IDS, P5_META_ALIASES, P5_LIVE_DATE, P5_OPEN_TEXT.
+const P5_META = {
+  liveDate: process.env.P5_LIVE_DATE || "à venir",
+  match: envRe(process.env.P5_META_MATCH || "/Novembre\\s*2026|D[ée]cembre\\s*2026/i", "Novembre 2026"),
+  matchLabel: process.env.P5_META_MATCH || "Novembre 2026 ou Décembre 2026",
+  includeIds: (process.env.P5_META_INCLUDE_IDS || "").split(",").map((s) => s.trim()).filter(Boolean),
+  rtgMatch: /RTG|retarget|remarketing/i,
+  aliases: envJson(process.env.P5_META_ALIASES),
+  accountNames: P3_META.accountNames,
+};
+
 async function airtableAll(table, fields, filterByFormula, view) {
   const out = [];
   let offset = null;
@@ -499,6 +513,21 @@ function buildPromo4() {
   });
 }
 
+// PROMO 5 : même chemin (vue « Inscrits Webi 5 » + clients 'PROMO 5'), dépense Meta LIVE (périmètre P5_META).
+function buildPromo5() {
+  return buildPromoLive({
+    promoLabel: "PROMO 5",
+    promoFilter: `TRIM(UPPER({Promo})) = 'PROMO 5'`,
+    webiView: "Inscrits Webi 5",
+    webiLabel: "Inscrits Webi 5",
+    openText: process.env.P5_OPEN_TEXT || "inscriptions webi 5",
+    since: process.env.P5_META_SINCE || "2026-11-01",
+    meta: P5_META,
+    metaEnabled: !!CONFIG.metaToken,
+    metaOffNote: "Dépense Meta non branchée (META_ACCESS_TOKEN manquant)",
+  });
+}
+
 function promo1Scope() {
   const inscrits = PROMO1.inscrits;
   const caFac = PROMO1.channels.reduce((a, c) => a + c.fac, 0);
@@ -616,12 +645,12 @@ module.exports = async (req, res) => {
   try {
     if (!_cache.data || Date.now() - _cache.at > _TTL) {
       if (!_inflight) _inflight = (async () => {
-        const [p2, p3, p4] = await Promise.all([buildPromo2(), buildPromo3(), buildPromo4()]);
+        const [p2, p3, p4, p5] = await Promise.all([buildPromo2(), buildPromo3(), buildPromo4(), buildPromo5()]);
         return {
           generatedAt: new Date().toISOString(),
           colors: COLORS,
-          promoOrder: ["PROMO 1", "PROMO 2", "PROMO 3", "PROMO 4"],
-          scopes: { "PROMO 1": promo1Scope(), "PROMO 2": p2, "PROMO 3": p3, "PROMO 4": p4 },
+          promoOrder: ["PROMO 1", "PROMO 2", "PROMO 3", "PROMO 4", "PROMO 5"],
+          scopes: { "PROMO 1": promo1Scope(), "PROMO 2": p2, "PROMO 3": p3, "PROMO 4": p4, "PROMO 5": p5 },
         };
       })().finally(() => { _inflight = null; });
       const data = await _inflight;
@@ -639,4 +668,4 @@ module.exports = async (req, res) => {
 };
 
 // Export pour tests hors-ligne (p3-selftest) : n'altère pas le handler Vercel.
-module.exports._test = { buildPromo3, buildPromo4, buildPromo2, promo1Scope };
+module.exports._test = { buildPromo3, buildPromo4, buildPromo5, buildPromo2, promo1Scope };

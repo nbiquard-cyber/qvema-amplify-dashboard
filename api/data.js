@@ -1271,7 +1271,7 @@ module.exports = async (req, res) => {
     scopes["Toutes"].impayes = impayeScope(impayesAll);
     // Promos à toujours afficher même sans client payé (préparation du lancement) : l'onglet
     // existe dès maintenant dans Pilotage & Stats apprenants et se remplit à la 1ʳᵉ vente.
-    const ALWAYS_PROMOS = ["PROMO 4"];
+    const ALWAYS_PROMOS = ["PROMO 4", "PROMO 5"];
     const promoList = [...new Set([...bcPaid.map(promoOf), ...ALWAYS_PROMOS])];
     for (const p of promoList) {
       const list = bcPaid.filter((c) => promoOf(c) === p);
@@ -1281,7 +1281,7 @@ module.exports = async (req, res) => {
       scopes[p].impayes = impayeScope(impayesByPromo[p]);
       // Promos 3 & 4 : genre + régions depuis Accueil Bootcamp (champs Clients non renseignés pour une promo récente ;
       // demoFromAccueil retombe sur les champs Clients si l'e-mail n'est pas dans Accueil).
-      if ((p === "PROMO 3" || p === "PROMO 4") && scopes[p].demographics) {
+      if (["PROMO 3", "PROMO 4", "PROMO 5"].includes(p) && scopes[p].demographics) {
         const dd = demoFromAccueil(list);
         scopes[p].demographics.genre = dd.genre;
         scopes[p].demographics.regions = dd.regions;
@@ -1322,7 +1322,7 @@ module.exports = async (req, res) => {
         nbRembourses: refunds.length,
         subsByStatus: bcSubsByStatus,
         prixUnitaire: 1490, // défaut (Promo 2/3/4)
-        prixByPromo: { "PROMO 1": 1290, "PROMO 2": 1490, "PROMO 3": 1490, "PROMO 4": 1490 },
+        prixByPromo: { "PROMO 1": 1290, "PROMO 2": 1490, "PROMO 3": 1490, "PROMO 4": 1490, "PROMO 5": 1490 },
       },
       amplify: {
         membresPayants: acPayants.length,
