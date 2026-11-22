@@ -9,7 +9,7 @@
 // - PROMO 3 : funnel LIVE Airtable + dépense Meta LIVE (Marketing API via api/_meta.js, 2 comptes :
 //   MON ASSOCIE FACTORY principal + Bootcamp QVEMA back-up). Périmètre = campagnes « Septembre 2026 ».
 const auth = require("./_auth.js");
-const { fetchCampaignSpend, scrub, DEFAULT_VERSION } = require("./_meta.js");
+const { fetchCampaignSpend, fetchAdSpend, scrub, DEFAULT_VERSION } = require("./_meta.js");
 
 const CONFIG = {
   airtableToken: process.env.AIRTABLE_TOKEN || "",
@@ -319,7 +319,7 @@ async function buildPromo2() {
 // cfg = { promoLabel, promoFilter, webiView, webiLabel, openText, since, meta, metaEnabled, metaOffNote }
 async function buildPromoLive(cfg) {
   const META = cfg.meta;
-  const OPTIN_FIELDS = ["Email", "Created", "UTM Source", "UTM Medium", "UTM Campaign"];
+  const OPTIN_FIELDS = ["Email", "Created", "UTM Source", "UTM Medium", "UTM Campaign", "UTM Content"];
   const since = cfg.since, until = todayParis();
   const optinsP = airtableAll(T.optin, OPTIN_FIELDS, null, cfg.webiView).catch(() => []);
   // Dépense Meta en parallèle des 2 appels Airtable ; null si désactivée pour cette promo (fallback = funnel seul).
@@ -327,11 +327,16 @@ async function buildPromoLive(cfg) {
     ? fetchCampaignSpend({ token: CONFIG.metaToken, accounts: CONFIG.metaAccounts, since, until, apiVersion: CONFIG.apiVersion })
         .catch((e) => ({ rows: [], errors: [{ account: "*", error: scrub(e, CONFIG.metaToken) }] }))
     : Promise.resolve(null);
-  const [optins, clients, meta] = await Promise.all([
+  // Dépense par PUBLICITÉ (détail par juré / créa) : facultative, n'impacte jamais les totaux campagne.
+  const adsP = cfg.metaEnabled
+    ? fetchAdSpend({ token: CONFIG.metaToken, accounts: CONFIG.metaAccounts, since, until, apiVersion: CONFIG.apiVersion }).catch(() => null)
+    : Promise.resolve(null);
+  const [optins, clients, meta, ads] = await Promise.all([
     optinsP,
     airtableAll(T.clients, ["Email", "UTM Source", "Montant", "Mode de paiement", "Statut Paiement", "Promo", "Date Paiement"],
       cfg.promoFilter),
     metaP,
+    adsP,
   ]);
   // Repli par compte : compte en erreur => dernières lignes connues (stale) si on en a, sinon dépense PARTIELLE (KPIs masqués).
   const stale = [], missing = [];
@@ -351,6 +356,7 @@ async function buildPromoLive(cfg) {
   const uniq = [...seen.values()];
 
   const channels = {}, byDayMap = {}, emailChan = {}, campIns = {}, orgMap = {}, emailOrg = {}, emailCamp = {}, campVentes = {};
+  const creaIns = {}, creaVentes = {}, emailCrea = {}; // détail par publicité (UTM content = {{ad.name}})
   for (const r of uniq) {
     const u = fixUtm(r.fields["UTM Source"], r.fields["UTM Medium"], r.fields["UTM Campaign"]); // UTM réparé si lien « &amp; »
     const chan = chanFromSrc(u.source);
@@ -361,7 +367,10 @@ async function buildPromoLive(cfg) {
     if (created) { const d = created.slice(8, 10) + "/" + created.slice(5, 7); byDayMap[d] = byDayMap[d] || {}; byDayMap[d][chan] = (byDayMap[d][chan] || 0) + 1; }
     // Campagne via l'UTM : nom Meta encodé ({{campaign.name}} → « ACQ+-+Marc+-+Septembre+2026 ») OU id numérique ({{campaign.id}}).
     // Vide / « {{campaign.name}} » non résolu = UTM cassé (compté à part, comme en P2).
-    if (chan === "Paid Meta (ads)") { const c = u.campaign; const key = !c || /\{\{|\}\}/.test(c) ? "(UTM cassé)" : c; campIns[key] = (campIns[key] || 0) + 1; if (em) emailCamp[em] = key; }
+    if (chan === "Paid Meta (ads)") { const c = u.campaign; const key = !c || /\{\{|\}\}/.test(c) ? "(UTM cassé)" : c; campIns[key] = (campIns[key] || 0) + 1; if (em) emailCamp[em] = key;
+      const ct = decode(r.fields["UTM Content"]).replace(/[\u00a0\u202f]/g, " ").replace(/\s+/g, " ").trim();
+      const ck = !ct || /\{\{|\}\}/.test(ct) ? "(sans nom de pub)" : ct;
+      creaIns[ck] = (creaIns[ck] || 0) + 1; if (em) emailCrea[em] = ck; }
     // Organique par intervenant × canal (utm_source organique + utm_medium = la personne qui poste).
     const orgLabel = ORGANIC_CHAN[lower(u.source)];
     if (orgLabel) {
@@ -389,7 +398,8 @@ async function buildPromoLive(cfg) {
     const oKey = em && emailOrg[em];
     if (oKey && orgMap[oKey]) orgMap[oKey].ventes++;
     // Attribution de la vente à la campagne Meta (via campagne de l'opt-in, même base que les inscrits).
-    if (chan === "Paid Meta (ads)") { const ck = em && emailCamp[em]; if (ck) campVentes[ck] = (campVentes[ck] || 0) + 1; }
+    if (chan === "Paid Meta (ads)") { const ck = em && emailCamp[em]; if (ck) campVentes[ck] = (campVentes[ck] || 0) + 1;
+      const cr = em && emailCrea[em]; if (cr) creaVentes[cr] = (creaVentes[cr] || 0) + 1; }
   }
 
   const channelList = Object.entries(channels).map(([name, v]) => ({ name, ...v })).sort((a, b) => b.ins - a.ins);
@@ -432,6 +442,36 @@ async function buildPromoLive(cfg) {
   for (const row of Object.values(rows)) campaigns.push({ name: row.name, ins: row.ins, ventes: row.ventes || 0, spend: r2(row.spend) }); // ins 0 possible : la dépense compte quand même
   campaigns.sort((a, b) => ((b.spend || 0) - (a.spend || 0)) || (b.ins - a.ins));
 
+  // ---- Détail par juré / créa : dépense Meta niveau publicité (même périmètre de campagnes) × inscrits UTM content.
+  //      Juré = texte avant le 1er « - » du nom de pub (« Marc - Mais vous avez peur » → Marc).
+  const jureOf = (n) => { const j = clean(n).split(/\s+-\s+/)[0].trim(); return j ? j.charAt(0).toUpperCase() + j.slice(1) : "?"; };
+  const adMap = {};
+  for (const a of (ads && ads.rows) || []) {
+    if (a.currency && a.currency !== "EUR") continue;
+    const ok = META.match.test(norm2(a.name)) || META.includeIds.includes(String(a.campaignId));
+    if (!ok) continue;
+    const k = norm2(a.adName);
+    const row = adMap[k] || (adMap[k] = { name: clean(a.adName), spend: 0, ins: 0, ventes: 0 });
+    row.spend += a.spend;
+  }
+  for (const [k, ins] of Object.entries(creaIns)) {
+    const row = adMap[norm2(k)] || (adMap[norm2(k)] = { name: clean(k).replace(/[<>]/g, "").slice(0, 80), spend: null, ins: 0, ventes: 0 });
+    row.ins += ins; row.ventes += creaVentes[k] || 0;
+  }
+  const jures = {};
+  for (const ad of Object.values(adMap)) {
+    if (!(ad.spend > 0) && !ad.ins) continue;
+    const jn = ad.name === "(sans nom de pub)" ? "(sans nom de pub)" : jureOf(ad.name);
+    const j = jures[jn] || (jures[jn] = { jure: jn, spend: 0, hasSpend: false, ins: 0, ventes: 0, ads: [] });
+    if (ad.spend != null) { j.spend += ad.spend; j.hasSpend = true; }
+    j.ins += ad.ins; j.ventes += ad.ventes;
+    j.ads.push({ name: ad.name, ins: ad.ins, ventes: ad.ventes, spend: ad.spend == null ? null : r2(ad.spend) });
+  }
+  const creas = Object.values(jures).map((j) => ({ jure: j.jure, ins: j.ins, ventes: j.ventes, spend: j.hasSpend ? r2(j.spend) : null,
+    ads: j.ads.sort((a, b) => ((b.spend || 0) - (a.spend || 0)) || (b.ins - a.ins)) }))
+    .sort((a, b) => ((b.spend || 0) - (a.spend || 0)) || (b.ins - a.ins));
+  const creasOk = !!ads && !(ads.errors || []).length;
+
   const scope = Object.values(rows);
   const total = r2(scope.reduce((a, c) => a + c.spend, 0));
   const rtg = r2(scope.filter((c) => META.rtgMatch.test(c.name)).reduce((a, c) => a + c.spend, 0));
@@ -470,6 +510,8 @@ async function buildPromoLive(cfg) {
     // Organique : inscrits par intervenant × canal (UTM medium × source), 0 masqué (construit depuis les inscrits réels).
     organique: Object.values(orgMap).map((o) => ({ ...o, conv: o.ins ? (o.ventes / o.ins) * 100 : null })).sort((a, b) => b.ins - a.ins || a.canal.localeCompare(b.canal) || a.intervenant.localeCompare(b.intervenant)),
     utmCasses: campIns["(UTM cassé)"] || 0,
+    // Détail par juré → publicités (UTM content) ; spend null = pub sans dépense Meta retrouvée sur la fenêtre.
+    creas, creasSpendOk: creasOk,
     kpis: {
       ventes, caFac, caEnc, refunds,
       cpl: !partial && metaIns && spend.acquisition > 0 ? spend.acquisition / metaIns : null,

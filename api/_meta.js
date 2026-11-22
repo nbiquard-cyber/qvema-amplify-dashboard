@@ -46,9 +46,11 @@ async function getJson(url, token, timeoutMs) {
   } finally { clearTimeout(timer); }
 }
 
-async function fetchAccount(acct, { token, since, until, apiVersion, timeoutMs, deadlineAt }) {
+async function fetchAccount(acct, { token, since, until, apiVersion, timeoutMs, deadlineAt, level }) {
+  const isAd = level === "ad";
   const q = new URLSearchParams({
-    level: "campaign", fields: "campaign_id,campaign_name,spend,account_currency",
+    level: isAd ? "ad" : "campaign",
+    fields: isAd ? "campaign_id,campaign_name,ad_id,ad_name,spend,account_currency" : "campaign_id,campaign_name,spend,account_currency",
     time_range: JSON.stringify({ since, until }), limit: "500",
   });
   let url = GRAPH + "/" + apiVersion + "/act_" + acct + "/insights?" + q;
@@ -58,8 +60,9 @@ async function fetchAccount(acct, { token, since, until, apiVersion, timeoutMs, 
     if (left <= 0) throw new Error("délai global dépassé (" + page + " page(s) lue(s))");
     const j = await getJson(url, token, Math.min(timeoutMs, left));
     for (const d of j.data || []) {
-      const id = String(d.campaign_id || "");
-      const row = byId.get(id) || { account: acct, campaignId: id, name: String(d.campaign_name || ""), spend: 0, currency: String(d.account_currency || "") };
+      const id = String((isAd ? d.ad_id : d.campaign_id) || "");
+      const row = byId.get(id) || { account: acct, campaignId: String(d.campaign_id || ""), name: String(d.campaign_name || ""), spend: 0, currency: String(d.account_currency || "") };
+      if (isAd) { row.adId = id; row.adName = String(d.ad_name || ""); }
       row.spend += Number(d.spend) || 0;
       byId.set(id, row);
     }
@@ -69,10 +72,10 @@ async function fetchAccount(acct, { token, since, until, apiVersion, timeoutMs, 
   return [...byId.values()];
 }
 
-async function fetchCampaignSpend({ token, accounts, since, until, apiVersion, timeoutMs, budgetMs } = {}) {
+async function fetchCampaignSpend({ token, accounts, since, until, apiVersion, timeoutMs, budgetMs, level } = {}) {
   const rows = [], errors = [];
   if (!token) return { rows, errors: [{ account: "*", error: "token Meta manquant" }] };
-  const opts = { token, since, until, apiVersion: apiVersion || DEFAULT_VERSION, timeoutMs: timeoutMs || DEFAULT_TIMEOUT, deadlineAt: Date.now() + (budgetMs || DEFAULT_BUDGET) };
+  const opts = { token, since, until, apiVersion: apiVersion || DEFAULT_VERSION, timeoutMs: timeoutMs || DEFAULT_TIMEOUT, deadlineAt: Date.now() + (budgetMs || DEFAULT_BUDGET), level };
   await Promise.all((accounts || []).map(async (a) => {
     const acct = String(a == null ? "" : a).trim().replace(/^act_/, "");
     if (!/^\d+$/.test(acct)) { errors.push({ account: acct, error: "id de compte invalide" }); return; }
@@ -82,4 +85,7 @@ async function fetchCampaignSpend({ token, accounts, since, until, apiVersion, t
   return { rows, errors };
 }
 
-module.exports = { fetchCampaignSpend, scrub, stripToken, DEFAULT_VERSION };
+// Même chose au niveau AD (une ligne par publicité : adId, adName, campaignId, name = nom de campagne).
+const fetchAdSpend = (opts) => fetchCampaignSpend({ ...opts, level: "ad" });
+
+module.exports = { fetchCampaignSpend, fetchAdSpend, scrub, stripToken, DEFAULT_VERSION };
