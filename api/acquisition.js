@@ -444,30 +444,36 @@ async function buildPromoLive(cfg) {
 
   // ---- Détail par juré / créa : dépense Meta niveau publicité (même périmètre de campagnes) × inscrits UTM content.
   //      Juré = texte avant le 1er « - » du nom de pub (« Marc - Mais vous avez peur » → Marc).
-  const jureOf = (n) => { const j = clean(n).split(/\s+-\s+/)[0].trim(); return j ? j.charAt(0).toUpperCase() + j.slice(1) : "?"; };
-  const adMap = {};
+  // Juré seulement si le nom a la forme « Prénom - accroche » (préfixe de 1 à 2 mots) ; sinon pub sans juré (affichée à plat).
+  const jureOf = (n) => { const p = clean(n).split(/\s+-\s+/); if (p.length < 2) return null; const j = p[0].trim();
+    return j && j.split(/\s+/).length <= 2 ? j.charAt(0).toUpperCase() + j.slice(1) : null; };
+  const adKey = (n) => norm2(n).replace(/\s*-\s*copie(\s*\d+)?$/i, ""); // « … - Copie » = même pub dupliquée
+  const adMap = {}, adById = {};
   for (const a of (ads && ads.rows) || []) {
     if (a.currency && a.currency !== "EUR") continue;
     const ok = META.match.test(norm2(a.name)) || META.includeIds.includes(String(a.campaignId));
     if (!ok) continue;
-    const k = norm2(a.adName);
-    const row = adMap[k] || (adMap[k] = { name: clean(a.adName), spend: 0, ins: 0, ventes: 0 });
+    const k = adKey(a.adName);
+    const row = adMap[k] || (adMap[k] = { name: clean(a.adName).replace(/\s*-\s*copie(\s*\d+)?$/i, ""), spend: 0, ins: 0, ventes: 0 });
     row.spend += a.spend;
+    if (a.adId) adById[a.adId] = row;
   }
   for (const [k, ins] of Object.entries(creaIns)) {
-    const row = adMap[norm2(k)] || (adMap[norm2(k)] = { name: clean(k).replace(/[<>]/g, "").slice(0, 80), spend: null, ins: 0, ventes: 0 });
+    const row = (/^\d+$/.test(k) && adById[k]) || adMap[adKey(k)]
+      || (adMap[adKey(k)] = { name: clean(k).replace(/[<>]/g, "").replace(/\s*-\s*copie(\s*\d+)?$/i, "").slice(0, 80), spend: null, ins: 0, ventes: 0 });
     row.ins += ins; row.ventes += creaVentes[k] || 0;
   }
   const jures = {};
   for (const ad of Object.values(adMap)) {
     if (!(ad.spend > 0) && !ad.ins) continue;
-    const jn = ad.name === "(sans nom de pub)" ? "(sans nom de pub)" : jureOf(ad.name);
-    const j = jures[jn] || (jures[jn] = { jure: jn, spend: 0, hasSpend: false, ins: 0, ventes: 0, ads: [] });
+    const jr = ad.name === "(sans nom de pub)" ? null : jureOf(ad.name);
+    const jn = jr || ad.name; // sans juré : une ligne par pub
+    const j = jures[jn] || (jures[jn] = { jure: jn, flat: !jr, spend: 0, hasSpend: false, ins: 0, ventes: 0, ads: [] });
     if (ad.spend != null) { j.spend += ad.spend; j.hasSpend = true; }
     j.ins += ad.ins; j.ventes += ad.ventes;
     j.ads.push({ name: ad.name, ins: ad.ins, ventes: ad.ventes, spend: ad.spend == null ? null : r2(ad.spend) });
   }
-  const creas = Object.values(jures).map((j) => ({ jure: j.jure, ins: j.ins, ventes: j.ventes, spend: j.hasSpend ? r2(j.spend) : null,
+  const creas = Object.values(jures).map((j) => ({ jure: j.jure, flat: j.flat, ins: j.ins, ventes: j.ventes, spend: j.hasSpend ? r2(j.spend) : null,
     ads: j.ads.sort((a, b) => ((b.spend || 0) - (a.spend || 0)) || (b.ins - a.ins)) }))
     .sort((a, b) => ((b.spend || 0) - (a.spend || 0)) || (b.ins - a.ins));
   const creasOk = !!ads && !(ads.errors || []).length;
