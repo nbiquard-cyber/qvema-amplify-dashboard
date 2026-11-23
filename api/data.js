@@ -799,7 +799,7 @@ module.exports = async (req, res) => {
 
     // ---------- AIRTABLE ----------
     const [clientsRaw, connect, candidatures, accueilRaw] = await Promise.all([
-      airtableAll(T.clients, ["Promo", "Montant", "Statut Paiement", "Produit", "Date Paiement", "Email", "Email paiement", "Mensualités hors Stripe", "Sexe", "Age", "Code postal", "Pays", "Mode de paiement", "Prénom", "Nom"]),
+      airtableAll(T.clients, ["Promo", "Montant", "Statut Paiement", "Produit", "Date Paiement", "Email", "Email paiement", "Mensualités hors Stripe", "Sexe", "Age", "Code postal", "Pays", "Mode de paiement", "Prénom", "Nom", "Canal de vente", "Paywall", "Moyen de paiement", "URL checkout"]),
       airtableAll(T.connect, ["Email", "Nom complet", "Montant", "Statut Paiement", "Date Paiement", "Mode Paiement", "Saison QVEMA", "Statut Membre", "Code postal", "Ville", "Pays", "Notes"]),
       airtableAll(T.candidatures, ["Statut Candidature", "Statut Membre", "Mode de paiement", "Date Candidature", "Sous-cercle d'intérêt", "Saison"]),
       airtableAll(T.accueil, ["Promo", "Secteur d'activité", "Stade d'avancement", "Région", "Adresse mail", "Horodatage", "Sexe"]),
@@ -817,6 +817,8 @@ module.exports = async (req, res) => {
 
     // ----- Bootcamp (Clients) -----
     const bcPaid = clients.filter((c) => norm(c.fields["Statut Paiement"]) === "Payé");
+    // Nombre d'échéances d'un plan : 2x / 3x lus dans « Mode de paiement » ; sinon 4 (comportement historique 1x/4x inchangé).
+    const nbEcheances = (c) => { const m = /^([23])x$/i.exec(norm(c.fields["Mode de paiement"])); return m ? Number(m[1]) : 4; };
 
     // byPromo (comparatif global : inscrits + CA généré par promo)
     const byPromo = {};
@@ -989,6 +991,7 @@ module.exports = async (req, res) => {
     //     Coaching (réinjecté séparément par buildScope via coach.ca, sinon double compte).
     //     Rattachement à la promo par e-mail d'inscription OU "Email paiement" (emailToPromoAll),
     //     ce qui récupère les paiements faits sous une carte/e-mail pro distinct.
+    const encByEmail = {}; // e-mail (rattaché à un Payé) -> net encaissé Stripe : sert au détail par canal / par sales
     for (const c of succeeded) {
       if (bucket(c.amount) === "amplify") continue;
       if (/coaching/i.test(c.description || "")) continue;
@@ -1002,6 +1005,7 @@ module.exports = async (req, res) => {
       const net = (c.amount - (c.amount_refunded || 0)) / 100;
       caEncGlobal += net;
       caEncByPromo[promo] = (caEncByPromo[promo] || 0) + net;
+      encByEmail[em] = (encByEmail[em] || 0) + net;
     }
     // Mensualités réglées HORS Stripe (virements), clients PAYÉS uniquement : argent encaissé,
     // compté dans le CA encaissé (mensualité = Montant du contrat / 4). Symétrique du crédit
@@ -1009,7 +1013,7 @@ module.exports = async (req, res) => {
     for (const c of bcPaid) {
       const n = Number(c.fields["Mensualités hors Stripe"]) || 0;
       if (n <= 0) continue;
-      const mens = (Number(c.fields["Montant"]) || 0) / 4;
+      const mens = (Number(c.fields["Montant"]) || 0) / nbEcheances(c);
       if (mens <= 0) continue;
       const add = n * mens;
       const promo = promoOf(c);
@@ -1145,6 +1149,22 @@ module.exports = async (req, res) => {
         if (is4x) nb4x++;
       }
       const nb1x = Math.max(0, list.length - nb4x);
+      // Modes 1x/2x/3x/4x (champ Airtable, repli historique 4x/1x via Stripe) + mensualité moyenne = Montant réel / nb d'échéances.
+      const modes = { "1x": { count: 0, total: 0 }, "2x": { count: 0, total: 0 }, "3x": { count: 0, total: 0 }, "4x": { count: 0, total: 0 } };
+      const moyens = {};
+      for (const c of list) {
+        const raw = norm(c.fields["Mode de paiement"]).toLowerCase();
+        const em = lower(c.fields["Email"]);
+        const k = modes[raw] ? raw : (em && emails4x.has(em) ? "4x" : "1x");
+        modes[k].count++; modes[k].total += Number(c.fields["Montant"]) || 0;
+        const mo = norm(c.fields["Moyen de paiement"]) || "Non renseigné";
+        moyens[mo] = (moyens[mo] || 0) + 1;
+      }
+      const modesOut = {};
+      for (const [k, v] of Object.entries(modes)) {
+        const n = Number(k[0]);
+        modesOut[k] = { count: v.count, mensualite: v.count ? Math.round((v.total / v.count / n) * 100) / 100 : null };
+      }
       const caGenTot = caGenere + coach.ca;        // coaching ajouté au CA généré
       const caEncTot = caEnc + coach.ca;           // et au CA encaissé (payé en 1 fois)
       return {
@@ -1153,7 +1173,7 @@ module.exports = async (req, res) => {
         caEncaisse: stripeOk ? Math.round(caEncTot * 100) / 100 : null,
         caRestantAEncaisser: stripeOk ? Math.round((caGenTot - caEncTot) * 100) / 100 : null,
         coaching: coach,                            // { count, ca } — produit Coaching individuel
-        paiement: { un_fois: nb1x, quatre_fois: nb4x, installments_collectees: installments },
+        paiement: { un_fois: nb1x, quatre_fois: nb4x, installments_collectees: installments, modes: modesOut, moyens },
         statutCounts,
         byDay,
         demographics: computeDemographics(list),
@@ -1264,8 +1284,66 @@ module.exports = async (req, res) => {
     const acGeoQvema = computeAmplifyGeo(acQvema.map(acWithGeo));
     const acGeoBootcamp = computeAmplifyGeo(acBootcamp.map(acWithGeo));
 
+    // ----- Canal de vente (Closers / Site / Autre) : champ rempli par Make depuis le 23/11/2026 -----
+    // Vide + fiche de moins de 15 min = « En attente d'attribution » ; vide sinon = « Non attribué » (dont promos 1-4).
+    const CANAL_DEPUIS = "2026-11-23";
+    const canalOf = (c) => {
+      const v = norm(c.fields["Canal de vente"]);
+      if (v === "Closers") return "sales";
+      if (v === "Site") return "site";
+      if (v) return "autre";
+      const ct = Date.parse(c.createdTime || "");
+      return ct && Date.now() - ct < 15 * 60000 ? "attente" : "nonAttribue";
+    };
+    // Encaissé d'un client = même méthode que le CA encaissé des cartes (Stripe net rattaché par e-mail + mensualités hors Stripe).
+    const encOf = (c) => {
+      let e = 0; const seenEm = new Set();
+      for (const em of emailsOf(c)) { if (seenEm.has(em)) continue; seenEm.add(em); e += encByEmail[em] || 0; }
+      const n = Number(c.fields["Mensualités hors Stripe"]) || 0;
+      if (n > 0) e += n * ((Number(c.fields["Montant"]) || 0) / nbEcheances(c));
+      return e;
+    };
+    const salesNameOf = (c) => {
+      const u = norm(c.fields["URL checkout"]); let v = "";
+      try { v = new URL(u).searchParams.get("utm_content") || ""; } catch (_) { const m = /[?&]utm_content=([^&#]*)/i.exec(u); if (m) { try { v = decodeURIComponent(m[1].replace(/\+/g, " ")); } catch (_) { v = m[1]; } } }
+      v = v.trim();
+      return v ? v.charAt(0).toUpperCase() + v.slice(1).toLowerCase() : "Non renseigné";
+    };
+    const r2c = (x) => Math.round(x * 100) / 100;
+    const canalScope = (all) => {
+      const paidL = all.filter((c) => norm(c.fields["Statut Paiement"]) === "Payé");
+      const refL = all.filter((c) => norm(c.fields["Statut Paiement"]) === "Remboursé");
+      const keys = ["sales", "site", "autre", "nonAttribue", "attente"];
+      const canaux = {};
+      for (const k of keys) canaux[k] = { inscrits: 0, caGenere: 0, caEncaisse: 0, rembourses: 0 };
+      for (const c of paidL) { const x = canaux[canalOf(c)]; x.inscrits++; x.caGenere += Number(c.fields["Montant"]) || 0; x.caEncaisse += encOf(c); }
+      for (const c of refL) canaux[canalOf(c)].rembourses++;
+      for (const k of keys) {
+        const x = canaux[k];
+        x.caGenere = r2c(x.caGenere);
+        x.caEncaisse = stripeOk ? r2c(x.caEncaisse) : null;
+        x.resteAEncaisser = stripeOk ? r2c(x.caGenere - x.caEncaisse) : null;
+        const den = x.inscrits + x.rembourses;
+        x.tauxRemboursement = den ? Math.round((x.rembourses / den) * 1000) / 10 : 0;
+      }
+      // Performance par sales (Canal = Closers) : prénom = utm_content de l'URL de checkout.
+      const bySales = {};
+      const ensureS = (n) => bySales[n] || (bySales[n] = { nom: n, ventes: 0, caGenere: 0, caEncaisse: 0, rembourses: 0, modes: { "1x": 0, "2x": 0, "3x": 0, "4x": 0 } });
+      for (const c of paidL) {
+        if (canalOf(c) !== "sales") continue;
+        const s = ensureS(salesNameOf(c));
+        s.ventes++; s.caGenere += Number(c.fields["Montant"]) || 0; s.caEncaisse += encOf(c);
+        const md = norm(c.fields["Mode de paiement"]).toLowerCase(); if (s.modes[md] != null) s.modes[md]++;
+      }
+      for (const c of refL) if (canalOf(c) === "sales") ensureS(salesNameOf(c)).rembourses++;
+      const sales = Object.values(bySales).map((s) => ({ ...s, caGenere: r2c(s.caGenere), caEncaisse: stripeOk ? r2c(s.caEncaisse) : null }))
+        .sort((a, b) => b.ventes - a.ventes || b.caGenere - a.caGenere || a.nom.localeCompare(b.nom));
+      return { depuis: CANAL_DEPUIS, canaux, sales, sepa: paidL.filter((c) => norm(c.fields["Moyen de paiement"]) === "SEPA").length };
+    };
+
     const scopes = {};
     scopes["Toutes"] = buildScope(bcPaid, caEncGlobal, instGlobal, statutGlobal, coachGlobal);
+    scopes["Toutes"].ventes = canalScope(clients);
     scopes["Toutes"].secteurs = secteurGlobal;
     scopes["Toutes"].stades = stadeGlobal;
     scopes["Toutes"].impayes = impayeScope(impayesAll);
@@ -1279,6 +1357,7 @@ module.exports = async (req, res) => {
       scopes[p].secteurs = secteurByPromo[p] || {};
       scopes[p].stades = stadeByPromo[p] || {};
       scopes[p].impayes = impayeScope(impayesByPromo[p]);
+      scopes[p].ventes = canalScope(clients.filter((c) => promoOf(c) === p));
       // Promos 3 & 4 : genre + régions depuis Accueil Bootcamp (champs Clients non renseignés pour une promo récente ;
       // demoFromAccueil retombe sur les champs Clients si l'e-mail n'est pas dans Accueil).
       if (["PROMO 3", "PROMO 4", "PROMO 5"].includes(p) && scopes[p].demographics) {
@@ -1363,7 +1442,7 @@ module.exports = async (req, res) => {
         for (const k of Object.keys(bc.scopes || {})) {
           const s = bc.scopes[k];
           delete s.caGenere; delete s.caEncaisse; delete s.caRestantAEncaisser;
-          delete s.coaching; delete s.paiement; delete s.statutCounts;
+          delete s.coaching; delete s.paiement; delete s.statutCounts; delete s.ventes;
           delete s.byDay; delete s.impayes; delete s.refund;
           // conservés : totalInscrits, demographics, secteurs, stades
         }

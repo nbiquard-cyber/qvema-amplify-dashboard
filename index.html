@@ -9,12 +9,12 @@
   :root{
     --bg:#0b0e14; --panel:#141925; --panel2:#1b2230; --line:#27303f;
     --txt:#e6ebf2; --muted:#8a94a6; --accent:#ffce3a; --accent2:#5b8def;
-    --green:#3ecf8e; --red:#ef5b6b; --purple:#a779ff;
+    --green:#3ecf8e; --red:#ef5b6b; --purple:#a779ff; --sales:#2ec4b6;
   }
   :root[data-theme="light"]{
     --bg:#f5f2ea; --panel:#ffffff; --panel2:#eef1f5; --line:#e2e6ec;
     --txt:#1b2536; --muted:#697084; --accent:#c28f00; --accent2:#3b6fd6;
-    --green:#1f9d5b; --red:#d64545; --purple:#7c5cff;
+    --green:#1f9d5b; --red:#d64545; --purple:#7c5cff; --sales:#0f8f84;
   }
   :root[data-theme="light"] .sb-item.active{color:#11151d}
   :root[data-theme="light"] .fb-err,:root[data-theme="light"] .crm-panel-card .fb-err{background:#fdeaea;border-color:#f0b3b3;color:#a12a2a}
@@ -45,13 +45,15 @@
   .grid{display:grid;gap:16px}
   .kpis{grid-template-columns:repeat(4,1fr)}
   .kpis.kpis5{grid-template-columns:repeat(5,1fr)}
-  @media(max-width:900px){.kpis,.kpis.kpis5{grid-template-columns:repeat(2,1fr)}}
-  @media(max-width:560px){.kpis,.kpis.kpis5{grid-template-columns:1fr}}
+  @media(max-width:900px){.kpis,.kpis.kpis5,.kpis.kpis6{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.kpis,.kpis.kpis5,.kpis.kpis6{grid-template-columns:1fr}}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
   .kpi .label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
   .kpi .value{font-size:30px;font-weight:800;margin-top:8px;line-height:1.1}
   .kpi .sub{font-size:12px;color:var(--muted);margin-top:6px}
-  .kpi .value.green{color:var(--green)} .kpi .value.blue{color:var(--accent2)} .kpi .value.yellow{color:var(--accent)} .kpi .value.purple{color:var(--purple)} .kpi .value.red{color:var(--red)}
+  .kpi .value.green{color:var(--green)} .kpi .value.blue{color:var(--accent2)} .kpi .value.yellow{color:var(--accent)} .kpi .value.purple{color:var(--purple)} .kpi .value.red{color:var(--red)} .kpi .value.sales{color:var(--sales)}
+  .kpis.kpis6{grid-template-columns:repeat(3,1fr)}
+  .bc-canal-dot{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:7px;vertical-align:middle}
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
   .row2.solo{grid-template-columns:1fr}
   @media(max-width:900px){.row2{grid-template-columns:1fr}}
@@ -425,8 +427,9 @@
 
     <!-- SOUS-ONGLET : PILOTAGE -->
     <div id="bc-sub-pilotage" class="bc-sub">
-      <div class="grid kpis">
+      <div class="grid kpis kpis6">
         <div class="card kpi"><div class="label">Inscrits payés</div><div class="value yellow" id="bc-inscrits">—</div><div class="sub" id="bc-inscrits-sub"></div></div>
+        <div class="card kpi"><div class="label">Vendus par les sales</div><div class="value sales" id="bc-sales">—</div><div class="sub" id="bc-sales-sub"></div></div>
         <div class="card kpi"><div class="label">CA généré</div><div class="value blue" id="bc-cagenere">—</div><div class="sub">valeur totale des ventes</div></div>
         <div class="card kpi"><div class="label">CA encaissé</div><div class="value green" id="bc-caencaisse">—</div><div class="sub" id="bc-caencaisse-sub"></div></div>
         <div class="card kpi"><div class="label">Reste à encaisser</div><div class="value purple" id="bc-careste">—</div><div class="sub">échéancier 4x à venir</div></div>
@@ -446,6 +449,19 @@
         </div>
       </div>
 
+      <div class="row2" style="margin-top:16px">
+        <div class="card">
+          <h3><span class="dot"></span>Répartition par canal</h3>
+          <table id="bc-canal-table"><thead><tr><th>Canal</th><th class="num">Inscrits</th><th class="num">CA généré</th><th class="num">CA encaissé</th><th class="num">Taux remb.</th></tr></thead><tbody></tbody></table>
+          <div class="note" id="bc-canal-note"></div>
+        </div>
+        <div class="card">
+          <h3><span class="dot"></span>Performance par sales</h3>
+          <table id="bc-sales-table"><thead><tr><th>Sales</th><th class="num">Ventes</th><th class="num">CA généré</th><th class="num">CA encaissé</th><th class="num">Remb.</th><th class="num">1x · 2x · 3x · 4x</th></tr></thead><tbody></tbody></table>
+          <div class="note" id="bc-sales-note"></div>
+        </div>
+      </div>
+
       <div class="row2" id="bc-row-promo">
         <div class="card" id="bc-card-promo">
           <h3><span class="dot"></span>Inscrits par promo <span style="color:var(--muted);font-weight:400">· clique pour filtrer</span></h3>
@@ -455,6 +471,7 @@
           <h3><span class="dot"></span>Mode de paiement</h3>
           <div class="chart-box"><canvas id="bc-pay-chart"></canvas></div>
           <div class="note" id="bc-pay-note"></div>
+          <div id="bc-moyen" style="margin-top:12px"></div>
         </div>
       </div>
 
@@ -917,14 +934,60 @@ function renderBcPilotage(s, scopeLabel){
     else { impCard.style.cursor='default'; impCard.style.opacity='.7'; if(see) see.style.display='none'; impCard.onclick=null; }
   }
 
+  // Mode de paiement : 1x / 2x / 3x / 4x, mensualité moyenne calculée sur le Montant réel (Montant ÷ nb d'échéances).
   const p = s.paiement;
+  const MD = p.modes || {'1x':{count:p.un_fois,mensualite:null},'4x':{count:p.quatre_fois,mensualite:null}};
+  const MCOL = {'1x':'#3ecf8e','2x':'#ffce3a','3x':'#a779ff','4x':'#5b8def'};
+  const mk = ['1x','2x','3x','4x'].filter(k=>MD[k]&&MD[k].count>0);
+  const mkShow = mk.length ? mk : ['1x','4x'];
   destroy('pay');
   charts.pay = new Chart(document.getElementById('bc-pay-chart'),{
     type:'doughnut',
-    data:{labels:['Paiement 1 fois','Paiement 4 fois'],datasets:[{data:[p.un_fois,p.quatre_fois],backgroundColor:['#3ecf8e','#5b8def'],borderWidth:0}]},
-    options:{cutout:'62%',plugins:{legend:{position:'bottom'}}}
+    data:{labels:mkShow.map(k=>k==='1x'?'Paiement 1 fois':'Paiement '+k[0]+' fois'),datasets:[{data:mk.length?mkShow.map(k=>MD[k].count):[1,0],backgroundColor:mk.length?mkShow.map(k=>MCOL[k]):['#445067','#445067'],borderWidth:0}]},
+    options:{cutout:'62%',plugins:{legend:{position:'bottom'},tooltip:{enabled:mk.length>0}}}
   });
-  document.getElementById('bc-pay-note').innerHTML = `<b>${NUM(p.un_fois)}</b> en 1 fois · <b>${NUM(p.quatre_fois)}</b> en 4 fois (322,50€/mois ×4). ${p.installments_collectees||0} mensualités encaissées à ce jour.`;
+  document.getElementById('bc-pay-note').innerHTML = mk.length
+    ? mk.map(k=>`<b>${NUM(MD[k].count)}</b> en ${k==='1x'?'1 fois':k[0]+' fois'+(MD[k].mensualite?` (${EUR(MD[k].mensualite)}/mois en moyenne)`:'')}`).join(' · ')+`. ${p.installments_collectees||0} mensualités 4x encaissées à ce jour.`
+    : 'Aucune vente pour l\'instant.';
+  // Moyen de paiement (Carte / SEPA / Klarna / Link) — SEPA mis en évidence (contestation bancaire possible 8 semaines).
+  const MY = p.moyens || {}, myTot = Object.values(MY).reduce((a,b)=>a+b,0);
+  const MYCOL = {Carte:'#5b8def',SEPA:'#ef5b6b',Klarna:'#e0a44a',Link:'#3ecf8e','Non renseigné':'#445067'};
+  const myOrder = ['Carte','SEPA','Klarna','Link','Non renseigné'].concat(Object.keys(MY).filter(k=>!['Carte','SEPA','Klarna','Link','Non renseigné'].includes(k)));
+  const sepa = MY.SEPA||0;
+  document.getElementById('bc-moyen').innerHTML = myTot
+    ? `<div style="font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Moyen de paiement</div>`
+      + `<div style="display:flex;height:9px;border-radius:5px;overflow:hidden;background:var(--panel2)">`+myOrder.filter(k=>MY[k]).map(k=>`<span title="${k} : ${MY[k]}" style="width:${MY[k]/myTot*100}%;background:${MYCOL[k]||'#8a94a6'}"></span>`).join('')+`</div>`
+      + `<div style="display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:6px;font-size:12.5px">`+myOrder.filter(k=>MY[k]).map(k=>`<span><span class="bc-canal-dot" style="background:${MYCOL[k]||'#8a94a6'}"></span>${k} <b>${NUM(MY[k])}</b></span>`).join('')+`</div>`
+      + (sepa ? `<div style="margin-top:8px;font-size:12.5px;padding:7px 10px;border-radius:8px;border:1px solid var(--line);border-left:3px solid var(--red)">⚠️ <b>${NUM(sepa)}</b> vente(s) en SEPA : remboursement demandable à la banque pendant 8 semaines.</div>` : '')
+    : '';
+
+  renderBcVentes(s, scopeLabel);
+}
+
+// Canal de vente (Closers / Site / Autre) + performance par sales — même filtre de promo que le reste du Pilotage.
+function renderBcVentes(s, scopeLabel){
+  const v = s.ventes || {canaux:{},sales:[],depuis:'2026-11-23'};
+  const C = v.canaux || {}, z = {inscrits:0,caGenere:0,caEncaisse:0,rembourses:0,tauxRemboursement:0};
+  const sl = C.sales || z, tot = s.totalInscrits || 0;
+  document.getElementById('bc-sales').textContent = NUM(sl.inscrits);
+  document.getElementById('bc-sales-sub').textContent = (tot ? Math.round(sl.inscrits/tot*100) : 0)+' % des inscrits payés · '+EUR(sl.caGenere)+' de CA';
+  const ROWS = [['sales','Sales (closers)','var(--sales)'],['site','Site','var(--accent2)'],['autre','Autre paywall','var(--purple)'],['nonAttribue','Non attribué','#8a94a6'],['attente','En attente d\'attribution','#e0a44a']];
+  const tb = document.querySelector('#bc-canal-table tbody'); tb.innerHTML='';
+  ROWS.forEach(([k,lab,col])=>{
+    const x = C[k] || z;
+    if(k==='attente' && !x.inscrits && !x.rembourses) return; // n'apparaît que s'il y a des fiches en cours de traitement
+    tb.insertAdjacentHTML('beforeend', `<tr><td><span class="bc-canal-dot" style="background:${col}"></span>${lab}</td><td class="num">${NUM(x.inscrits)}</td><td class="num">${EUR(x.caGenere)}</td><td class="num">${x.caEncaisse==null?'—':EUR(x.caEncaisse)}</td><td class="num">${String(x.tauxRemboursement||0).replace('.',',')} %</td></tr>`);
+  });
+  const na = (C.nonAttribue||z).inscrits;
+  document.getElementById('bc-canal-note').textContent = (na ? 'Suivi du canal disponible depuis le 23/11/2026 : les ventes antérieures sont en « Non attribué ». ' : '')
+    + 'Taux remb. = remboursés ÷ (payés + remboursés) du canal. CA hors coaching.';
+  const st = document.querySelector('#bc-sales-table tbody'); st.innerHTML='';
+  const sales = v.sales || [];
+  if(!sales.length){ st.innerHTML = `<tr><td colspan="6" style="color:var(--muted);text-align:center;padding:14px">Aucune vente closers · ${scopeLabel}</td></tr>`; }
+  sales.forEach(r=>{
+    st.insertAdjacentHTML('beforeend', `<tr><td>${escHtml(r.nom)}</td><td class="num"><b>${NUM(r.ventes)}</b></td><td class="num">${EUR(r.caGenere)}</td><td class="num">${r.caEncaisse==null?'—':EUR(r.caEncaisse)}</td><td class="num">${NUM(r.rembourses)}</td><td class="num">${['1x','2x','3x','4x'].map(k=>r.modes[k]||0).join(' · ')}</td></tr>`);
+  });
+  document.getElementById('bc-sales-note').textContent = 'Prénom du sales = paramètre utm_content de l\'URL de checkout (« Non renseigné » si absent). Ventes = inscrits payés.';
 }
 
 function renderBcDemo(s, scopeLabel){
