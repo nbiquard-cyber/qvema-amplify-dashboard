@@ -629,34 +629,55 @@ async function fetchRdvSales(cfg, promoFilter) {
     const typeOf = (e) => cfg.types[String(e.event_type || "").split("/").pop()];
     const mine = events.filter((e) => typeOf(e));
     const isTest = (e) => e.status === "canceled" && /test/i.test((e.cancellation && e.cancellation.reason) || "");
-    const actifs = mine.filter((e) => e.status === "active"), annules = mine.filter((e) => e.status === "canceled" && !isTest(e));
-    const now = Date.now(), parSource = { Webi: 0, Setting: 0 }, parSales = {};
+    const now = Date.now();
+    // Invités (e-mail + date de réservation) des rdv actifs — cache 30 min par événement.
+    const actifsAll = mine.filter((e) => e.status === "active");
+    await Promise.all(actifsAll.map(async (e) => {
+      const c = _calInv[e.uri];
+      if (c && now - c.at < 1800000) return;
+      try {
+        const j = await calGet(e.uri + "/invitees?count=100", token);
+        const list = (j.collection || []).filter((x) => x.status !== "canceled")
+          .map((x) => ({ email: String(x.email || "").trim().toLowerCase(), booked: Date.parse(x.created_at) || Date.parse(e.created_at) || now }))
+          .filter((x) => x.email);
+        _calInv[e.uri] = { inv: list, at: now };
+      } catch (_) { _calInv[e.uri] = { inv: [], at: now - 1700000 }; }
+    }));
+    // Clients payés (toutes promos) : e-mail -> date de paiement la plus ancienne + flag PROMO 5.
+    const promoOf = (c) => String(c.fields["Promo"] || "").trim().toUpperCase();
+    const isP5 = (c) => promoOf(c) === "PROMO 5" || promoOf(c) === "WEBI 25/11/26";
+    const clients = await airtableAll(T.clients, ["Email", "Email paiement", "Statut Paiement", "Date Paiement", "Promo"]).catch(() => []);
+    const paidAt = new Map(); // email -> { at, p5 }
+    for (const c of clients) {
+      if (String(c.fields["Statut Paiement"] || "").trim() !== "Payé" || /test/i.test(promoOf(c))) continue;
+      const at = Date.parse(c.fields["Date Paiement"] || c.createdTime || "") || 0;
+      for (const m of [c.fields["Email"], c.fields["Email paiement"]].map((x) => String(x || "").trim().toLowerCase()).filter(Boolean)) {
+        const prev = paidAt.get(m);
+        if (!prev || at < prev.at) paidAt.set(m, { at, p5: isP5(c) || (prev && prev.p5) });
+        else if (isP5(c)) prev.p5 = true;
+      }
+    }
+    // Un rdv pris par quelqu'un qui avait DÉJÀ payé n'est pas un rdv de vente : il sort de tous les compteurs.
+    const dejaClient = (e) => ((_calInv[e.uri] || {}).inv || []).some((x) => { const p = paidAt.get(x.email); return p && p.at && p.at <= x.booked; });
+    const exclus = actifsAll.filter(dejaClient);
+    const actifs = actifsAll.filter((e) => !dejaClient(e)), annules = mine.filter((e) => e.status === "canceled" && !isTest(e));
+    const parSource = { Webi: 0, Setting: 0 }, parSales = {};
     for (const e of actifs) {
       parSource[typeOf(e)] = (parSource[typeOf(e)] || 0) + 1;
       const host = ((e.event_memberships || [])[0] || {}).user_name || "?";
       parSales[host] = (parSales[host] || 0) + 1;
     }
-    // E-mails des invités (cache 30 min par événement) → rapprochement avec les ventes PROMO 5.
-    const emails = new Set();
-    await Promise.all(actifs.map(async (e) => {
-      const c = _calInv[e.uri];
-      if (c && now - c.at < 1800000) { c.emails.forEach((m) => emails.add(m)); return; }
-      try {
-        const j = await calGet(e.uri + "/invitees?count=100", token);
-        const list = (j.collection || []).filter((x) => x.status !== "canceled").map((x) => String(x.email || "").trim().toLowerCase()).filter(Boolean);
-        _calInv[e.uri] = { emails: list, at: now }; list.forEach((m) => emails.add(m));
-      } catch (_) {}
-    }));
-    const clients = await airtableAll(T.clients, ["Email", "Email paiement", "Statut Paiement", "Date Paiement"], promoFilter).catch(() => []);
-    let ventesApresRdv = 0;
-    for (const c of clients) {
-      if (String(c.fields["Statut Paiement"] || "").trim() !== "Payé") continue;
-      const ems = [c.fields["Email"], c.fields["Email paiement"]].map((x) => String(x || "").trim().toLowerCase());
-      if (ems.some((m) => m && emails.has(m))) ventesApresRdv++;
+    // Vente après RDV = acheteur PROMO 5 dont le paiement est POSTÉRIEUR à sa réservation.
+    const emails = new Set(); let ventesApresRdv = 0; const vus = new Set();
+    for (const e of actifs) for (const x of (_calInv[e.uri] || {}).inv || []) {
+      emails.add(x.email);
+      const p = paidAt.get(x.email);
+      if (p && p.p5 && p.at > x.booked && !vus.has(x.email)) { vus.add(x.email); ventesApresRdv++; }
     }
     const passes = actifs.filter((e) => Date.parse(e.end_time) < now).length;
     return { source: "live", at: new Date().toISOString(), rdv: actifs.length, annules: annules.length, passes, aVenir: actifs.length - passes,
-      parSource, parSales, emailsRdv: emails.size, ventesApresRdv, conversion: passes ? Math.round((ventesApresRdv / passes) * 1000) / 10 : null };
+      parSource, parSales, emailsRdv: emails.size, dejaClients: exclus.length, ventesApresRdv,
+      conversion: passes ? Math.round((ventesApresRdv / passes) * 1000) / 10 : null };
   } catch (e) {
     return { ...snap, error: String(e.message || e).slice(0, 120) };
   }

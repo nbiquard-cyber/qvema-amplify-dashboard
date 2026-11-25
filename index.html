@@ -2429,13 +2429,13 @@ if(AUTH && AUTH.token){
         +kk('RDV pris',NUM(R.rdv),pc2(R.rdv,liveN)+' des présents · '+pc2(R.rdv,insN)+' des inscrits','var(--sales)')
         +kk('Réalisés / à venir',NUM(R.passes||0)+' / '+NUM(R.aVenir||0),'selon l\'heure du rdv','var(--accent2)')
         +kk('Annulés',NUM(R.annules||0),'hors tests','var(--red)')
-        +kk('Ventes après RDV',R.ventesApresRdv==null?'—':NUM(R.ventesApresRdv),R.ventesApresRdv==null?'branchement Calendly requis':'e-mail du rdv = acheteur PROMO 5','var(--green)')
+        +kk('Ventes après RDV',R.ventesApresRdv==null?'—':NUM(R.ventesApresRdv),R.ventesApresRdv==null?'branchement Calendly requis':'achat PROMO 5 après la prise de rdv','var(--green)')
         +kk('Taux de conversion',R.conversion==null?'—':String(R.conversion).replace('.',',')+' %',R.conversion==null?(R.passes?'':'aucun rdv réalisé pour l\'instant'):'ventes ÷ rdv réalisés','var(--purple)')
         +'</div>'
         +'<div style="display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:10px;font-size:12.5px"><span style="color:var(--muted)">Source :</span>'
         +Object.entries(R.parSource||{}).map(([k,v])=>'<span>'+(k==='Webi'?'Après la conférence':'Setting')+' <b>'+NUM(v)+'</b></span>').join('')+'</div>'
         +(sales.length?'<div style="display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:6px;font-size:12.5px"><span style="color:var(--muted)">Par sales :</span>'+sales.map(([n,v])=>'<span>'+escHtml(n)+' <b>'+NUM(v)+'</b></span>').join('')+'</div>':'')
-        +'<div class="note" style="margin-top:8px">'+(R.source==='live'?'Calendly en temps réel'+(R.emailsRdv!=null?' · '+NUM(R.emailsRdv)+' e-mails de prospects rapprochés des ventes PROMO 5':''):'Relevé Calendly du '+new Date(R.at).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+' (ajoute CALENDLY_TOKEN dans Vercel pour le temps réel et la conversion rdv → vente)')+'.</div>';
+        +'<div class="note" style="margin-top:8px">'+(R.source==='live'?'Calendly en temps réel'+(R.emailsRdv!=null?' · '+NUM(R.emailsRdv)+' e-mails de prospects rapprochés des ventes PROMO 5':'')+(R.dejaClients?' · '+NUM(R.dejaClients)+' rdv retiré'+(R.dejaClients>1?'s':'')+' (pris par des personnes ayant déjà payé)':''):'Relevé Calendly du '+new Date(R.at).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+' (ajoute CALENDLY_TOKEN dans Vercel pour le temps réel et la conversion rdv → vente)')+'.</div>';
     }
     const cc=document.getElementById('acq-crea-card'), cr=s.creas||[];
     if(!cr.length){ cc.classList.add('hidden'); }
