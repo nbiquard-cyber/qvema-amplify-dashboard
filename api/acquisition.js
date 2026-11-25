@@ -583,7 +583,7 @@ const WEBI5_AC = {
   date: "25/11/2026",
   tags: { inscrits: "Webi_Inscrit_25/11/26", live: "Webi_Attend_Live_25/11/26", absents: "Webi_Missed_Live_25/11/26",
           replay: "Webi_Attend_Replay_25/11/26", partisTot: "Webi_Left_Early_25/11/26", clients: "Client_Bootcamp_Webi_25/11/26" },
-  snapshot: { at: "2026-11-26T09:00:00+01:00", inscrits: 1723, live: 773, absents: 473, replay: 0, partisTot: 107, clients: 12 },
+  snapshot: { at: "2026-11-25T22:35:00+01:00", inscrits: 1723, live: 773, absents: 473, replay: 0, partisTot: 107, clients: 12 },
 };
 async function fetchWebiPresence(cfg) {
   const url = (process.env.AC_API_URL || "").replace(/\/+$/, ""), key = process.env.AC_API_KEY || "";
