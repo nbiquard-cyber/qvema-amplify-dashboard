@@ -576,6 +576,31 @@ function buildPromo5() {
   });
 }
 
+// ---------- Présence au webinaire (tags ActiveCampaign posés par WebinarJam) — PROMO 5 uniquement ----------
+// LIVE si AC_API_URL (ex. https://<compte>.api-us1.com) + AC_API_KEY sont définis dans Vercel ;
+// sinon dernier relevé connu (SNAPSHOT, lu via le connecteur ActiveCampaign).
+const WEBI5_AC = {
+  date: "25/11/2026",
+  tags: { inscrits: "Webi_Inscrit_25/11/26", live: "Webi_Attend_Live_25/11/26", absents: "Webi_Missed_Live_25/11/26",
+          replay: "Webi_Attend_Replay_25/11/26", partisTot: "Webi_Left_Early_25/11/26", clients: "Client_Bootcamp_Webi_25/11/26" },
+  snapshot: { at: "2026-11-26T09:00:00+01:00", inscrits: 1723, live: 773, absents: 473, replay: 0, partisTot: 107, clients: 12 },
+};
+async function fetchWebiPresence(cfg) {
+  const url = (process.env.AC_API_URL || "").replace(/\/+$/, ""), key = process.env.AC_API_KEY || "";
+  if (!url || !key) return { source: "snapshot", at: cfg.snapshot.at, ...cfg.snapshot };
+  try {
+    const r = await fetch(url + "/api/3/tags?search=" + encodeURIComponent("25/11/26") + "&limit=100", { headers: { "Api-Token": key } });
+    if (!r.ok) throw new Error("ActiveCampaign HTTP " + r.status);
+    const j = await r.json();
+    const byName = {}; for (const t of j.tags || []) byName[t.tag] = Number(t.subscriber_count) || 0;
+    const out = { source: "live", at: new Date().toISOString() };
+    for (const [k, name] of Object.entries(cfg.tags)) out[k] = byName[name] != null ? byName[name] : null;
+    return out;
+  } catch (e) {
+    return { source: "snapshot", at: cfg.snapshot.at, ...cfg.snapshot, error: String(e.message || e).slice(0, 120) };
+  }
+}
+
 function promo1Scope() {
   const inscrits = PROMO1.inscrits;
   const caFac = PROMO1.channels.reduce((a, c) => a + c.fac, 0);
@@ -693,7 +718,8 @@ module.exports = async (req, res) => {
   try {
     if (!_cache.data || Date.now() - _cache.at > _TTL) {
       if (!_inflight) _inflight = (async () => {
-        const [p2, p3, p4, p5] = await Promise.all([buildPromo2(), buildPromo3(), buildPromo4(), buildPromo5()]);
+        const [p2, p3, p4, p5, w5] = await Promise.all([buildPromo2(), buildPromo3(), buildPromo4(), buildPromo5(), fetchWebiPresence(WEBI5_AC)]);
+        p5.webi = { date: WEBI5_AC.date, ...w5 };
         return {
           generatedAt: new Date().toISOString(),
           colors: COLORS,

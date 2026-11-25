@@ -629,6 +629,10 @@
       <div class="card"><h3>Ventes & CA par canal (attribution UTM)</h3>
         <table id="acq-chan-table"><thead><tr><th>Canal</th><th class="num">Inscrits</th><th class="num">Ventes</th><th class="num">Conv.</th><th class="num">CA généré</th><th class="num">Encaissé conv.</th></tr></thead><tbody></tbody></table></div>
     </div>
+    <div class="card hidden" id="acq-webi-card" style="margin-top:16px"><h3>Présence au webinaire <span id="acq-webi-date" style="color:var(--muted);font-weight:400"></span></h3>
+      <div class="grid kpis kpis5" id="acq-webi-kpis" style="margin-top:6px"></div>
+      <div id="acq-webi-funnel" style="margin-top:14px"></div>
+      <div class="note" id="acq-webi-note"></div></div>
     <div class="card" id="acq-crea-card" style="margin-top:16px"><h3>Créas Meta — par juré (dépense par publicité ÷ inscrits UTM content)</h3>
       <table id="acq-crea-table"><thead><tr><th>Juré / publicité</th><th class="num">Inscrits</th><th class="num">Ventes</th><th class="num">Conv.</th><th class="num">Dépense</th><th class="num">CPL réel</th></tr></thead><tbody></tbody></table>
       <div class="note" id="acq-crea-note"></div></div>
@@ -2384,6 +2388,33 @@ if(AUTH && AUTH.token){
       tb2.appendChild(tr);
     });
     // Créas Meta : détail par juré puis par publicité (lignes repliables).
+    // Présence au webinaire (tags ActiveCampaign / WebinarJam) — uniquement les promos qui l'ont (PROMO 5).
+    const wc=document.getElementById('acq-webi-card'), W=s.webi;
+    if(!W){ wc.classList.add('hidden'); }
+    else {
+      wc.classList.remove('hidden');
+      const n=v=>v==null?null:Number(v), ins=n(W.inscrits)||0, live=n(W.live)||0, abs=n(W.absents)||0, rep=n(W.replay)||0, left=n(W.partisTot)||0;
+      const pc=(a,b)=>b?Math.round(a/b*1000)/10:0, P=x=>String(x).replace('.',',')+' %';
+      const restes=Math.max(0,live-left), nonClasses=Math.max(0,ins-live-abs), ventes=(s.kpis&&s.kpis.ventes)||0;
+      document.getElementById('acq-webi-date').textContent='· live du '+W.date;
+      const k=(lab,val,sub,col)=>'<div class="card kpi"><div class="label">'+lab+'</div><div class="value" style="color:'+col+'">'+val+'</div><div class="sub">'+sub+'</div></div>';
+      document.getElementById('acq-webi-kpis').innerHTML=
+        k('Inscrits au webi',NUM(ins),'tag Webi_Inscrit','var(--accent)')
+        +k('Présents au live',NUM(live),P(pc(live,ins))+' des inscrits','var(--green)')
+        +k('Absents au live',NUM(abs),P(pc(abs,ins))+' des inscrits','var(--red)')
+        +k('Partis avant 30 min',NUM(left),P(pc(left,live))+' des présents','#ff9f1c')
+        +k('Replay regardé',NUM(rep),rep?P(pc(rep,abs))+' des absents':'aucun pour l\'instant','var(--accent2)');
+      const steps=[['Inscrits au webi',ins,'var(--accent)'],['Présents au live',live,'var(--green)'],['Restés plus de 30 min',restes,'var(--accent2)'],['Ventes Promo 5',ventes,'var(--purple)']];
+      document.getElementById('acq-webi-funnel').innerHTML=steps.map(([lab,v,col],i)=>
+        '<div style="display:flex;align-items:center;gap:10px;margin:5px 0;font-size:13px"><div style="width:170px;flex:0 0 170px">'+lab+'</div>'
+        +'<div style="flex:1;background:var(--panel2);border-radius:6px;height:20px;overflow:hidden"><div style="height:100%;width:'+(ins?Math.max(v?1.5:0,v/ins*100):0)+'%;background:'+col+'"></div></div>'
+        +'<div style="width:150px;flex:0 0 150px;text-align:right"><b>'+NUM(v)+'</b> <span style="color:var(--muted)">'+(i?P(pc(v,steps[i-1][1]))+' de l\'étape préc.':'')+'</span></div></div>').join('');
+      const when=W.at?new Date(W.at).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+      document.getElementById('acq-webi-note').textContent='Source : tags ActiveCampaign posés par WebinarJam'+(W.source==='live'?' (temps réel)':' · relevé du '+when+' (non connecté en direct)')
+        +'. Conversion des présents : '+P(pc(ventes,live))+' ('+NUM(ventes)+' ventes ÷ '+NUM(live)+' présents).'
+        +(nonClasses?' '+NUM(nonClasses)+' inscrits ne sont ni « présents » ni « absents » (pas encore tagués par WebinarJam).':'')
+        +(W.clients!=null?' Tag Client_Bootcamp_Webi : '+NUM(W.clients)+'.':'');
+    }
     const cc=document.getElementById('acq-crea-card'), cr=s.creas||[];
     if(!cr.length){ cc.classList.add('hidden'); }
     else {
