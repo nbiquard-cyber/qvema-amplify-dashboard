@@ -143,7 +143,7 @@ const P4_META = {
 // « Septembre 2026 » = P3 et « Octobre 2026 » = P4 → aucun double-comptage). Surchargeable via P5_META_MATCH
 // (texte ou /regex/), P5_META_SINCE, P5_META_INCLUDE_IDS, P5_META_ALIASES, P5_LIVE_DATE, P5_OPEN_TEXT.
 const P5_META = {
-  liveDate: process.env.P5_LIVE_DATE || "à venir",
+  liveDate: process.env.P5_LIVE_DATE || "25/11/2026", // webi Promo 5
   match: envRe(process.env.P5_META_MATCH || "/Novembre\\s*2026|D[ée]cembre\\s*2026/i", "Novembre 2026"),
   matchLabel: process.env.P5_META_MATCH || "Novembre 2026 ou Décembre 2026",
   includeIds: (process.env.P5_META_INCLUDE_IDS || "").split(",").map((s) => s.trim()).filter(Boolean),

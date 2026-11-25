@@ -1402,6 +1402,8 @@ module.exports = async (req, res) => {
         subsByStatus: bcSubsByStatus,
         prixUnitaire: 1490, // défaut (Promo 2/3/4)
         prixByPromo: { "PROMO 1": 1290, "PROMO 2": 1490, "PROMO 3": 1490, "PROMO 4": 1490, "PROMO 5": 1490 },
+        // Date du webinaire de lancement par promo (affichée sous « Inscrits payés » ; mêmes dates que l'onglet Acquisition).
+        webiByPromo: { "PROMO 1": "10/06/2026", "PROMO 2": "22/07/2026", "PROMO 5": "25/11/2026" },
       },
       amplify: {
         membresPayants: acPayants.length,
