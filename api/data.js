@@ -23,6 +23,8 @@ const BOOTCAMP_1X = [129000, 99000, 149000, 139000]; // paiement 1 fois (1290€
 const BOOTCAMP_4X = [32250, 46666, 37250, 27250]; // mensualité plan 4x (322,50€, ancien 466,66€, PROMO 2 = 372,50€ = 1490/4, offre PROMO 4 = 272,50€ = 1090/4)
 const AMPLIFY = [100000]; // Amplify Connect (1000€) - jamais compté dans le bootcamp
 
+// Libellés de promo saisis dans Airtable → promo du dashboard (l'option « PROMO 5 » a été renommée « WEBI 25/11/26 »).
+const PROMO_ALIAS = { "WEBI 25/11/26": "PROMO 5" };
 async function airtableAll(table, fields) {
   const out = [];
   let offset = null;
@@ -39,6 +41,10 @@ async function airtableAll(table, fields) {
     out.push(...j.records);
     offset = j.offset;
   } while (offset);
+  for (const r of out) {
+    const p = r.fields && typeof r.fields["Promo"] === "string" ? r.fields["Promo"].trim() : null;
+    if (p && PROMO_ALIAS[p]) r.fields["Promo"] = PROMO_ALIAS[p];
+  }
   return out;
 }
 

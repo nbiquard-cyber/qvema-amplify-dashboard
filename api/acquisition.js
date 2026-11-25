@@ -565,7 +565,7 @@ function buildPromo4() {
 function buildPromo5() {
   return buildPromoLive({
     promoLabel: "PROMO 5",
-    promoFilter: `TRIM(UPPER({Promo})) = 'PROMO 5'`,
+    promoFilter: `OR(TRIM(UPPER({Promo})) = 'PROMO 5', TRIM({Promo}) = 'WEBI 25/11/26')`, // option « PROMO 5 » renommée « WEBI 25/11/26 » dans Airtable
     webiView: "Inscrits Webi 5",
     webiLabel: "Inscrits Webi 5",
     openText: process.env.P5_OPEN_TEXT || "inscriptions webi 5",
