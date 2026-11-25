@@ -601,6 +601,67 @@ async function fetchWebiPresence(cfg) {
   }
 }
 
+// ---------- RDV sales (Calendly, équipe « Admission QVEMA ») — PROMO 5 uniquement ----------
+// LIVE si CALENDLY_TOKEN (Personal Access Token Calendly) est défini dans Vercel ; sinon dernier relevé connu.
+// Types d'événement : « Entretien d'admission – Bootcamp QVEMA » (note « Webi » = réservé après la conférence,
+// note « Setting » = réservé par un setter). Annulations motivées « test » ignorées.
+const RDV5 = {
+  org: "https://api.calendly.com/organizations/10937e19-f2f2-426a-85be-9ea6b62fde98",
+  since: "2026-11-25T00:00:00Z",
+  types: { "b5656ff9-2eaa-45a9-82a3-4ffd67bea2ef": "Webi", "81e22495-ff7c-449f-baaa-e6b4a67ca1b0": "Setting" },
+  snapshot: { at: "2026-11-25T22:45:00+01:00", rdv: 16, annules: 0, passes: 0, aVenir: 16, parSource: { Webi: 16, Setting: 0 }, parSales: {
+    "Sacha AUDBERT": 5, "Alycia CIOLY": 3, "Ophélie GERMAIN": 2, "Julien JENNY": 2, "Anthony GROSVALET": 1, "Maxime DONNE": 1, "Valentin JAZOULI": 1, "Clément SOUM": 0 } },
+};
+let _calInv = {}; // uri d'événement -> { emails, at } (les invités ne changent pas : cache 30 min)
+async function calGet(url, token) {
+  const r = await fetch(url, { headers: { Authorization: "Bearer " + token } });
+  if (!r.ok) throw new Error("Calendly HTTP " + r.status);
+  return r.json();
+}
+async function fetchRdvSales(cfg, promoFilter) {
+  const token = process.env.CALENDLY_TOKEN || "";
+  const snap = { source: "snapshot", ...cfg.snapshot, ventesApresRdv: null, conversion: null };
+  if (!token) return snap;
+  try {
+    let url = "https://api.calendly.com/scheduled_events?" + new URLSearchParams({ organization: cfg.org, min_start_time: cfg.since, count: "100", sort: "start_time:asc" });
+    const events = [];
+    for (let i = 0; url && i < 20; i++) { const j = await calGet(url, token); events.push(...(j.collection || [])); url = j.pagination && j.pagination.next_page; }
+    const typeOf = (e) => cfg.types[String(e.event_type || "").split("/").pop()];
+    const mine = events.filter((e) => typeOf(e));
+    const isTest = (e) => e.status === "canceled" && /test/i.test((e.cancellation && e.cancellation.reason) || "");
+    const actifs = mine.filter((e) => e.status === "active"), annules = mine.filter((e) => e.status === "canceled" && !isTest(e));
+    const now = Date.now(), parSource = { Webi: 0, Setting: 0 }, parSales = {};
+    for (const e of actifs) {
+      parSource[typeOf(e)] = (parSource[typeOf(e)] || 0) + 1;
+      const host = ((e.event_memberships || [])[0] || {}).user_name || "?";
+      parSales[host] = (parSales[host] || 0) + 1;
+    }
+    // E-mails des invités (cache 30 min par événement) → rapprochement avec les ventes PROMO 5.
+    const emails = new Set();
+    await Promise.all(actifs.map(async (e) => {
+      const c = _calInv[e.uri];
+      if (c && now - c.at < 1800000) { c.emails.forEach((m) => emails.add(m)); return; }
+      try {
+        const j = await calGet(e.uri + "/invitees?count=100", token);
+        const list = (j.collection || []).filter((x) => x.status !== "canceled").map((x) => String(x.email || "").trim().toLowerCase()).filter(Boolean);
+        _calInv[e.uri] = { emails: list, at: now }; list.forEach((m) => emails.add(m));
+      } catch (_) {}
+    }));
+    const clients = await airtableAll(T.clients, ["Email", "Email paiement", "Statut Paiement", "Date Paiement"], promoFilter).catch(() => []);
+    let ventesApresRdv = 0;
+    for (const c of clients) {
+      if (String(c.fields["Statut Paiement"] || "").trim() !== "Payé") continue;
+      const ems = [c.fields["Email"], c.fields["Email paiement"]].map((x) => String(x || "").trim().toLowerCase());
+      if (ems.some((m) => m && emails.has(m))) ventesApresRdv++;
+    }
+    const passes = actifs.filter((e) => Date.parse(e.end_time) < now).length;
+    return { source: "live", at: new Date().toISOString(), rdv: actifs.length, annules: annules.length, passes, aVenir: actifs.length - passes,
+      parSource, parSales, emailsRdv: emails.size, ventesApresRdv, conversion: passes ? Math.round((ventesApresRdv / passes) * 1000) / 10 : null };
+  } catch (e) {
+    return { ...snap, error: String(e.message || e).slice(0, 120) };
+  }
+}
+
 function promo1Scope() {
   const inscrits = PROMO1.inscrits;
   const caFac = PROMO1.channels.reduce((a, c) => a + c.fac, 0);
@@ -718,8 +779,10 @@ module.exports = async (req, res) => {
   try {
     if (!_cache.data || Date.now() - _cache.at > _TTL) {
       if (!_inflight) _inflight = (async () => {
-        const [p2, p3, p4, p5, w5] = await Promise.all([buildPromo2(), buildPromo3(), buildPromo4(), buildPromo5(), fetchWebiPresence(WEBI5_AC)]);
+        const [p2, p3, p4, p5, w5, r5] = await Promise.all([buildPromo2(), buildPromo3(), buildPromo4(), buildPromo5(), fetchWebiPresence(WEBI5_AC),
+          fetchRdvSales(RDV5, `OR(TRIM(UPPER({Promo})) = 'PROMO 5', TRIM({Promo}) = 'WEBI 25/11/26')`)]);
         p5.webi = { date: WEBI5_AC.date, ...w5 };
+        p5.rdv = r5;
         return {
           generatedAt: new Date().toISOString(),
           colors: COLORS,
