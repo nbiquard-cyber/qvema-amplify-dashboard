@@ -319,7 +319,7 @@ async function buildPromo2() {
 // cfg = { promoLabel, promoFilter, webiView, webiLabel, openText, since, meta, metaEnabled, metaOffNote }
 async function buildPromoLive(cfg) {
   const META = cfg.meta;
-  const OPTIN_FIELDS = ["Email", "Created", "UTM Source", "UTM Medium", "UTM Campaign", "UTM Content"];
+  const OPTIN_FIELDS = ["Email", "Created", "UTM Source", "UTM Medium", "UTM Campaign", "UTM Content", "First Name", "Last name", "Phone"];
   const since = cfg.since, until = todayParis();
   const optinsP = airtableAll(T.optin, OPTIN_FIELDS, null, cfg.webiView).catch(() => []);
   // Dépense Meta en parallèle des 2 appels Airtable ; null si désactivée pour cette promo (fallback = funnel seul).
@@ -333,8 +333,9 @@ async function buildPromoLive(cfg) {
     : Promise.resolve(null);
   const [optins, clients, meta, ads] = await Promise.all([
     optinsP,
-    airtableAll(T.clients, ["Email", "UTM Source", "Montant", "Mode de paiement", "Statut Paiement", "Promo", "Date Paiement"],
-      cfg.promoFilter),
+    airtableAll(T.clients, ["Email", "UTM Source", "Montant", "Mode de paiement", "Statut Paiement", "Promo", "Date Paiement",
+      "Email paiement", "Email opt-in", "Prénom", "Nom", "Téléphone"], cfg.promoFilter)
+      .catch(() => airtableAll(T.clients, ["Email", "UTM Source", "Montant", "Mode de paiement", "Statut Paiement", "Promo", "Date Paiement"], cfg.promoFilter)),
     metaP,
     adsP,
   ]);
@@ -381,6 +382,30 @@ async function buildPromoLive(cfg) {
     }
   }
 
+  // ---- Rapprochement acheteur → opt-in quand l'e-mail de paiement diffère de celui de l'inscription :
+  //      1) champ Clients « Email opt-in » (saisie manuelle), 2) Email, 3) Email paiement,
+  //      4) téléphone (9 derniers chiffres), 5) prénom + nom (uniquement si un seul opt-in porte ce nom).
+  const optEmails = new Set(), byPhone = {}, byNom = {};
+  const tel9 = (v) => { const d = String(v || "").replace(/\D/g, ""); return d.length >= 9 ? d.slice(-9) : ""; };
+  const nm = (a, b) => { const k = (String(a || "") + " " + String(b || "")).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z]+/g, " ").trim(); return k.includes(" ") ? k : ""; };
+  for (const r of uniq) {
+    const em = lower(r.fields["Email"]); if (!em) continue; optEmails.add(em);
+    const t = tel9(r.fields["Phone"]); if (t) (byPhone[t] = byPhone[t] || new Set()).add(em);
+    for (const k of [nm(r.fields["First Name"], r.fields["Last name"]), nm(r.fields["Last name"], r.fields["First Name"])]) if (k) (byNom[k] = byNom[k] || new Set()).add(em);
+  }
+  const one = (set) => (set && set.size === 1 ? [...set][0] : null);
+  const rapprochements = []; let sansOptin = 0;
+  const optinOf = (c) => {
+    const f = c.fields, direct = lower(f["Email"]);
+    const manual = lower(f["Email opt-in"]);
+    if (manual) return { em: manual, via: optEmails.has(manual) ? "Email opt-in (manuel)" : null };
+    if (direct && optEmails.has(direct)) return { em: direct, via: "email" };
+    const pay = lower(f["Email paiement"]); if (pay && optEmails.has(pay)) return { em: pay, via: "e-mail de paiement" };
+    const t = one(byPhone[tel9(f["Téléphone"])]); if (t) return { em: t, via: "téléphone" };
+    const n = one(byNom[nm(f["Prénom"], f["Nom"])]); if (n) return { em: n, via: "prénom + nom" };
+    return { em: direct, via: null };
+  };
+
   let ventes = 0, caFac = 0, caEnc = 0, refunds = 0;
   for (const c of clients) {
     const st = norm(c.fields["Statut Paiement"]);
@@ -388,7 +413,9 @@ async function buildPromoLive(cfg) {
     const m = Number(c.fields["Montant"]) || 0;
     const mode = lower(c.fields["Mode de paiement"]);
     const src = fixUtm(c.fields["UTM Source"]).source; // même réparation côté checkout
-    const em = lower(c.fields["Email"]);
+    const o = optinOf(c), em = o.em;
+    if (!o.via) sansOptin++;
+    else if (o.via !== "email") rapprochements.push({ client: (norm(c.fields["Prénom"]) + " " + norm(c.fields["Nom"])).trim() || lower(c.fields["Email"]), emailAchat: lower(c.fields["Email"]), emailOptin: em, via: o.via, canal: emailChan[em] || null, campagne: emailCamp[em] ? decode(emailCamp[em]).slice(0, 80) : null, crea: emailCrea[em] ? String(emailCrea[em]).slice(0, 80) : null });
     const chan = src ? chanFromSrc(src) : (em && emailChan[em]) || "Direct / Site";
     channels[chan] = channels[chan] || { ins: 0, ventes: 0, fac: 0, enc: 0 };
     channels[chan].ventes++; channels[chan].fac += m; channels[chan].enc += mode === "4x" ? m / 4 : m;
@@ -517,7 +544,7 @@ async function buildPromoLive(cfg) {
     organique: Object.values(orgMap).map((o) => ({ ...o, conv: o.ins ? (o.ventes / o.ins) * 100 : null })).sort((a, b) => b.ins - a.ins || a.canal.localeCompare(b.canal) || a.intervenant.localeCompare(b.intervenant)),
     utmCasses: campIns["(UTM cassé)"] || 0,
     // Détail par juré → publicités (UTM content) ; spend null = pub sans dépense Meta retrouvée sur la fenêtre.
-    creas, creasSpendOk: creasOk,
+    creas, creasSpendOk: creasOk, rapprochements, sansOptin,
     kpis: {
       ventes, caFac, caEnc, refunds,
       cpl: !partial && metaIns && spend.acquisition > 0 ? spend.acquisition / metaIns : null,

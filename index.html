@@ -637,6 +637,9 @@
     <div class="card" id="acq-crea-card" style="margin-top:16px"><h3>Créas Meta — par juré (dépense par publicité ÷ inscrits UTM content)</h3>
       <table id="acq-crea-table"><thead><tr><th>Juré / publicité</th><th class="num">Inscrits</th><th class="num">Ventes</th><th class="num">Conv.</th><th class="num">Dépense</th><th class="num">CPL réel</th></tr></thead><tbody></tbody></table>
       <div class="note" id="acq-crea-note"></div></div>
+    <div class="card hidden" id="acq-rappro-card" style="margin-top:16px"><h3>Acheteurs avec un e-mail différent de leur inscription</h3>
+      <table id="acq-rappro-table"><thead><tr><th>Acheteur</th><th>E-mail d'achat</th><th>E-mail d'inscription (opt-in)</th><th>Retrouvé par</th><th>Source</th></tr></thead><tbody></tbody></table>
+      <div class="note" id="acq-rappro-note"></div></div>
     <div class="row2" id="acq-organique-row">
       <div class="card" id="acq-organique-card"><h3>Organique — inscrits par intervenant &amp; canal (UTM)</h3>
         <table id="acq-organique-table"><thead><tr><th>Intervenant</th><th>Canal</th><th class="num">Inscrits</th><th class="num">Ventes</th><th class="num">Conv.</th></tr></thead><tbody></tbody></table>
@@ -2437,6 +2440,15 @@ if(AUTH && AUTH.token){
         +(sales.length?'<div style="display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:6px;font-size:12.5px"><span style="color:var(--muted)">Par sales :</span>'+sales.map(([n,v])=>'<span>'+escHtml(n)+' <b>'+NUM(v)+'</b></span>').join('')+'</div>':'')
         +'<div class="note" style="margin-top:8px">'+(R.source==='live'?'Calendly en temps réel'+(R.emailsRdv!=null?' · '+NUM(R.emailsRdv)+' e-mails de prospects rapprochés des ventes PROMO 5':'')+(R.dejaClients?' · '+NUM(R.dejaClients)+' rdv retiré'+(R.dejaClients>1?'s':'')+' (pris par des personnes ayant déjà payé)':''):'Relevé Calendly du '+new Date(R.at).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+' (ajoute CALENDLY_TOKEN dans Vercel pour le temps réel et la conversion rdv → vente)')+'.</div>';
     }
+    // Acheteurs rapprochés de leur opt-in autrement que par l'e-mail (téléphone, nom, saisie manuelle).
+    { const rc=document.getElementById('acq-rappro-card'), rl=s.rapprochements||[], so=s.sansOptin||0;
+      if(!rl.length && !so){ rc.classList.add('hidden'); }
+      else {
+        rc.classList.remove('hidden');
+        document.querySelector('#acq-rappro-table tbody').innerHTML = rl.map(r=>'<tr><td>'+escHtml(r.client)+'</td><td>'+escHtml(r.emailAchat||'')+'</td><td>'+escHtml(r.emailOptin||'')+'</td><td>'+escHtml(r.via)+'</td><td>'+escHtml([r.canal,r.campagne,r.crea].filter(Boolean).join(' · ')||'—')+'</td></tr>').join('') || '<tr><td colspan="5" style="color:var(--muted)">Aucun pour l\'instant</td></tr>';
+        document.getElementById('acq-rappro-note').innerHTML = NUM(rl.length)+' vente'+(rl.length>1?'s':'')+' rattachée'+(rl.length>1?'s':'')+' à leur inscription malgré un e-mail différent : elles comptent dans le bon canal, la bonne campagne et la bonne créa.'
+          +(so?' <b>'+NUM(so)+' vente'+(so>1?'s':'')+' sans inscription retrouvée</b> (ni e-mail, ni téléphone, ni nom) : renseigne le champ « Email opt-in » de la fiche Clients si tu connais l\'e-mail utilisé au webi.':'');
+      } }
     const cc=document.getElementById('acq-crea-card'), cr=s.creas||[];
     if(!cr.length){ cc.classList.add('hidden'); }
     else {
