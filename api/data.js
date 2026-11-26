@@ -805,7 +805,7 @@ module.exports = async (req, res) => {
 
     // ---------- AIRTABLE ----------
     const [clientsRaw, connect, candidatures, accueilRaw] = await Promise.all([
-      airtableAll(T.clients, ["Promo", "Montant", "Statut Paiement", "Produit", "Date Paiement", "Email", "Email paiement", "Mensualités hors Stripe", "Sexe", "Age", "Code postal", "Pays", "Mode de paiement", "Prénom", "Nom", "Canal de vente", "Paywall", "Moyen de paiement", "URL checkout"]),
+      airtableAll(T.clients, ["Promo", "Montant", "Statut Paiement", "Produit", "Date Paiement", "Email", "Email paiement", "Mensualités hors Stripe", "Sexe", "Age", "Code postal", "Pays", "Région", "Mode de paiement", "Prénom", "Nom", "Canal de vente", "Paywall", "Moyen de paiement", "URL checkout"]),
       airtableAll(T.connect, ["Email", "Nom complet", "Montant", "Statut Paiement", "Date Paiement", "Mode Paiement", "Saison QVEMA", "Statut Membre", "Code postal", "Ville", "Pays", "Notes"]),
       airtableAll(T.candidatures, ["Statut Candidature", "Statut Membre", "Mode de paiement", "Date Candidature", "Sous-cercle d'intérêt", "Saison"]),
       airtableAll(T.accueil, ["Promo", "Secteur d'activité", "Stade d'avancement", "Région", "Adresse mail", "Horodatage", "Sexe"]),
@@ -1261,17 +1261,28 @@ module.exports = async (req, res) => {
       if (!cp && !country) continue;
       const em = chargeEmail(c); if (em) stripeGeoByEmail.set(em, { cp, country });
     }
+    // Région par apprenant, priorité à l'ADRESSE (fiche Clients) sur la région déclarée dans l'Accueil :
+    // 1) champ Clients « Région » (déduit du code postal ; nom du pays si à l'étranger),
+    // 2) code postal / pays Clients, 3) adresse de facturation Stripe, 4) Accueil (déclaratif).
+    const PAYS_ISO = { CH: "Suisse", BE: "Belgique", LU: "Luxembourg", MC: "Monaco", AD: "Andorre", ES: "Espagne", PT: "Portugal", IT: "Italie", DE: "Allemagne", GB: "Royaume-Uni", NL: "Pays-Bas", CA: "Canada", US: "États-Unis", AU: "Australie", MA: "Maroc", TN: "Tunisie", DZ: "Algérie", SN: "Sénégal", CI: "Côte d'Ivoire" };
+    const OUTRE_MER = /^(RE|PF|GP|MQ|GF|YT|NC|PM|WF|BL|MF)$/;
     const regionOf = (c) => {
-      const em = lower(c.fields["Email"]); const acc = em && accByEmail.get(em);
-      const fromAcc = acc && canonRegion(acc.region);
-      if (fromAcc) return fromAcc;
+      const em = lower(c.fields["Email"]);
+      const fromField = canonRegion(c.fields["Région"]);
+      if (fromField && fromField !== "Autre") return fromField;
+      const pays = norm(c.fields["Pays"]);
+      if (pays && !/^(france|fr)$/i.test(pays)) return /r[ée]union|polyn[ée]sie|guadeloupe|martinique|guyane|mayotte|cal[ée]donie/i.test(pays) ? "Outre-Mer" : pays;
       const fromClients = regionFromFields(c.fields);
       if (fromClients !== "Non renseigné") return fromClients;
       const g = stripeGeoByEmail.get(em) || stripeGeoByEmail.get(lower(c.fields["Email paiement"]));
       if (g) {
-        if (g.country && g.country !== "FR") return "Étranger";
+        if (g.country && OUTRE_MER.test(g.country)) return "Outre-Mer";
+        if (g.country && g.country !== "FR") return PAYS_ISO[g.country] || g.country;
         if (g.cp) return regionFromFields({ "Code postal": g.cp });
       }
+      const acc = em && accByEmail.get(em);
+      const fromAcc = acc && canonRegion(acc.region);
+      if (fromAcc && fromAcc !== "Autre") return fromAcc;
       return "Non renseigné";
     };
     const regionsOf = (list) => { const r = {}; for (const c of list) { const k = regionOf(c); r[k] = (r[k] || 0) + 1; } return r; };

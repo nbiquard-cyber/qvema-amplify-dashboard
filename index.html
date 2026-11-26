@@ -1054,16 +1054,15 @@ function renderBcDemo(s, scopeLabel){
   });
 
   // --- Répartition par région ---
-  const re = Object.entries(d.regions||{}).sort((x,y)=>{
-    if(x[0]==='Non renseigné') return 1;
-    if(y[0]==='Non renseigné') return -1;
-    return y[1]-x[1];
-  });
+  // Régions françaises d'abord, puis Outre-Mer, puis pays étrangers (orange), puis « Non renseigné ».
+  const FR_REG = new Set(['Île-de-France','Auvergne-Rhône-Alpes',"Provence-Alpes-Côte d'Azur",'Occitanie','Nouvelle-Aquitaine','Bretagne','Grand Est','Pays de la Loire','Hauts-de-France','Centre-Val de Loire','Bourgogne-Franche-Comté','Normandie','Corse']);
+  const rank = v => v==='Non renseigné'?3 : FR_REG.has(v)?0 : v==='Outre-Mer'?1 : 2;
+  const re = Object.entries(d.regions||{}).sort((x,y)=> (rank(x[0])-rank(y[0])) || (y[1]-x[1]));
   destroy('region');
   charts.region = new Chart(document.getElementById('bc-region-chart'),{
     type:'bar',
     data:{labels:re.map(x=>x[0]),datasets:[{data:re.map(x=>x[1]),
-      backgroundColor:re.map(x=>x[0]==='Non renseigné'?'#445067':'#3ecf8e'),borderRadius:5}]},
+      backgroundColor:re.map(x=>({0:'#3ecf8e',1:'#3ecf8e',2:'#c98b3a',3:'#445067'})[rank(x[0])]),borderRadius:5}]},
     options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{precision:0}}}}
   });
   const nrRegion = (d.regions||{})['Non renseigné']||0;
